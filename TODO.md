@@ -7,6 +7,7 @@
 - [x] Artwork loading, background animation, desktop preview, and screenshots.
 - [x] Console URL keyboard, game launching, and installation monitoring.
 - [x] Host tests, PS4 package build/validation, and consumer documentation.
+- [x] Private `.env` FTP target configuration and `make deploy` with local FTP tests.
 - [ ] Hardware validation on PS4 11.00 + GoldHEN (requires a console).
 
 ## Console acceptance checks

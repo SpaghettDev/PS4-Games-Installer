@@ -1,5 +1,14 @@
 # Changelog
 
+## r4 — 2026-10-15
+
+- Added `make deploy` to build, verify and upload the current package to the FTP
+  target configured in the private `.env` file.
+- Added an example target configuration and consumer deployment instructions.
+- Excluded private environment files from Docker build contexts as well as Git.
+- Added local FTP integration tests for uploads, failed transfers, remote size
+  checks, package integrity and configuration parsing without shell evaluation.
+
 ## r3 — 2026-10-15
 
 Native PS4 Games Installer redesign (hardware validation pending).

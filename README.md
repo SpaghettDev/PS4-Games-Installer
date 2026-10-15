@@ -164,6 +164,37 @@ make check CONFIG=/work/config.example.json
 The Linux check shares parsing with the console but uses libcurl; it cannot validate
 the PS4's TLS support, installed-game services or BGFT behavior.
 
+### Deploy to your PS4
+
+Enable the PS4's FTP server, then configure your target once:
+
+```sh
+cp .env.example .env
+# Edit .env with the PS4 address, FTP credentials and destination directory.
+make deploy
+```
+
+```dotenv
+DEPLOY_HOST=192.168.1.50
+DEPLOY_PORT=2121
+DEPLOY_USER=anonymous
+DEPLOY_PASS=anonymous
+DEPLOY_PATH=/data/pkg
+```
+
+`make deploy` reads the repository's `.env`, builds the current revision using
+Docker, verifies its SHA-256 manifest, and uploads `PS4Game_installer-rN.pkg` by
+passive FTP. Create `DEPLOY_PATH` on the PS4 beforehand. The server must support
+file upload and rename; uploads use a temporary name until the transfer completes.
+The remote size is checked when the server supports `SIZE`. Install the uploaded
+package using your PS4 package installer.
+
+`.env` is ignored by Git and excluded from Docker build contexts. Deployment reads
+it through the container's repository mount; credentials are not passed on command
+lines or printed. Values may be single/double quoted, and comments are supported.
+Shell commands and variable substitutions in `.env` remain literal text. Plain FTP
+is intended for your trusted local network.
+
 ### Desktop preview
 
 ```sh

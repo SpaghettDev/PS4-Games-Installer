@@ -51,3 +51,22 @@
   committed under docs/images for consumer documentation.
 - All software implementation items are complete. Hardware checks remain explicitly
   unchecked because this workspace has no PS4 test connection.
+
+## FTP deployment
+
+- Added `make deploy` with a private `.env` target; the existing local configuration
+  is preserved and remains ignored. Added `.env.example` for new checkouts.
+- Excluded environment files from the Docker build context. The deployment parser
+  handles quoted values/comments without shell evaluation or credential logging.
+- Deployment validates configuration before building, checks the current revision's
+  fingerprint and SHA-256, then uploads through passive FTP with a temporary name,
+  optional remote size verification and final rename. Failed transfers clean up
+  their temporary file when the server remains reachable.
+- `make test` passed all host suites and ten Python integration tests (six deployment
+  cases and four packaging transactions). The deployment cases also pass with the
+  host's older Python, including invalid encoding and stale/corrupt package checks.
+- Built `dist/PS4Game_installer-r4.pkg`; `make validate` passed all package hash and
+  signature checks. The deployment helper verified the real artifact and parsed the
+  existing private target inside Docker without opening a network connection.
+- The configured live target has not been contacted; FTP tests use a local socket
+  server, including an invocation of the actual Makefile's deploy target.

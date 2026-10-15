@@ -3,12 +3,12 @@ SHELL := /bin/bash
 IMAGE ?= ps4-games-installer:build
 export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT := 1
 
-.PHONY: all image test check preview screenshots clean validate package package-internal assets
+.PHONY: all image test check preview screenshots clean validate package package-internal assets deploy
 image:
 	docker build --label org.psgi.dockerfile="$$(sha256sum Dockerfile | cut -d ' ' -f1)" -t $(IMAGE) .
 
 ifneq ($(PSGI_IN_CONTAINER),1)
-all package test check screenshots validate:
+all package test check screenshots validate deploy:
 	@test "$$(docker image inspect $(IMAGE) --format '{{index .Config.Labels "org.psgi.dockerfile"}}' 2>/dev/null)" = "$$(sha256sum Dockerfile | cut -d ' ' -f1)" || $(MAKE) image
 	docker run --rm --user "$$(id -u):$$(id -g)" -v "$(CURDIR):/work" \
       -e SDL_VIDEODRIVER=dummy $(IMAGE) make $@ CONFIG="$(CONFIG)"
@@ -37,6 +37,9 @@ HEADERS := $(wildcard src/*.hpp) third_party/cjson/cJSON.h third_party/stb/stb_i
 
 all package: assets
 	python3 scripts/package.py
+
+deploy:
+	python3 scripts/deploy.py
 
 assets: assets/icon.png
 assets/icon.png: assets/icon.svg

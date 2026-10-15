@@ -14,7 +14,11 @@ const Entry* Ui::current() const { return visible.empty() ? nullptr : &entries()
 std::string Ui::selectionKey() const {
     auto* e = current(); return e ? (e->url.empty() ? e->titleId : e->url) : "";
 }
-void Ui::emit(CommandType type, const Entry& entry) { commands.push_back({type, entry, 0, ""}); }
+void Ui::emit(CommandType type, const Entry& entry) {
+    Command command{type, entry, 0, ""};
+    if (type == CommandType::Save) command.configuration = screen == Screen::Settings ? draft : settings;
+    commands.push_back(std::move(command));
+}
 bool Ui::take(Command& out) {
     if (commands.empty()) return false;
     out = std::move(commands.front()); commands.pop_front(); return true;
@@ -77,6 +81,7 @@ std::vector<std::string> Ui::details() const {
     return lines;
 }
 void Ui::beginEdit(EditKind kind, size_t index, const std::string& text) {
+    settingsNotice.clear();
     editKind = kind; editSource = index; keyboardText = text;
     keyboardReturn = screen; screen = Screen::Keyboard;
     commands.push_back({CommandType::Keyboard, {}, index, text});
@@ -86,8 +91,9 @@ void Ui::finishEdit(const std::optional<std::string>& text) {
     if (!text) return;
     if (editKind == EditKind::Search) { query = *text; rebuild(); return; }
     if (editKind == EditKind::SourceUrl) {
-        if (!text->empty() && !isHttpUrl(*text)) { status = "Invalid URL. Use http:// or https:// with no spaces."; return; }
+        if (!text->empty() && !isHttpUrl(*text)) { settingsNotice = status = "Invalid URL. Use http:// or https:// with no spaces."; return; }
         draft.sources.at(editSource).url = *text;
+        settingsNotice = "URL accepted. Select Save settings to write config.json.";
     } else {
         std::string category = lower(*text);
         if (category.empty() || category.size() > 32 || category == "ps5" || category.find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789_- ") != std::string::npos) {
@@ -170,7 +176,7 @@ void Ui::handle(Button b) {
             case 3: settings.grouping = static_cast<Grouping>((static_cast<int>(settings.grouping) + 1) % 4); quickSave(); break;
             case 4: settings.sizeSort = !settings.sizeSort; quickSave(); break;
             case 5: settings.notInstalledOnly = !settings.notInstalledOnly; quickSave(); break;
-            case 6: draft = settings; settingsIndex = 0; screen = Screen::Settings; break;
+            case 6: draft = settings; settingsNotice.clear(); settingsIndex = 0; screen = Screen::Settings; break;
             case 7: screen = Screen::About; break;
             case 8: screen = Screen::ConfirmExit; break;
         }
@@ -181,6 +187,7 @@ void Ui::handle(Button b) {
         if (b == Button::Down && settingsIndex + 1 < settingRows().size()) ++settingsIndex;
         if (b != Button::Cross && b != Button::Left && b != Button::Right) return;
         if (b != Button::Cross && (settingsIndex < 2 || settingsIndex > 7)) return;
+        settingsNotice.clear();
         switch (settingsIndex) {
             case 0: beginEdit(EditKind::SourceUrl, 0, draft.sources[0].url); break;
             case 1: sourceIndex = 1; screen = Screen::Sources; break;

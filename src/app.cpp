@@ -179,15 +179,20 @@ void App::tick(double elapsed, Video& video) {
                     catch (...) { ui.finishEdit({}); throw; }
                     break;
                 case CommandType::Save: {
-                    Settings next = ui.screen == Screen::Settings ? ui.draft : ui.settings;
+                    Settings next = command.configuration.value();
                     bool changedSource = next.sources.size() != saved.sources.size();
                     for (size_t i = 0; !changedSource && i < next.sources.size(); ++i)
                         changedSource = next.sources[i].url != saved.sources[i].url || next.sources[i].category != saved.sources[i].category;
                     try { saveSettings(directory, next); }
-                    catch (...) { ui.settings = saved; ui.rebuild(); throw; }
+                    catch (const std::exception& e) {
+                        ui.settings = saved; ui.rebuild();
+                        ui.settingsNotice = std::string("Save failed: ") + e.what();
+                        throw;
+                    }
                     ui.settings = saved = next; ui.draft = saved; ui.rebuild();
-                    if (ui.screen == Screen::Settings) ui.screen = Screen::Options;
+                    ui.settingsNotice = "Saved to " + directory + "/config.json";
                     ui.status = "Settings saved";
+                    log(ui.settingsNotice);
                     if (changedSource) { startRemote = true; if (!worker->busy()) { startRemote = false; refresh(true); } }
                     break;
                 }

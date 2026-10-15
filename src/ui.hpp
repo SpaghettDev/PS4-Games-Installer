@@ -8,7 +8,7 @@ namespace psgi {
 enum class Button { Up, Down, Left, Right, Cross, Circle, Square, Triangle, Options, L1, R1 };
 enum class Screen { Splash, Dashboard, Options, Settings, Sources, Storage, Details, Actions, About, ConfirmExit, ConfirmInstall, Discard, Keyboard };
 enum class CommandType { Refresh, Save, Test, Storage, ClearArtwork, RefreshArtwork, Install, Launch, Keyboard, Quit };
-struct Command { CommandType type; Entry entry; size_t source = 0; std::string text; };
+struct Command { CommandType type; Entry entry; size_t source = 0; std::string text; std::optional<Settings> configuration = {}; };
 struct TileRow { std::string group; std::vector<size_t> items; };
 enum class EditKind { SourceUrl, SourceCategory, Search };
 
@@ -33,6 +33,7 @@ public:
     InstallStorage storage;
     bool storageChecked = false;
     std::string status = "Loading your library...", query, keyboardText;
+    std::string settingsNotice;
     EditKind editKind = EditKind::SourceUrl;
     size_t editSource = 0;
     Screen keyboardReturn = Screen::Settings;

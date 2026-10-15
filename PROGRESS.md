@@ -223,3 +223,44 @@ https://github.com/Mayo1970/ioQuake3-PS4/blob/main/Makefile
 
 Installed-library reference:
 https://github.com/LightningMods/Itemzflow/blob/main/itemzflow/source/ls_dir.cpp
+
+## Reported URL/config save failure — 2026-10-16
+
+- Inspected the configured console's app config and recent app log through FTP,
+  read-only. The config already contains a nonempty games URL. Its saved path has
+  extra suffix characters and returns HTTP 404; the companion `/games` endpoint
+  returns HTTP 200 with 44 entries when checked from Linux. No console file was
+  changed and no private target/source addresses or credentials are committed.
+- The console log also records `Disable redirects (0x80431001)` before fetching.
+  Native HTTP initialization used linked imports, but policy functions came from
+  an additional `sceKernelLoadStartModule`/dlsym lookup. That can select separate
+  service state. Removed the extra HTTP and SSL loads and bound the verified ABI
+  directly to the same imports as initialization. Separate service state is the
+  suspected cause of this HTTP error; a PS4 retest is still required.
+- Save commands now carry their configuration snapshot rather than selecting a
+  draft according to whichever screen is current when the command runs. A successful
+  save checks the written settings, logs its destination and leaves Settings open
+  with confirmation. Failed saves retain the draft and show an inline error.
+- Added guidance distinguishing keyboard acceptance from committing settings,
+  plus inline connection status so a failed fetch is visible inside Settings.
+- Added tests using the real App/UI/storage pipeline for edit/commit, using the
+  saved source, delayed command handling, write failure/retry and restart. Added
+  tests of the native HTTP branch against pinned SDK declarations and fake services,
+  including rejecting any extra service-module load.
+- `make test` passed all host suites, including the new App persistence and native
+  HTTP adapter tests, artwork/font ASan/UBSan and fourteen Python integrations.
+  The native adapter covers successful streaming, rejecting redirects, size limits,
+  cancellation, policy errors, resource cleanup and reuse after a failure.
+- Built `dist/PS4Game_installer-r12.pkg`; `make validate` passed every package hash
+  and signature check. The linked native HTTP object imports the policy/SSL calls
+  directly and no longer references module loading or dlsym.
+- Generated fourteen desktop captures and inspected Settings with the inline
+  connection result, URL, draft/save notice and controller hints all visible.
+  r12 supersedes the intermediate r11 build after adding inline connection status.
+- Live activity was limited to read-only FTP and HTTP diagnosis. No console file
+  was changed, package deployed, or corrected native HTTP behavior retested on PS4.
+
+Native HTTP ABI references:
+
+- https://github.com/shadps4-emu/shadPS4/blob/main/src/core/libraries/network/http.cpp
+- https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/blob/v0.5.4/include/orbis/Http.h

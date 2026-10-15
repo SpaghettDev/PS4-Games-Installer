@@ -1,5 +1,18 @@
 # Changelog
 
+## r12 — 2026-10-16
+
+- Kept Settings open after saving, with a visible config-file confirmation, inline
+  connection results and write errors. Accepting the keyboard is explicitly labeled
+  as a draft; failed writes preserve the draft for retry.
+- Save commands capture the selected settings when pressed. Acknowledgement follows
+  writing and checking the resulting `config.json`; successful saves are logged.
+- Corrected native HTTP/SSL bindings to use the initialized imports rather than
+  loading extra service modules for redirect/time-out and SSL cleanup functions.
+  This addresses the console-reported `Disable redirects (0x80431001)` failure.
+- Added real App/UI persistence tests covering restart and failed-save retry, and
+  native HTTP adapter tests for initialization, policies, streaming and cleanup.
+
 ## r10 — 2026-10-16
 
 - Fixed installed-title icon lookup: read public `/user/appmeta` artwork separately

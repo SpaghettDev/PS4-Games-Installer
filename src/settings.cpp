@@ -114,5 +114,8 @@ void saveSettings(const std::string& directory, const Settings& s) {
     std::string text = serializeSettings(s);
     parseSettings(text); // Validate drafts before replacing the working file.
     atomicWrite(directory + "/config.json", text);
+    // A successful UI acknowledgement must describe the file that was written.
+    if (!sameSettings(parseSettings(readFile(directory + "/config.json")), s))
+        throw std::runtime_error("Saved config.json did not match the requested settings");
 }
 }

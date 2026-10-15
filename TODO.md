@@ -14,6 +14,8 @@
 - [x] Draw PS4 controller button symbols next to action labels.
 - [x] Request X confirm / O cancel for native dialogs in package metadata.
 - [x] Resolve installed icons independently from title metadata, including Extended Storage.
+- [x] Visible config-save confirmation/errors, draft snapshots and restart persistence tests.
+- [x] Bind native HTTP policies to the same imported service initialized for downloads.
 - [ ] In-app Internal / External USB destination selection: verify a native setter
   or per-task destination API first. Current installations follow the PS4 system
   Application Install Location setting; a BGFT application slot is not assumed to
@@ -28,6 +30,10 @@
   2026-10-16; O selects characters in the previous package).
 - [x] Console shows Installed game tiles and names (user report, 2026-10-16;
   icons were missing in the previous package).
+- [x] Read-only FTP check confirms a games URL exists in the console's current
+  `/data/PS4-Games-Installer/config.json` (2026-10-16).
+- [ ] Retest r12: Save settings shows the config-file confirmation, survives app
+  restart, and a valid `/games` source loads without the HTTP pre-init error.
 - [ ] Retest r10: Installed tiles, summary backgrounds and details show local icons
   for internal/external titles, including offline startup without a server.
 - [ ] Retest r9: loading ends without a forced splash delay; the native keyboard

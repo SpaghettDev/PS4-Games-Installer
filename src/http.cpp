@@ -48,6 +48,7 @@ std::string httpGet(const std::string& url, size_t limit, const std::atomic<bool
 }
 }
 #else
+#include "http_native.hpp"
 #include <orbis/Http.h>
 #include <orbis/Net.h>
 #include <orbis/NetCtl.h>
@@ -65,15 +66,11 @@ void check(int rc, const char* operation) {
 }
 struct Network {
     int pool = -1, ssl = -1, http = -1;
-    int (*sslTerm)(int) = nullptr;
     Network() {
         check(sceSysmoduleLoadModuleInternal(ORBIS_SYSMODULE_INTERNAL_NET), "Load Net");
         check(sceSysmoduleLoadModuleInternal(ORBIS_SYSMODULE_INTERNAL_NETCTL), "Load NetCtl");
         check(sceSysmoduleLoadModuleInternal(ORBIS_SYSMODULE_INTERNAL_SSL), "Load SSL");
         check(sceSysmoduleLoadModuleInternal(ORBIS_SYSMODULE_INTERNAL_HTTP), "Load HTTP");
-        int sslModule = sceKernelLoadStartModule("/system/common/lib/libSceSsl.sprx", 0, nullptr, 0, nullptr, nullptr);
-        check(sslModule, "Load SSL cleanup");
-        check(sceKernelDlsym(sslModule, "sceSslTerm", reinterpret_cast<void**>(&sslTerm)), "Resolve SSL cleanup");
         check(sceNetInit(), "Net init");
         check(sceNetCtlInit(), "NetCtl init");
         pool = sceNetPoolCreate("psgi", 1024 * 1024, 0);
@@ -81,11 +78,11 @@ struct Network {
         ssl = sceSslInit(1024 * 1024);
         if (ssl < 0) { sceNetPoolDestroy(pool); check(ssl, "SSL init"); }
         http = sceHttpInit(pool, ssl, 1024 * 1024);
-        if (http < 0) { sslTerm(ssl); sceNetPoolDestroy(pool); check(http, "HTTP init"); }
+        if (http < 0) { psgiSslTerm(ssl); sceNetPoolDestroy(pool); check(http, "HTTP init"); }
     }
     ~Network() {
         if (http >= 0) sceHttpTerm(http);
-        if (ssl >= 0) sslTerm(ssl);
+        if (ssl >= 0) psgiSslTerm(ssl);
         if (pool >= 0) sceNetPoolDestroy(pool);
     }
 };
@@ -97,18 +94,9 @@ struct Request {
         if (tmpl >= 0) sceHttpDeleteTemplate(tmpl);
     }
 };
-// These two SDK declarations have no arguments; resolve their known ABI explicitly.
 void setRequestPolicy(int id) {
-    static const int module = sceKernelLoadStartModule("/system/common/lib/libSceHttp.sprx", 0, nullptr, 0, nullptr, nullptr);
-    check(module, "Load HTTP policies");
-    using SetInt = int (*)(int, int);
-    using SetTimeout = int (*)(int, uint32_t);
-    SetInt redirect = nullptr;
-    SetTimeout recvTimeout = nullptr;
-    check(sceKernelDlsym(module, "sceHttpSetAutoRedirect", reinterpret_cast<void**>(&redirect)), "Resolve redirect policy");
-    check(sceKernelDlsym(module, "sceHttpSetRecvTimeOut", reinterpret_cast<void**>(&recvTimeout)), "Resolve receive timeout");
-    check(redirect(id, 0), "Disable redirects");
-    check(recvTimeout(id, 10000000), "Set receive timeout");
+    check(psgiHttpSetAutoRedirect(id, 0), "Disable redirects");
+    check(psgiHttpSetRecvTimeOut(id, 10000000), "Set receive timeout");
 }
 }
 

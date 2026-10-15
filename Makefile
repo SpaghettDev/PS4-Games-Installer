@@ -99,11 +99,17 @@ build/host/startup-test: tests/startup_fixtures.cpp $(addprefix src/,$(addsuffix
 	g++ $(HOSTFLAGS) -Wno-unused-function $$(pkg-config --cflags freetype2) $(filter %.cpp %.o,$^) -lcurl $$(pkg-config --libs freetype2) -o $@
 build/host/lifecycle-test: tests/lifecycle_test.cpp src/lifecycle.cpp $(HEADERS)
 	g++ $(HOSTFLAGS) -I/opt/libjbc -idirafter $(SDK)/include $(filter %.cpp,$^) -o $@
-test: assets build/host/catalog-test build/host/catalog-check build/host/model-test build/host/ui-test build/host/artwork-test build/host/startup-test build/host/lifecycle-test
+build/host/http-native-test: tests/http_native_test.cpp src/http.cpp src/catalog.cpp build/host/cJSON.o $(HEADERS)
+	g++ $(HOSTFLAGS) -UPSGI_HOST -idirafter $(SDK)/include $(filter %.cpp %.o,$^) -o $@
+build/host/app-test: tests/app_test.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON) app artwork)) build/host/cJSON.o $(HEADERS)
+	g++ $(HOSTFLAGS) -Wno-unused-function $$(pkg-config --cflags freetype2) $(filter %.cpp %.o,$^) -o $@
+test: assets build/host/catalog-test build/host/catalog-check build/host/model-test build/host/ui-test build/host/artwork-test build/host/startup-test build/host/lifecycle-test build/host/http-native-test build/host/app-test
 	./build/host/catalog-test
 	./build/host/model-test
 	./build/host/ui-test
 	./build/host/artwork-test
+	./build/host/http-native-test
+	./build/host/app-test
 	python3 tests/http_test.py ./build/host/catalog-check
 	python3 -m unittest discover -s tests -p '*_test.py'
 check: build/host/catalog-check

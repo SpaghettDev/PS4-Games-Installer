@@ -216,8 +216,11 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
         case Screen::Settings: {
             panel(c, 352, 115, 1216, 840, "Settings");
             menu(c, ui.settingRows(), ui.settingsIndex, 390, 251, 1140, 48);
+            c.text(ui.status, 412, 812, 20, Muted, 1090);
             std::string url = ui.draft.sources[0].url;
             c.text(url.empty() ? "Games URL is not configured" : url, 412, 844, 21, Muted, 1090);
+            c.text(ui.settingsNotice.empty() ? "Select Save settings to apply edits. O cancels unsaved changes." : ui.settingsNotice,
+                   412, 879, 20, Accent, 1090);
             hints(c, 412, 913, {{Button::Cross, "Change / Select"}, {Button::Circle, "Cancel"}});
             c.text("Left / Right Change", 1100, 913, 23, Muted); break;
         }

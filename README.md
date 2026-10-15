@@ -45,6 +45,11 @@ metadata directory. It does not require a configured server or Internet access.
 5. Choose **Test connection**, then **Save settings**. The library refreshes after
    a source change. Other sources can be added under **Other catalog sources**.
 
+Accepting the keyboard updates a draft. **Save settings** writes
+`/data/PS4-Games-Installer/config.json` and keeps Settings open with a visible
+confirmation. Connection results and save errors appear inside the Settings window.
+If saving fails, the edited draft is kept for another attempt.
+
 The title ID is `PGIN00001`, separate from the earlier prototype and FPKGi.
 Sizes use decimal GB/MB. Installed size and remote package size are separate fields;
 unknown values are shown as unknown.
@@ -262,6 +267,7 @@ structures are accepted; PS5 sources are ignored.
 | Package already queued | Manage the existing task in PS4 Notifications > Downloads |
 | Existing-title conflict | The installed title was preserved; this app does not force removal |
 | Settings cannot save | Check free space and access to the application data directory |
+| URL is saved but Available stays empty | Read the connection result in Settings. Use the companion server's `/games` endpoint; r12 also corrects an HTTP initialization issue seen as `Disable redirects (0x80431001)` |
 | HTTPS fails | Check server certificates and firmware TLS compatibility; a private LAN HTTP server is supported |
 
 PS5, database repair, system-menu replacement and automatic game removal are outside

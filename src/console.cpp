@@ -44,7 +44,7 @@ std::vector<Entry> scanInstalled() {
 }
 void launchTitle(const std::string& id) {
     if (!validTitleId(id) || id == "PGIN00001") throw std::runtime_error("This title cannot be launched");
-    static int module = sceKernelLoadStartModule("/system/common/lib/libSceSystemService.sprx", 0, nullptr, 0, nullptr, nullptr);
+    static int module = sceKernelLoadStartModule("/system/common/lib/libSceLncUtil.sprx", 0, nullptr, 0, nullptr, nullptr);
     require(module, "Load game launcher");
     using Init = int (*)();
     Init init = nullptr;
@@ -57,7 +57,10 @@ void launchTitle(const std::string& id) {
     param.size = sizeof(param);
     param.user_id = user;
     param.LaunchAppCheck_flag = LaunchApp_SkipSystemUpdate;
-    int result = sceLncUtilLaunchApp(id.c_str(), nullptr, &param);
+    using Launch = int (*)(const char*, const char*[], LncAppParam*);
+    Launch launch = nullptr;
+    require(sceKernelDlsym(module, "sceLncUtilLaunchApp", reinterpret_cast<void**>(&launch)), "Resolve title launch");
+    int result = launch(id.c_str(), nullptr, &param);
     if (result < 0) {
         char message[180];
         std::snprintf(message, sizeof(message), "Launch failed (0x%08X). Close any running game or check that its storage is connected.", static_cast<unsigned>(result));

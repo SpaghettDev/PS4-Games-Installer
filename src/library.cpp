@@ -46,6 +46,7 @@ std::vector<VisibleEntry> makeView(const std::vector<Entry>& entries, const Sett
 std::vector<std::pair<std::string, std::string>> entryDetails(const Entry& e) {
     auto unknown = [](const std::string& s) { return s.empty() ? "Unknown" : s; };
     std::vector<std::pair<std::string, std::string>> out{
+        {"Name", e.name},
         {"Title ID", unknown(e.titleId)}, {"Version", unknown(e.version)},
         {"Region", unknown(e.region)}, {"Category", unknown(e.category)},
         {"Package size", formatSize(e.size)}, {"Installed size", formatSize(e.installedSize)},

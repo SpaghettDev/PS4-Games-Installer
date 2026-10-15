@@ -57,17 +57,17 @@ def main():
         header = f'#pragma once\n#define PSGI_REVISION {revision}\n#define PSGI_VERSION "r{revision}"\n'
         if not generated.exists() or generated.read_text() != header:
             generated.write_text(header)
-        subprocess.run(["make", "--no-print-directory", "package-internal", f"REVISION={revision}"], check=True)
+        subprocess.run(["make", "--no-print-directory", "-j4", "package-internal", f"REVISION={revision}"], check=True)
         if fingerprint() != input_hash:
             raise SystemExit("Build inputs changed during packaging; retry make (revision was not consumed)")
         output.parent.mkdir(exist_ok=True)
         staged = output.with_suffix(".pkg.tmp")
         shutil.copyfile(ROOT / "build/package" / (CONTENT_ID + ".pkg"), staged)
         os.replace(staged, output)
-        atomic_json(state_path, {"revision": revision, "input_hash": input_hash})
         atomic_json(output.with_suffix(".json"), {"revision": revision, "input_hash": input_hash,
                     "sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
                     "title_id": "PGIN00001", "hardware_tested": False})
+        atomic_json(state_path, {"revision": revision, "input_hash": input_hash})
         print(f"Built {output.relative_to(ROOT)}")
 
 

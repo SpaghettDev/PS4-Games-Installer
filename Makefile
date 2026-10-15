@@ -5,11 +5,11 @@ export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT := 1
 
 .PHONY: all image test check preview screenshots clean validate package package-internal assets
 image:
-	docker build -t $(IMAGE) .
+	docker build --label org.psgi.dockerfile="$$(sha256sum Dockerfile | cut -d ' ' -f1)" -t $(IMAGE) .
 
 ifneq ($(PSGI_IN_CONTAINER),1)
 all package test check preview screenshots validate:
-	@docker image inspect $(IMAGE) >/dev/null 2>&1 || $(MAKE) image
+	@test "$$(docker image inspect $(IMAGE) --format '{{index .Config.Labels "org.psgi.dockerfile"}}' 2>/dev/null)" = "$$(sha256sum Dockerfile | cut -d ' ' -f1)" || $(MAKE) image
 	docker run --rm --user "$$(id -u):$$(id -g)" -v "$(CURDIR):/work" \
       -e SDL_VIDEODRIVER=dummy $(IMAGE) make $@ CONFIG="$(CONFIG)"
 clean:
@@ -25,8 +25,9 @@ COMMON := catalog settings library sfo installed ui
 UI_SOURCES := canvas artwork render app demo video main
 CONSOLE := $(UI_SOURCES) http install console
 PS4_OBJECTS := $(addprefix build/ps4/,$(addsuffix .o,$(COMMON) $(CONSOLE))) build/ps4/cJSON.o
-LIBS := -ljbc -lc++ -lSceVideoOut -lSceSysmodule -lSceFreeType -lScePad -lSceUserService -lSceNet -lSceNetCtl -lSceSsl -lSceHttp -lc -lkernel
+LIBS := -ljbc -lc++ -lSceVideoOut -lSceSysmodule -lSceFreeType -lScePad -lSceUserService -lSceNet -lSceNetCtl -lSceSsl -lSceHttp -lSceAppInstUtil -lSceSystemService -lSceCommonDialog -lSceImeDialog -lc -lkernel
 HOSTFLAGS := -std=c++17 -DPSGI_HOST -Isrc -Ithird_party/cjson -Ithird_party/stb -Ibuild/generated -Wall -Wextra -Werror -O1 -g -pthread
+HEADERS := $(wildcard src/*.hpp) third_party/cjson/cJSON.h third_party/stb/stb_image.h
 
 all package: assets
 	python3 scripts/package.py
@@ -59,16 +60,16 @@ package-internal: build/pkg/eboot.bin assets
 build/host/cJSON.o: third_party/cjson/cJSON.c
 	@mkdir -p $(@D)
 	gcc -O1 -g -c $< -o $@
-build/host/catalog-test: tests/catalog_test.cpp src/catalog.cpp build/host/cJSON.o src/catalog.hpp
+build/host/catalog-test: tests/catalog_test.cpp src/catalog.cpp build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) tests/catalog_test.cpp src/catalog.cpp build/host/cJSON.o -o $@
-build/host/catalog-check: src/check.cpp src/catalog.cpp src/http.cpp build/host/cJSON.o src/platform.hpp
-	g++ $(HOSTFLAGS) src/check.cpp src/catalog.cpp src/http.cpp build/host/cJSON.o -lcurl -o $@
+build/host/catalog-check: src/check.cpp src/catalog.cpp src/settings.cpp src/http.cpp build/host/cJSON.o $(HEADERS)
+	g++ $(HOSTFLAGS) src/check.cpp src/catalog.cpp src/settings.cpp src/http.cpp build/host/cJSON.o -lcurl -o $@
 
 build/generated/revision.hpp:
 	@mkdir -p $(@D)
 	python3 -c 'import json; from pathlib import Path; r=json.load(open("revision.json"))["revision"]; Path("$@").write_text("#pragma once\n#define PSGI_REVISION %d\n#define PSGI_VERSION \"r%d\"\n" % (r,r))'
 
-build/host/preview: $(addprefix src/,$(addsuffix .cpp,$(COMMON) $(UI_SOURCES) http desktop)) build/host/cJSON.o build/generated/revision.hpp
+build/host/preview: $(addprefix src/,$(addsuffix .cpp,$(COMMON) $(UI_SOURCES) http desktop)) build/host/cJSON.o build/generated/revision.hpp $(HEADERS)
 	g++ $(HOSTFLAGS) -Wno-unused-function $$(pkg-config --cflags freetype2 sdl2) $(filter %.cpp %.o,$^) -lcurl $$(pkg-config --libs freetype2 sdl2) -o $@
 build/demo/0.png: scripts/demo_assets.py assets/font.ttf
 	python3 scripts/demo_assets.py
@@ -77,11 +78,14 @@ screenshots preview: assets build/host/preview build/demo/0.png
 	python3 scripts/screenshots.py
 	@echo 'Screenshots: build/screenshots/ — see README for interactive preview controls.'
 
-build/host/model-test: tests/model_test.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON))) build/host/cJSON.o
-	g++ $(HOSTFLAGS) $^ -o $@
-test: build/host/catalog-test build/host/catalog-check build/host/model-test
+build/host/model-test: tests/model_test.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON))) build/host/cJSON.o $(HEADERS)
+	g++ $(HOSTFLAGS) $(filter %.cpp %.o,$^) -o $@
+build/host/ui-test: tests/ui_test.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON))) build/host/cJSON.o $(HEADERS)
+	g++ $(HOSTFLAGS) $(filter %.cpp %.o,$^) -o $@
+test: build/host/catalog-test build/host/catalog-check build/host/model-test build/host/ui-test
 	./build/host/catalog-test
 	./build/host/model-test
+	./build/host/ui-test
 	python3 tests/http_test.py ./build/host/catalog-check
 	python3 -m unittest discover -s tests -p '*_test.py'
 check: build/host/catalog-check

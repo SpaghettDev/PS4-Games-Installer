@@ -12,6 +12,7 @@ files = {
     "assets/font.ttf": Path("assets/font.ttf"),
     "assets/icon.png": Path("assets/icon.png"),
     "assets/FONT-LICENSE.txt": Path("assets/FONT-LICENSE.txt"),
+    "assets/LICENSE.txt": Path("LICENSE"),
     "sce_sys/icon0.png": Path("assets/icon.png"),
     "sce_sys/about/right.sprx": sdk / "samples/hello_world/sce_sys/about/right.sprx",
     "sce_module/libc.prx": sdk / "samples/hello_world/sce_module/libc.prx",

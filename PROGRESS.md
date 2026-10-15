@@ -39,3 +39,15 @@
 - Final desktop captures include splash, both library views, Options, Settings, URL entry,
   details, About, exit confirmation, empty library and offline presentation.
 - Hardware behavior remains unverified; console acceptance checks are recorded in TODO.md.
+
+## Final checkout verification
+
+- A fresh local clone of the committed repository built successfully using the Docker image.
+- That checkout rebuilt r3, retained the identical input fingerprint/revision record, and
+  remained clean in Git after building. Package validation passed in the clean checkout.
+- Inspected the packaged file list: executable, font, new icon, platform stubs and license
+  notices are present; Unity files and desktop sample covers are absent.
+- Final splash, summary and About screenshots were inspected, and selected captures are
+  committed under docs/images for consumer documentation.
+- All software implementation items are complete. Hardware checks remain explicitly
+  unchecked because this workspace has no PS4 test connection.

@@ -5,11 +5,10 @@ OpenOrbis toolchain. Created by **e1z0 — (c) 2026 Vintage2000.org**.
 
 [Project](https://github.com/e1z0/PS4-Games-Installer)
 
-**First hardware target: PS4 11.00 with GoldHEN.** The application builds on Linux
-and its package validates. User console runs reached the source editor, system
-keyboard and Installed listing. The r9 keyboard assignment and r10 installed-icon
-corrections need retesting. The user confirmed the reported exit crash is fixed
-(2026-10-16); game launching and installation still need validation.
+**Confirmed running on real hardware: PS4 11.00 + GoldHEN** (user confirmation,
+2026-10-16). The reported exit crash is also confirmed fixed. The application
+builds on Linux and its package validates; individual feature checks are tracked
+in [TODO.md](TODO.md).
 It requires an active homebrew environment; this app does not install GoldHEN.
 
 ## What it does

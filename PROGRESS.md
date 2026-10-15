@@ -400,3 +400,14 @@ Controller references:
   acceptance checks were marked complete from this confirmation.
 - Documentation-only change: reviewed the diff and ran `git diff --check`.
   No application code, package or revision record changed; no rebuild was needed.
+
+## Confirmed hardware environment — 2026-10-16
+
+- User confirmed the application works on real PS4 11.00 + GoldHEN hardware.
+  Updated the README and tracker from a planned hardware target to confirmed
+  operation, alongside the previously confirmed exit-crash resolution.
+- The installed revision and individual feature results were not specified.
+  Detailed acceptance checks remain tracked separately rather than inferring
+  launch, installation or other feature results from this general confirmation.
+- Documentation-only update; `git diff --check` passed. No application changes,
+  rebuild or package revision increment.

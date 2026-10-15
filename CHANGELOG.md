@@ -2,6 +2,7 @@
 
 ## Console confirmation — 2026-10-16
 
+- User confirmed the application works on real PS4 11.00 + GoldHEN hardware.
 - User confirmed the reported end-of-app CE-34878-0 crash is fixed. The exact
   installed revision and exit path were not specified. Documentation/tracker
   update only; no package revision increment.

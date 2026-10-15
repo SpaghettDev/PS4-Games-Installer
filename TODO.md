@@ -24,7 +24,8 @@
   or per-task destination API first. Current installations follow the PS4 system
   Application Install Location setting; a BGFT application slot is not assumed to
   identify a physical drive.
-- [ ] Hardware validation on PS4 11.00 + GoldHEN (requires a console).
+- [x] Application confirmed working on real PS4 11.00 + GoldHEN (user report, 2026-10-16).
+- [ ] Complete the individual console acceptance checks below.
 
 ## Console acceptance checks
 

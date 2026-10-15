@@ -3,6 +3,7 @@
 #include <sys/statvfs.h>
 namespace psgi {
 void prepareConsole() {}
+int finishApplication(int status) { return status; }
 int queueInstall(const Entry&, int) { throw std::runtime_error("Installation requires a PS4"); }
 TaskProgress taskProgress(int) { return {0, 0, 0, false}; }
 std::vector<Entry> scanInstalled() { return {}; }

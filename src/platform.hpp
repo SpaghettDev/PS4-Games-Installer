@@ -6,6 +6,9 @@
 namespace psgi {
 std::string httpGet(const std::string& url, size_t limit = MaxCatalogBytes, const std::atomic<bool>* cancelled = nullptr);
 void prepareConsole();
+// Called after application resources and worker threads have been destroyed.
+// Native builds hand termination to the PS4 shell; desktop builds return status.
+int finishApplication(int status);
 int queueInstall(const Entry& entry, int userId);
 struct TaskProgress {
     uint64_t transferred = 0, total = 0;

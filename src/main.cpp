@@ -49,8 +49,7 @@ void capture(App& app, Renderer& renderer, Canvas& canvas) {
 }
 #endif
 }
-int main(int argc, char** argv) {
-    setvbuf(stdout, nullptr, _IONBF, 0);
+static int runApplication(int argc, char** argv) {
     try {
 #ifdef PSGI_HOST
         bool screenshots = argc > 1 && std::strcmp(argv[1], "--capture") == 0;
@@ -121,4 +120,12 @@ int main(int argc, char** argv) {
         return 1;
     }
     return 0;
+}
+
+int main(int argc, char** argv) {
+    setvbuf(stdout, nullptr, _IONBF, 0);
+    const int status = runApplication(argc, argv);
+    // runApplication's scopes have closed the video/controller and joined all
+    // workers before native credentials are restored and the shell takes over.
+    return psgi::finishApplication(status);
 }

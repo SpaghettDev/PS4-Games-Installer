@@ -1,5 +1,16 @@
 # Changelog
 
+## r8 — 2026-10-16
+
+- Changed native termination to request exit through the PS4 system service after
+  application resources and worker threads have been cleaned up. Both normal exit
+  and closing an error screen use this path instead of returning through libc.
+- Restore the original process credentials and sandbox directories before the exit
+  request, including recovery after a partially failed privilege setup.
+- Added native lifecycle regressions for successful shutdown, startup/restore
+  failures and an unsuccessful shell exit request. The reported CE-34878-0 at the
+  end of the application still needs a console retest.
+
 ## r7 — 2026-10-16
 
 - Fixed the reported startup failure opening `/app0/assets/icon.png`: load bundled

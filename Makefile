@@ -29,9 +29,9 @@ CROSSFLAGS := --target=x86_64-pc-freebsd12-elf -fPIC -funwind-tables -D_POSIX_C_
     -isysroot $(SDK) -isystem $(SDK)/include -Isrc -Ithird_party/cjson -Ithird_party/stb -Ibuild/generated -O2 -g -Wall -Wextra -MMD -MP
 COMMON := catalog settings library sfo installed storage ui
 UI_SOURCES := canvas artwork render app demo video main
-CONSOLE := $(UI_SOURCES) http install console
+CONSOLE := $(UI_SOURCES) http install console lifecycle
 PS4_OBJECTS := $(addprefix build/ps4/,$(addsuffix .o,$(COMMON) $(CONSOLE))) build/ps4/cJSON.o
-LIBS := -ljbc -lc++ -lSceVideoOut -lSceSysmodule -lSceFreeType -lScePad -lSceUserService -lSceNet -lSceNetCtl -lSceSsl -lSceHttp -lSceCommonDialog -lSceImeDialog -lc -lkernel
+LIBS := -ljbc -lc++ -lSceVideoOut -lSceSysmodule -lSceSystemService -lSceFreeType -lScePad -lSceUserService -lSceNet -lSceNetCtl -lSceSsl -lSceHttp -lSceCommonDialog -lSceImeDialog -lc -lkernel
 HOSTFLAGS := -std=c++17 -DPSGI_HOST -Isrc -Ithird_party/cjson -Ithird_party/stb -Ibuild/generated -Wall -Wextra -Werror -O1 -g -pthread
 HEADERS := $(wildcard src/*.hpp) third_party/cjson/cJSON.h third_party/stb/stb_image.h
 
@@ -97,7 +97,9 @@ build/host/artwork-test: tests/artwork_test.cpp src/artwork.cpp src/canvas.cpp s
 	g++ $(HOSTFLAGS) -Wno-unused-function -fsanitize=address,undefined -fno-omit-frame-pointer $$(pkg-config --cflags freetype2) $(filter %.cpp %.o,$^) -lcurl $$(pkg-config --libs freetype2) -o $@
 build/host/startup-test: tests/startup_fixtures.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON) canvas artwork render app demo main http)) build/host/cJSON.o build/generated/revision.hpp $(HEADERS)
 	g++ $(HOSTFLAGS) -Wno-unused-function $$(pkg-config --cflags freetype2) $(filter %.cpp %.o,$^) -lcurl $$(pkg-config --libs freetype2) -o $@
-test: assets build/host/catalog-test build/host/catalog-check build/host/model-test build/host/ui-test build/host/artwork-test build/host/startup-test
+build/host/lifecycle-test: tests/lifecycle_test.cpp src/lifecycle.cpp $(HEADERS)
+	g++ $(HOSTFLAGS) -I/opt/libjbc -idirafter $(SDK)/include $(filter %.cpp,$^) -o $@
+test: assets build/host/catalog-test build/host/catalog-check build/host/model-test build/host/ui-test build/host/artwork-test build/host/startup-test build/host/lifecycle-test
 	./build/host/catalog-test
 	./build/host/model-test
 	./build/host/ui-test

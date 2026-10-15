@@ -11,10 +11,10 @@
 namespace psgi {
 namespace {
 std::chrono::steady_clock::time_point firstFrame;
-bool presented = false, dashboardSeen = false;
+bool presented = false, dashboardSeen = false, videoClosed = false;
 }
 Video::Video(bool) {}
-Video::~Video() {}
+Video::~Video() { videoClosed = true; std::puts("VIDEO_CLOSED"); }
 void Video::present(const Canvas&) {
     if (!presented) { firstFrame = std::chrono::steady_clock::now(); presented = true; }
 }
@@ -38,6 +38,11 @@ void prepareConsole() {
     std::filesystem::rename("assets", "sandbox-assets-hidden");
     std::puts("SANDBOX_ASSETS_HIDDEN");
     if (std::getenv("PSGI_TEST_STARTUP_FAILURE")) throw std::runtime_error("Simulated privilege setup failure");
+}
+int finishApplication(int status) {
+    if (!videoClosed) throw std::runtime_error("Exit requested before video cleanup");
+    std::printf("APPLICATION_FINISHED=%d\n", status);
+    return status;
 }
 int queueInstall(const Entry&, int) { throw std::runtime_error("PS4 required"); }
 TaskProgress taskProgress(int) { return {0, 0, 0, false}; }

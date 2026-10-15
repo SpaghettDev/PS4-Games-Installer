@@ -4,7 +4,6 @@
 #include <stdexcept>
 #include <vector>
 #include <orbis/libkernel.h>
-#include <libjbc.h>
 
 namespace {
 // BGFT ABI uses a 64-bit unsigned long package size on PS4.
@@ -66,13 +65,6 @@ Installer& installer() {
 }
 
 namespace psgi {
-void prepareConsole() {
-    jbc_cred cred{};
-    check(jbc_get_cred(&cred), "Read homebrew credentials");
-    check(jbc_jailbreak_cred(&cred), "Prepare homebrew credentials");
-    check(jbc_set_cred(&cred), "Apply homebrew credentials");
-}
-
 int queueInstall(const Entry& entry, int userId) {
     if (!isHttpUrl(entry.url) || entry.name.empty() || entry.name.size() >= 600)
         throw std::runtime_error("Invalid package metadata");

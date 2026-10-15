@@ -128,3 +128,39 @@ Research references:
 - The corrected build has not been retested on a PS4 or deployed to the live target.
 
 libjbc reference: https://github.com/bucanero/ps4-libjbc/blob/835fe016ff0ae5dd89b9249f39cc0fe093fd07dd/jailbreak.c
+
+## Reported end-of-app CE-34878-0 — 2026-10-16
+
+- User clarified that CE-34878-0 appeared at the end of the application. The error
+  code alone does not identify the crashing instruction; no console crash dump is
+  available. This is a candidate exit-path correction pending hardware validation.
+- Both normal exit and closing the startup error screen previously returned from
+  main through the C runtime. Inspected the linked runtime and native PS4 homebrew
+  exit implementations. PS4 Cheats Manager and Itemzflow use the system service's
+  `sceSystemServiceLoadExec("exit", ...)` request, with homebrew credentials restored.
+- Extracted native lifecycle handling from the package installer. Startup saves
+  original credentials; termination restores them after all application scopes,
+  including worker joins and video/controller destruction, have completed.
+- Native exit now loads SystemService and requests shell termination on every
+  handled exit path. If the request returns, the main thread waits instead of
+  falling through libc `_exit`; a rejected request is logged to stderr and the user
+  can use the PS4's Close Application command.
+- Added tests against the pinned SDK/libjbc declarations with fake native calls,
+  covering successful exit, failed credential reading/preparation/application,
+  failed restoration and a rejected exit request. Existing real-main regressions
+  also check that normal/error shutdown reaches the exit hook after video cleanup.
+- `make test` passed all host suites, including artwork/font ASan/UBSan and thirteen
+  Python integration tests. The native lifecycle test exercised all six scenarios;
+  real-main success/failure cases both reached termination after video cleanup.
+- Built `dist/PS4Game_installer-r8.pkg`; `make validate` passed all package hash and
+  signature checks. Verified the linked ELF imports `sceSystemServiceLoadExec`
+  and its native finish routine waits after the request without returning to libc.
+- Updated the changelog, consumer troubleshooting and console acceptance tracker.
+  No UI layout changed. No live deployment or console retest was performed; the
+  end-of-app crash remains unconfirmed fixed until the user tests r8 on hardware.
+
+Exit-path references:
+
+- https://github.com/bucanero/PS4CheatsManager/blob/main/source/main.c
+- https://github.com/LightningMods/Itemzflow/blob/main/itemzflow/source/sig_handler.cpp
+- https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/blob/v0.5.4/include/orbis/SystemService.h

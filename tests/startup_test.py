@@ -30,6 +30,8 @@ class StartupRegression(unittest.TestCase):
             self.assertTrue((root / "sandbox-assets-hidden/icon.png").is_file())
             self.assertFalse((root / "assets").exists())
             self.assertIn("SANDBOX_ASSETS_HIDDEN", result.stdout)
+            self.assertIn("VIDEO_CLOSED\nAPPLICATION_FINISHED=", result.stdout)
+            self.assertIn(f"APPLICATION_FINISHED={result.returncode}", result.stdout)
             return result, elapsed
 
     def test_dashboard_survives_losing_sandbox_asset_paths(self):

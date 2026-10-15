@@ -411,3 +411,15 @@ Controller references:
   launch, installation or other feature results from this general confirmation.
 - Documentation-only update; `git diff --check` passed. No application changes,
   rebuild or package revision increment.
+
+## Keyboard and settings-save confirmation — 2026-10-16
+
+- User confirmed the PS4 keyboard now works correctly for entering the source URL
+  and confirmed saving also works. Recorded both checks as complete for the
+  previously confirmed PS4 11.00 + GoldHEN environment, and updated README and
+  changelog status.
+- Removed the stale pending keyboard-entry check. Cancellation, saved settings
+  after restart/refresh and the separate catalog-download check remain tracked
+  independently; those outcomes were not specified in this confirmation.
+- Documentation-only update; `git diff --check` passed. No rebuild or package
+  revision increment was needed.

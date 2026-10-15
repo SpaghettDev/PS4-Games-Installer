@@ -31,22 +31,22 @@
 
 - [x] Initial console launch reaches the splash and readable startup-error screen
   (user report, 2026-10-16; failed opening the icon in the previous build).
-- [x] Console reaches the source editor and opens the PS4 keyboard (user report,
-  2026-10-16; O selects characters in the previous package).
+- [x] PS4 keyboard opens and correctly accepts source URL input (user confirmation,
+  2026-10-16, PS4 11.00 + GoldHEN).
+- [x] Saving the source URL/settings works on the console (user confirmation, 2026-10-16).
 - [x] Console shows Installed game tiles and names (user report, 2026-10-16;
   icons were missing in the previous package).
 - [x] Read-only FTP check confirmed a saved games URL before the data-directory
   correction (2026-10-16).
 - [ ] Retest r13: data moves to `/data/PS4-Game-Installer`, settings and caches are
   preserved, and About displays only the current application's identity.
-- [ ] Retest r12: Save settings shows the config-file confirmation, survives app
-  restart, and remains saved after refreshing the library.
+- [ ] Verify the saved source/settings survive app restart and library refresh,
+  and the config-file confirmation is displayed.
 - [ ] Retest r15: a valid `/games` source loads and refreshes without the reported
   HTTP pre-init error; repeat refresh and artwork loading, plus connection testing.
 - [ ] Retest r10: Installed tiles, summary backgrounds and details show local icons
   for internal/external titles, including offline startup without a server.
-- [ ] Retest r9: loading ends without a forced splash delay; the native keyboard
-  selects characters/Done with X and cancels with O.
+- [ ] Retest r9: loading ends without a forced splash delay.
 - [x] Reported end-of-app CE-34878-0 resolved (user confirmation, 2026-10-16).
 - [ ] Separately verify closing startup/runtime error screens returns to the PS4
   shell without an error report; this path was not specified in the confirmation.
@@ -54,7 +54,7 @@
 - [ ] Retest r16: left stick and D-pad navigate tiles/list, sidebar, menus, Settings
   and details; verify drift filtering, repeat and returning from the PS4 keyboard.
 - [ ] Circle closes each window and Circle twice exits; Options opens its menu.
-- [ ] PS4 keyboard accepts/cancels URL edits and settings persist after restarting.
+- [ ] O cancels PS4 keyboard URL edits without changing the saved source.
 - [ ] Companion server `/games` loads real metadata and covers on the console.
 - [ ] Internal and connected external titles appear with correct local metadata/sizes.
 - [ ] X launches a registered game; service errors remain readable.

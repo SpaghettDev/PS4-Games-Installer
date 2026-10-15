@@ -5,6 +5,8 @@
 - [x] Library metadata, installed discovery, settings persistence, and offline cache.
 - [x] Tile/list dashboard, dialogs, controller navigation, splash, and About.
 - [x] Artwork loading, background animation, desktop preview, and screenshots.
+- [x] Make bubble motion visible in Tiles and Summary, above background artwork
+  and behind controls; retain the animation toggle and add full-renderer checks.
 - [x] Console URL keyboard, game launching, and installation monitoring.
 - [x] Host tests, PS4 package build/validation, and consumer documentation.
 - [x] Private `.env` FTP target configuration and `make deploy` with local FTP tests.
@@ -54,6 +56,8 @@
 - [ ] Separately verify closing startup/runtime error screens returns to the PS4
   shell without an error report; this path was not specified in the confirmation.
 - [ ] Splash, bubbles, controller repeat and both layouts render smoothly on the PS4.
+- [ ] Retest r18: bubbles are clearly visible and flow upward in Tiles and Summary;
+  Settings > Background animation pauses/resumes them without affecting artwork.
 - [ ] Retest r16: left stick and D-pad navigate tiles/list, sidebar, menus, Settings
   and details; verify drift filtering, repeat and returning from the PS4 keyboard.
 - [ ] Circle closes each window and Circle twice exits; Options opens its menu.

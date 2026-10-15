@@ -16,6 +16,7 @@ void capture(App& app, Renderer& renderer, Canvas& canvas) {
     const std::string directory = "build/screenshots";
     mkdir(directory.c_str(), 0755);
     auto& ui = app.ui;
+    ui.settings.animations = true; // Captures demonstrate motion regardless of preview preferences.
     for (const auto& e : ui.available) app.artwork.request(e);
     for (int i = 0; i < 100; ++i) {
         bool ready = true;
@@ -35,7 +36,9 @@ void capture(App& app, Renderer& renderer, Canvas& canvas) {
     ui.screen = Screen::Splash; shot("01-splash");
     ui.screen = Screen::Dashboard; ui.library = Library::Installed; ui.rebuild(); shot("02-installed-tiles");
     ui.library = Library::Available; ui.rebuild(); shot("03-available-tiles");
+    shot("16-bubbles-tiles"); shot("17-bubbles-tiles-motion");
     ui.settings.layout = Layout::Summary; ui.rebuild(); shot("04-summary");
+    shot("18-bubbles-summary"); shot("19-bubbles-summary-motion");
     ui.screen = Screen::Options; ui.menuIndex = 0; shot("05-options");
     ui.screen = Screen::Settings; ui.draft = ui.settings; ui.draft.sources[0].url = "http://192.168.1.10:3000/games"; shot("06-settings");
     ui.screen = Screen::Storage; shot("13-storage-available");

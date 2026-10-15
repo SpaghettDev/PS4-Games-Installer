@@ -1,5 +1,27 @@
 # Implementation progress
 
+## r18 bubble visibility — 2026-10-16
+
+- Investigated the reported missing dashboard animation. Existing bubbles used
+  fill alpha 9/255 and one-pixel rims at 17/255; summary artwork and its dimmer
+  further obscured them. The main loop already passes elapsed time each frame.
+- Increased visible contrast, added soft highlights/rims and a faster upward
+  drift. Cached six reusable bubble sprites to avoid per-pixel shading work each
+  frame. Layer particles after the summary artwork/dimmer and before the controls.
+- Kept the saved animation preference and the Settings draft preview. Added a
+  full-renderer regression check for exposed-area motion/contrast in both layouts,
+  unobscured tile artwork and identical paused frames, plus paired captures.
+- `make test` passed the full host suite and all 15 Python cases. The new renderer
+  check measured 41,256 exposed pixels moving in Tiles and 41,249 in Summary,
+  with peak channel contrast 94 in both. Turning animation off produced identical
+  frames; tile artwork stayed unchanged and the Settings draft preview paused.
+- `make all` built `dist/PS4Game_installer-r18.pkg`; `make validate` passed package
+  hashes/signatures and packed launcher imports. Package source fingerprint and
+  SHA-256 manifest match. Generated 19 desktop captures, inspected the tile and
+  summary motion pairs, and refreshed the README image from the new dashboard.
+- Source identity audit and `git diff --check` passed. No console deployment or
+  Git push; PS4 visibility/frame rate still require hardware retesting.
+
 ## r17 hardware-driven repairs — 2026-10-16
 
 - Pulled r16 logs, saved settings/catalog/task tracking, installed-title SFOs and

@@ -1,5 +1,16 @@
 # Changelog
 
+## r18 — 2026-10-16
+
+- Make dashboard bubbles visibly brighter, with soft rims, highlights and faster
+  upward movement. Cache the six bubble sprites instead of recomputing their
+  shading every frame.
+- Draw bubbles above summary artwork and its dimmer, behind game cards and
+  controls, so they remain visible in both dashboard layouts.
+- Preserve the Background animation setting, including its Settings preview.
+  Add full-renderer checks for visible motion, artwork layering and paused frames,
+  plus paired dashboard captures for inspecting movement.
+
 ## r17 — 2026-10-16
 
 - Include patched-game (`gp`) app metadata in Installed. The previous filter hid

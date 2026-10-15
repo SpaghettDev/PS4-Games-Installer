@@ -101,9 +101,11 @@ void Renderer::menu(Canvas& c, const std::vector<std::string>& rows, size_t sele
     }
 }
 void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
-    c.background(time, ui.screen == Screen::Settings ? ui.draft.animations : ui.settings.animations);
+    const bool animate = ui.screen == Screen::Settings ? ui.draft.animations : ui.settings.animations;
+    c.backgroundBase();
     const Entry* selected = ui.current();
     if (ui.screen == Screen::Splash) {
+        c.bubbles(time, animate);
         c.image(*placeholder, 904, 330, 112, 112);
         c.centered("Loading PS4 Games Installer", 560, 48, White);
         for (int i = 0; i < 3; ++i) c.rounded(925 + i * 28, 608, 10, 10, 5, Accent,
@@ -126,6 +128,8 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
         if (currentBackground) c.image(*currentBackground, 0, 0, Canvas::Width, Canvas::Height, 90 * alpha / 255, true);
         c.rectangle(0, 0, Canvas::Width, Canvas::Height, 0x061a30, 130);
     }
+    // Keep particles above the summary artwork/dimmer and behind all controls.
+    c.bubbles(time, animate);
     c.image(*placeholder, 54, 52, 58, 58);
     c.text("PS4 Games Installer", 132, 94, 39, White);
     c.text(PSGI_VERSION, 508, 127, 18, Muted);

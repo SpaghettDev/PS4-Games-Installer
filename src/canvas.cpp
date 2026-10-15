@@ -1,5 +1,6 @@
 #include "canvas.hpp"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <stdexcept>
@@ -136,24 +137,46 @@ void Canvas::image(const Image& source, int x, int y, int w, int h, uint8_t opac
     }
 }
 void Canvas::background(double time, bool animate) {
+    backgroundBase();
+    bubbles(time, animate);
+}
+void Canvas::backgroundBase() {
     for (int y = 0; y < Height; ++y) {
         double f = double(y) / Height;
         uint32_t color = (uint32_t(9 + 5 * f) << 16) | (uint32_t(51 - 25 * f) << 8) | uint32_t(94 - 35 * f);
         std::fill(pixels.begin() + y * Width, pixels.begin() + (y+1) * Width, color | 0xff000000);
     }
-    if (!animate) time = 0;
-    for (int i = 0; i < 18; ++i) {
-        int radius = 18 + (i * 47 % 95);
-        int cx = int(std::fmod(i * 397.0 + std::sin(time * .13 + i) * 80 + 150, Width + 200)) - 50;
-        int cy = Height + radius - int(std::fmod(i * 173.0 + time * (8 + i % 7), Height + radius * 2));
-        for (int dy = -radius; dy <= radius; ++dy) {
-            int dx = int(std::sqrt(std::max(0, radius * radius - dy * dy)));
-            rectangle(cx - dx, cy + dy, dx * 2, 1, 0x8accf3, 9);
-            if (dx > 2) {
-                rectangle(cx - dx, cy + dy, 1, 1, 0xb9e6ff, 17);
-                rectangle(cx + dx, cy + dy, 1, 1, 0xb9e6ff, 17);
+}
+void Canvas::bubbles(double time, bool animate) {
+    // Cache the soft rims and highlights once; the CPU renderer only composites
+    // small sprites per frame, with no per-pixel square roots during animation.
+    static const auto sprites = [] {
+        std::array<Image, 6> result;
+        const int radii[] = {18, 28, 40, 54, 70, 88};
+        for (size_t i = 0; i < result.size(); ++i) {
+            auto& sprite = result[i];
+            const int radius = radii[i], center = radius + 7;
+            sprite.width = sprite.height = center * 2 + 1;
+            sprite.pixels.resize(sprite.width * sprite.height);
+            for (int y = 0; y < sprite.height; ++y) for (int x = 0; x < sprite.width; ++x) {
+                const double dx = x - center, dy = y - center;
+                const double distance = std::sqrt(dx * dx + dy * dy);
+                const double rim = std::max(0.0, 1.0 - std::abs(distance - radius) / 1.8);
+                const double halo = std::max(0.0, 1.0 - std::abs(distance - radius) / 6.0);
+                const double highlight = std::clamp(.5 - (dx + dy) / (2 * radius), 0.0, 1.0);
+                const unsigned alpha = unsigned((distance < radius ? 10 : 0) + halo * 10 + rim * (58 + 48 * highlight));
+                sprite.pixels[y * sprite.width + x] = (alpha << 24) | 0xb2e7ff;
             }
         }
+        return result;
+    }();
+    if (!animate) time = 0;
+    for (int i = 0; i < 28; ++i) {
+        const auto& sprite = sprites[i % sprites.size()];
+        const int extent = sprite.width / 2;
+        const int cx = 64 + i * 317 % (Width - 128) + int(std::sin(time * .19 + i * 1.17) * 42);
+        const int cy = Height + extent - int(std::fmod(i * 173.0 + time * (18 + i % 7 * 4), Height + extent * 2));
+        image(sprite, cx - extent, cy - extent, sprite.width, sprite.height);
     }
 }
 void Canvas::writePpm(const std::string& path) const {

@@ -28,6 +28,9 @@ It requires an active homebrew environment; this app does not install GoldHEN.
 - View detailed metadata, search the current library, and use an offline catalog
   and bounded artwork cache. The blue background has optional floating bubbles.
 
+**Background animation** in Settings controls the flowing bubbles in both Tiles
+and Summary list. It is on by default; switching it off leaves a still background.
+
 ![Desktop preview with sample artwork](docs/images/library.png)
 
 The preview uses original sample artwork and fictitious IDs/sizes. On the console,

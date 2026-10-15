@@ -29,6 +29,8 @@ public:
     void centered(const std::string& value, int baseline, int size, uint32_t color);
     void image(const Image& image, int x, int y, int w, int h, uint8_t alpha = 255, bool cover = false);
     void background(double time, bool animate);
+    void backgroundBase();
+    void bubbles(double time, bool animate);
     void writePpm(const std::string& path) const;
 };
 }

@@ -96,6 +96,8 @@ build/host/ui-test: tests/ui_test.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON
 	g++ $(HOSTFLAGS) $(filter %.cpp %.o,$^) -o $@
 build/host/artwork-test: tests/artwork_test.cpp tests/sfo_fixture.hpp src/artwork.cpp src/canvas.cpp src/catalog.cpp src/http.cpp src/settings.cpp src/installed.cpp src/sfo.cpp build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) -Wno-unused-function -fsanitize=address,undefined -fno-omit-frame-pointer $$(pkg-config --cflags freetype2) $(filter %.cpp %.o,$^) -lcurl $$(pkg-config --libs freetype2) -o $@
+build/host/render-animation-test: tests/render_animation_test.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON) canvas artwork render http)) build/host/cJSON.o build/generated/revision.hpp $(HEADERS)
+	g++ $(HOSTFLAGS) -Wno-unused-function $$(pkg-config --cflags freetype2) $(filter %.cpp %.o,$^) -lcurl $$(pkg-config --libs freetype2) -o $@
 build/host/startup-test: tests/startup_fixtures.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON) canvas artwork render app download demo main http)) build/host/cJSON.o build/generated/revision.hpp $(HEADERS)
 	g++ $(HOSTFLAGS) -Wno-unused-function $$(pkg-config --cflags freetype2) $(filter %.cpp %.o,$^) -lcurl $$(pkg-config --libs freetype2) -o $@
 build/host/lifecycle-test: tests/lifecycle_test.cpp src/lifecycle.cpp $(HEADERS)
@@ -114,11 +116,12 @@ build/host/app-test: tests/app_test.cpp $(addprefix src/,$(addsuffix .cpp,$(COMM
 	g++ $(HOSTFLAGS) -Wno-unused-function $$(pkg-config --cflags freetype2) $(filter %.cpp %.o,$^) -o $@
 build/host/controller-test: tests/controller_test.cpp src/controller.cpp src/video.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON))) build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) -idirafter $(SDK)/include $$(pkg-config --cflags freetype2 sdl2) $(filter %.cpp %.o,$^) $$(pkg-config --libs sdl2) -o $@
-test: assets build/host/catalog-test build/host/catalog-check build/host/model-test build/host/ui-test build/host/artwork-test build/host/startup-test build/host/lifecycle-test build/host/http-native-test build/host/launch-native-test build/host/storage-native-test build/host/install-native-test build/host/download-runner build/host/app-test build/host/controller-test
+test: assets build/host/catalog-test build/host/catalog-check build/host/model-test build/host/ui-test build/host/artwork-test build/host/render-animation-test build/host/startup-test build/host/lifecycle-test build/host/http-native-test build/host/launch-native-test build/host/storage-native-test build/host/install-native-test build/host/download-runner build/host/app-test build/host/controller-test
 	./build/host/catalog-test
 	./build/host/model-test
 	./build/host/ui-test
 	./build/host/artwork-test
+	./build/host/render-animation-test
 	./build/host/http-native-test
 	./build/host/launch-native-test
 	./build/host/storage-native-test

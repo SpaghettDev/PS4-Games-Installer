@@ -27,7 +27,7 @@ TITLE_ID := PGIN00001
 CONTENT_ID := IV0000-$(TITLE_ID)_00-PS4GAMEINSTALLER
 CROSSFLAGS := --target=x86_64-pc-freebsd12-elf -fPIC -funwind-tables -D_POSIX_C_SOURCE=200809L \
     -isysroot $(SDK) -isystem $(SDK)/include -Isrc -Ithird_party/cjson -Ithird_party/stb -Ibuild/generated -O2 -g -Wall -Wextra -MMD -MP
-COMMON := catalog settings library sfo installed ui
+COMMON := catalog settings library sfo installed storage ui
 UI_SOURCES := canvas artwork render app demo video main
 CONSOLE := $(UI_SOURCES) http install console
 PS4_OBJECTS := $(addprefix build/ps4/,$(addsuffix .o,$(COMMON) $(CONSOLE))) build/ps4/cJSON.o

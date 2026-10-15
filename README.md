@@ -114,6 +114,24 @@ Selecting Exit from Options opens the same Circle confirmation. Settings are sav
 only when Save settings is selected; Circle offers to discard unsaved edits.
 Quick view/group/sort/filter changes in Options are saved immediately.
 
+## Installation storage
+
+Open **Options > Settings > Install location** to check internal storage and a
+connected USB drive configured as **PS4 Extended Storage**, including free space.
+Press Triangle to check again after connecting or disconnecting the drive; Circle
+returns to Settings and preserves unsaved edits.
+
+The actual destination is currently selected in **PS4 Settings > Storage > Options
+> Application Install Location**. Choose System Storage or Extended Storage there
+before queuing packages. The app's storage panel is informational: an in-app drive
+selector has not yet been implemented because a verified destination-changing API
+is still needed. It does not override the PS4 setting or format drives.
+
+A plain exFAT/FAT32 USB package source is not a PS4 Extended Storage installation
+destination. See [PlayStation's Extended Storage instructions](https://www.playstation.com/en-ca/support/hardware/ps4-external-hdd-support/)
+for configuration and compatibility. Console testing of external installations is
+still pending.
+
 ## Downloads and offline use
 
 Installation is handed to PS4 BGFT. Closing this application does not cancel a

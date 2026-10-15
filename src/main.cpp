@@ -37,6 +37,8 @@ void capture(App& app, Renderer& renderer, Canvas& canvas) {
     ui.settings.layout = Layout::Summary; ui.rebuild(); shot("04-summary");
     ui.screen = Screen::Options; ui.menuIndex = 0; shot("05-options");
     ui.screen = Screen::Settings; ui.draft = ui.settings; ui.draft.sources[0].url = "http://192.168.1.10:3000/games"; shot("06-settings");
+    ui.screen = Screen::Storage; shot("13-storage-available");
+    ui.storage.external = {}; shot("14-storage-unavailable");
     ui.screen = Screen::Keyboard; ui.keyboardText = ui.draft.sources[0].url; shot("07-url-editor");
     ui.screen = Screen::Details; ui.pending = ui.available[0]; shot("08-details");
     ui.screen = Screen::About; shot("09-about");

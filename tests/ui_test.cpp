@@ -72,6 +72,20 @@ int main() {
     ui.settingsIndex = 10; ui.handle(Button::Cross);
     assert(ui.take(command) && command.type == CommandType::Save);
 
+    ui.settingsIndex = 11; ui.handle(Button::Cross);
+    assert(ui.screen == Screen::Storage);
+    assert(ui.take(command) && command.type == CommandType::Storage);
+    // Inspecting storage must not apply/discard unsaved configuration or queue an install.
+    auto draft = serializeSettings(ui.draft);
+    ui.storage = {{true, 500000000000ULL}, {true, 1000000000000ULL}};
+    ui.storageChecked = true;
+    ui.handle(Button::Cross); ui.handle(Button::Right);
+    assert(!ui.take(command) && serializeSettings(ui.draft) == draft);
+    ui.storage.external = {}; ui.handle(Button::Triangle);
+    assert(ui.take(command) && command.type == CommandType::Storage);
+    ui.handle(Button::Circle);
+    assert(ui.screen == Screen::Settings && serializeSettings(ui.draft) == draft);
+
     ui = fixture(); ui.screen = Screen::Options; ui.menuIndex = 7; ui.handle(Button::Cross);
     assert(ui.screen == Screen::About); ui.handle(Button::Circle); assert(ui.screen == Screen::Options);
     ui.menuIndex = 8; ui.handle(Button::Cross); assert(ui.screen == Screen::ConfirmExit);

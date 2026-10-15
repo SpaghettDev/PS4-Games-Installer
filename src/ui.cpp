@@ -111,7 +111,7 @@ std::vector<std::string> Ui::settingRows() const {
         draft.notInstalledOnly ? "Available: Not installed" : "Available: All packages",
         draft.animations ? "Background animation: On" : "Background animation: Off",
         draft.refreshOnStart ? "Refresh on startup: On" : "Refresh on startup: Off",
-        "Test connection", "Clear artwork cache", "Save settings"};
+        "Test connection", "Clear artwork cache", "Save settings", "Install location (PS4 system setting)"};
 }
 std::vector<std::string> Ui::actionRows() const {
     if (library == Library::Installed || pending.installed)
@@ -142,6 +142,7 @@ void Ui::handle(Button b) {
         if (screen == Screen::Splash || screen == Screen::Dashboard) screen = Screen::ConfirmExit;
         else if (screen == Screen::Settings) screen = sameSettings(settings, draft) ? Screen::Options : Screen::Discard;
         else if (screen == Screen::Sources) screen = Screen::Settings;
+        else if (screen == Screen::Storage) screen = Screen::Settings;
         else if (screen == Screen::Details) screen = detailReturn;
         else if (screen == Screen::About) screen = Screen::Options;
         else screen = Screen::Dashboard;
@@ -149,6 +150,10 @@ void Ui::handle(Button b) {
     }
     if (screen == Screen::Splash) return;
     if (screen == Screen::About) return;
+    if (screen == Screen::Storage) {
+        if (b == Button::Triangle) emit(CommandType::Storage);
+        return;
+    }
     if (screen == Screen::Details) {
         if (b == Button::Up && detailScroll) --detailScroll;
         if (b == Button::Down && detailScroll + 12 < details().size()) ++detailScroll;
@@ -188,6 +193,7 @@ void Ui::handle(Button b) {
             case 8: emit(CommandType::Test); break;
             case 9: emit(CommandType::ClearArtwork); break;
             case 10: emit(CommandType::Save); break;
+            case 11: screen = Screen::Storage; emit(CommandType::Storage); break;
         }
         return;
     }

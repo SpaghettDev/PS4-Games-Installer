@@ -1,12 +1,13 @@
 #pragma once
 #include "library.hpp"
+#include "storage.hpp"
 #include <deque>
 #include <optional>
 
 namespace psgi {
 enum class Button { Up, Down, Left, Right, Cross, Circle, Square, Triangle, Options, L1, R1 };
-enum class Screen { Splash, Dashboard, Options, Settings, Sources, Details, Actions, About, ConfirmExit, ConfirmInstall, Discard, Keyboard };
-enum class CommandType { Refresh, Save, Test, ClearArtwork, RefreshArtwork, Install, Launch, Keyboard, Quit };
+enum class Screen { Splash, Dashboard, Options, Settings, Sources, Storage, Details, Actions, About, ConfirmExit, ConfirmInstall, Discard, Keyboard };
+enum class CommandType { Refresh, Save, Test, Storage, ClearArtwork, RefreshArtwork, Install, Launch, Keyboard, Quit };
 struct Command { CommandType type; Entry entry; size_t source = 0; std::string text; };
 struct TileRow { std::string group; std::vector<size_t> items; };
 enum class EditKind { SourceUrl, SourceCategory, Search };
@@ -29,6 +30,8 @@ public:
     size_t selected[2] = {0, 0}, menuIndex = 0, settingsIndex = 0, sourceIndex = 0, detailScroll = 0;
     bool sidebar = false, loading = true;
     uint64_t freeBytes = 0;
+    InstallStorage storage;
+    bool storageChecked = false;
     std::string status = "Loading your library...", query, keyboardText;
     EditKind editKind = EditKind::SourceUrl;
     size_t editSource = 0;

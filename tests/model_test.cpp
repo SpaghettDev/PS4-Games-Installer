@@ -2,6 +2,7 @@
 #include "library.hpp"
 #include "sfo.hpp"
 #include "installed.hpp"
+#include "storage.hpp"
 #include <cassert>
 #include <cstdio>
 #include <fstream>
@@ -45,6 +46,12 @@ int main() {
     char directory[] = "/tmp/psgi-model-XXXXXX";
     assert(mkdtemp(directory));
     std::string root(directory);
+    // A stale mount directory on the parent filesystem is not a connected drive.
+    assert(!mountedStorage(root, "/tmp").available);
+    assert(!mountedStorage(root + "/missing", root).available);
+    assert(!mountedStorage("/dev/null", "/dev").available);
+    auto mounted = mountedStorage("/dev/shm", "/dev");
+    assert(mounted.available && mounted.freeBytes > 0);
     atomicWrite(root + "/legacy.json", R"({"content_urls":{"games":"http://nas/catalog"}})");
     auto migrated = loadSettings(root + "/data", root + "/legacy.json");
     assert(migrated.sources[0].url == "http://nas/catalog");

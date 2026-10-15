@@ -1,5 +1,15 @@
 # Changelog
 
+## r6 — 2026-10-15
+
+- Added a Settings installation-storage panel with internal/PS4 Extended Storage
+  availability, free space and manual refresh after USB connection changes.
+- Added guidance for the PS4's Application Install Location setting. In-app
+  destination selection is still pending verification of the native control API;
+  the panel does not change the installation destination.
+- Added storage mount checks, controller coverage and connected/disconnected USB
+  desktop captures.
+
 ## r4 — 2026-10-15
 
 - Added `make deploy` to build, verify and upload the current package to the FTP

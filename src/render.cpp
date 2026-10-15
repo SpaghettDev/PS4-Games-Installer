@@ -171,7 +171,7 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
             c.text("X Select     O Back", 570, 862, 23, Accent); break;
         case Screen::Settings: {
             panel(c, 352, 115, 1216, 840, "Settings");
-            menu(c, ui.settingRows(), ui.settingsIndex, 390, 251, 1140, 52);
+            menu(c, ui.settingRows(), ui.settingsIndex, 390, 251, 1140, 48);
             std::string url = ui.draft.sources[0].url;
             c.text(url.empty() ? "Games URL is not configured" : url, 412, 844, 21, Muted, 1090);
             c.text("X Change / Select     Left / Right Change     O Cancel", 412, 913, 23, Accent); break;
@@ -186,6 +186,23 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
                 if (i < ui.draft.sources.size()) c.text(ui.draft.sources[i].url.empty() ? "Disabled" : ui.draft.sources[i].url, 414, y + 22, 18, Muted, 1090);
             }
             c.text("X Edit / Add     Triangle Remove     O Back", 412, 898, 23, Accent); break;
+        }
+        case Screen::Storage: {
+            panel(c, 320, 170, 1280, 740, "Installation storage");
+            c.text("Installation location: PS4 system setting", 370, 320, 30, White, 1180);
+            auto space = [&](const char* name, const StorageSpace& drive, int y) {
+                c.text(name, 370, y, 29, White, 1180);
+                c.text(!ui.storageChecked ? "Checking..." : drive.available ?
+                       (drive.freeBytes ? shortSize(drive.freeBytes) : "0 B") + " free" : "Unavailable",
+                       1030, y, 26, drive.available ? Accent : Muted, 510);
+            };
+            space("Internal storage", ui.storage.internal, 405);
+            space("External USB (PS4 Extended Storage)", ui.storage.external, 466);
+            c.text("Choose the destination from the PS4 home screen:", 370, 561, 27, White, 1180);
+            c.text("Settings > Storage > Options > Application Install Location", 370, 610, 25, Accent, 1180);
+            c.text("USB installation requires a drive configured as PS4 Extended Storage.", 370, 671, 24, Muted, 1180);
+            c.text("This app currently follows that system choice for new installations.", 370, 716, 24, Muted, 1180);
+            c.text("Triangle Check storage     O Back", 370, 863, 23, Accent, 1180); break;
         }
         case Screen::Details: {
             panel(c, 230, 120, 1460, 828, "Game details");

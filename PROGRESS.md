@@ -70,3 +70,34 @@
   existing private target inside Docker without opening a network connection.
 - The configured live target has not been contacted; FTP tests use a local socket
   server, including an invocation of the actual Makefile's deploy target.
+
+## Installation storage request (partial implementation)
+
+- Inspected OpenOrbis BGFT/AppInstUtil headers, flatz's published BGFT ABI, current
+  homebrew installer sources and ps4libdoc's exported storage symbols. These do not
+  establish a verified per-download Internal/External selection mechanism or the
+  signature/semantics of a system installation-location setter. No guessed flag,
+  application-slot-to-drive mapping, or registry write was added.
+- Added a Settings storage information panel showing mounted, writable internal
+  storage and PS4 Extended Storage with free space. Stale mount directories on the
+  parent filesystem do not count as connected drives. Triangle refreshes the check.
+- The panel preserves draft settings when returning with Circle and directs users
+  to the PS4's Application Install Location setting for the actual selection.
+- The requested in-app destination chooser remains incomplete and is tracked in
+  TODO.md. Existing install behavior is retained; the UI does not claim to override
+  the destination. No console connection or live deployment has been performed.
+- Host tests passed, including stale/missing mount paths, a separate writable
+  filesystem, storage refresh commands and preserving draft settings on Circle.
+  All ten Python deployment/packaging tests also passed.
+- Built and validated `dist/PS4Game_installer-r6.pkg` with all package hash/signature
+  checks passing. r6 supersedes the intermediate r5 storage-panel build after the
+  free-space display was corrected for a full drive.
+- Generated fourteen desktop captures and visually inspected Settings plus both
+  connected/disconnected USB states. Selected storage captures are in docs/images.
+
+Research references:
+
+- https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/blob/v0.5.4/include/orbis/Bgft.h
+- https://github.com/flatz/ps4_stub_lib_maker_v2/blob/master/include/bgft.h
+- https://github.com/idc/ps4libdoc/tree/9.00
+- https://www.playstation.com/en-ca/support/hardware/ps4-external-hdd-support/

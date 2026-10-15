@@ -11,13 +11,14 @@
 
 namespace psgi {
 namespace {
-enum class ResultKind { Local, Remote, Test, Install, Poll };
+enum class ResultKind { Local, Remote, Test, Storage, Install, Poll };
 struct Result {
     ResultKind kind = ResultKind::Test;
     std::optional<std::vector<Entry>> local, remote;
     Entry entry;
     int task = -1;
     uint64_t freeBytes = 0;
+    std::optional<InstallStorage> storage;
     std::string message;
     std::map<std::string, TaskProgress> progress;
 };
@@ -69,6 +70,8 @@ App::App(const std::string& data, bool preview)
         }
         ui.setLibraries(local, entries);
         ui.freeBytes = 423000000000ULL;
+        ui.storage = {{true, ui.freeBytes}, {true, 1200000000000ULL}};
+        ui.storageChecked = true;
         ui.status = "Desktop preview — sample library; PS4 operations are disabled";
         ui.loading = false; bootReady = true; initialScan = false;
         return;
@@ -110,6 +113,7 @@ void App::refresh(bool remote) {
         result.kind = remote ? ResultKind::Remote : ResultKind::Local;
         if (!remote) {
             result.local = scanInstalled(); result.freeBytes = freeSpace("/user");
+            result.storage = scanInstallStorage();
             result.message = std::to_string(result.local->size()) + " installed games found";
             return result;
         }
@@ -139,6 +143,7 @@ void App::tick(double elapsed, Video& video) {
         ui.status = result->message;
         if (initialScan) { initialScan = false; bootReady = true; }
         if (result->local) { lastLocalScan = elapsed; ui.freeBytes = result->freeBytes; }
+        if (result->storage) { ui.storage = *result->storage; ui.storageChecked = true; }
         if (result->local || result->remote) ui.setLibraries(std::move(result->local), std::move(result->remote));
         if (result->kind == ResultKind::Install && result->task >= 0) {
             tasks[result->entry.url] = result->task; ui.queued.insert(result->entry.url);
@@ -187,6 +192,14 @@ void App::tick(double elapsed, Video& video) {
                     break;
                 }
                 case CommandType::Refresh: startRemote = true; refresh(false); break;
+                case CommandType::Storage:
+                    if (demo) { ui.status = "Desktop preview — sample storage capacities"; break; }
+                    if (!worker->start([] {
+                        Result r; r.kind = ResultKind::Storage; r.storage = scanInstallStorage();
+                        r.message = "Storage checked. Installation follows the PS4 system setting.";
+                        return r;
+                    })) throw std::runtime_error("Wait for the current operation, then press Triangle to check storage");
+                    ui.status = "Checking installation storage..."; ui.loading = true; break;
                 case CommandType::Test: {
                     Settings next = ui.draft;
                     if (!worker->start([this, next] {

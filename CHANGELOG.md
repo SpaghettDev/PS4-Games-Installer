@@ -1,5 +1,14 @@
 # Changelog
 
+## r14 — 2026-10-16
+
+- Fixed the reported `Load game launcher: 0x80020002` failure by resolving LncUtil
+  exports from `libSceSystemService.sprx`, their actual containing module.
+- Check launcher initialization errors, accept its already-initialized result,
+  reject a missing foreground user and retain retry after a failed module load.
+- Added native-adapter tests for the module lookup, launch parameters, positive
+  app IDs, failed calls and retry. A successful PS4 launch still needs retesting.
+
 ## r13 — 2026-10-16
 
 - Standardized console storage on `/data/PS4-Game-Installer` for settings, catalog,

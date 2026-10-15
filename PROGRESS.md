@@ -23,11 +23,13 @@
 - Added animated bubble background, cover loading/caching, and an original app icon.
 - Desktop preview generated 12 screenshots; tiles, summary and settings were visually inspected.
 - Controller flow tests pass. PS4 executable and initial package r2 compile and validate.
-- Review found a launch-library stub mismatch; the adapter now resolves the real LncUtil module.
+- Review changed the launch adapter to dynamic lookup; r14 below corrects the
+  containing module after the console exposed a missing-file error.
 
 ## Console integration and reliability review
 
-- Completed dynamic loading for LncUtil and AppInstUtil after homebrew privilege setup.
+- Added dynamic lookup for launch and installed-title services after homebrew
+  privilege setup; the launch module path is corrected in r14 below.
 - Added UTF-8/UTF-16 keyboard conversion, readable startup failures and task ledger polling.
 - Hardened artwork invalidation, settings schema validation and large-library grid caching.
 - Package r3 built in Docker and passed all LibOrbisPkg hash/signature checks.
@@ -286,3 +288,34 @@ Native HTTP ABI references:
 - Generated fourteen desktop captures and inspected the updated About screen.
   No package was deployed or live console data moved; startup relocation still
   needs a hardware retest.
+
+## Reported game-launch service failure — 2026-10-16
+
+- User reports `Load game launcher: 0x80020002` when selecting an installed game.
+  That diagnostic is emitted before resolving or calling the launch function.
+  The adapter used an export-library name as a separate system SPRX filename.
+- Verified the module/library mapping against the SystemService export table:
+  LncUtil functions belong to `libSceSystemService.sprx`. Updated the lookup to
+  that module and kept successful handles cached while allowing failed loads
+  to retry. No firmware offsets, replacement system files or new stubs are used.
+- Initialization errors are checked, including the documented already-initialized
+  result. Missing symbols and a missing foreground user now stop before launch
+  with readable errors. Launch parameters and positive app-ID success handling
+  remain unchanged.
+- Added a test of the real native adapter using pinned SDK declarations and fake
+  services: only the actual module exists in the fixture. It covers invalid IDs,
+  failed load/retry, missing symbols, initialization/user errors, launch failures,
+  repeated launches and zero/positive success results.
+- `make test` passed all host suites, including the new native launcher test,
+  artwork/font ASan/UBSan and fourteen Python integrations.
+- Built `dist/PS4Game_installer-r14.pkg`; `make validate` passed all package hashes
+  and signatures. Inspected the native object/ELF: the adapter uses SystemService
+  and the obsolete standalone-module path is absent. The source identity audit
+  still passes. No UI behavior changed in this revision.
+- No live deployment or game launch has been performed; PS4 11.00 + GoldHEN
+  retesting remains unchecked.
+
+Launcher references:
+
+- https://github.com/shadps4-emu/shadPS4/blob/main/src/core/libraries/system/systemservice.cpp
+- https://github.com/LightningMods/Itemzflow/blob/main/itemzflow/include/defines.h

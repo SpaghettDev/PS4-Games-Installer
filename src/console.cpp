@@ -59,15 +59,24 @@ std::vector<Entry> scanInstalled() {
 }
 void launchTitle(const std::string& id) {
     if (!validTitleId(id) || id == "PGIN00001") throw std::runtime_error("This title cannot be launched");
-    static int module = sceKernelLoadStartModule("/system/common/lib/libSceLncUtil.sprx", 0, nullptr, 0, nullptr, nullptr);
-    require(module, "Load game launcher");
+    // LncUtil is an export library inside SystemService, not a separate SPRX.
+    // A failed load must remain retryable rather than caching its error forever.
+    static const int module = [] {
+        int handle = sceKernelLoadStartModule("/system/common/lib/libSceSystemService.sprx", 0, nullptr, 0, nullptr, nullptr);
+        require(handle, "Load game launcher service");
+        return handle;
+    }();
     using Init = int (*)();
     Init init = nullptr;
     require(sceKernelDlsym(module, "sceLncUtilInitialize", reinterpret_cast<void**>(&init)), "Resolve game launcher");
+    if (!init) throw std::runtime_error("Game launcher initialization function is unavailable");
     // The service can already be initialized when returning from another game.
-    init();
+    const int initialized = init();
+    if (static_cast<uint32_t>(initialized) != 0x80940018u) // Already initialized.
+        require(initialized, "Initialize game launcher");
     int user = -1;
     require(sceUserServiceGetForegroundUser(&user), "Get foreground user");
+    if (user < 0) throw std::runtime_error("Sign in to a PS4 user before launching a game");
     LncAppParam param{};
     param.size = sizeof(param);
     param.user_id = user;
@@ -75,6 +84,7 @@ void launchTitle(const std::string& id) {
     using Launch = int (*)(const char*, const char*[], LncAppParam*);
     Launch launch = nullptr;
     require(sceKernelDlsym(module, "sceLncUtilLaunchApp", reinterpret_cast<void**>(&launch)), "Resolve title launch");
+    if (!launch) throw std::runtime_error("Game launcher function is unavailable");
     int result = launch(id.c_str(), nullptr, &param);
     if (result < 0) {
         char message[180];

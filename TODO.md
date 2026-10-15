@@ -17,6 +17,7 @@
 - [x] Visible config-save confirmation/errors, draft snapshots and restart persistence tests.
 - [x] Bind native HTTP policies to the same imported service initialized for downloads.
 - [x] Canonical `/data/PS4-Game-Installer` storage and removal of inherited branding/imports.
+- [x] Resolve native game-launch functions from SystemService and test errors/retry.
 - [ ] In-app Internal / External USB destination selection: verify a native setter
   or per-task destination API first. Current installations follow the PS4 system
   Application Install Location setting; a BGFT application slot is not assumed to
@@ -49,6 +50,8 @@
 - [ ] Companion server `/games` loads real metadata and covers on the console.
 - [ ] Internal and connected external titles appear with correct local metadata/sizes.
 - [ ] X launches a registered game; service errors remain readable.
+- [ ] Retest r14: X on an installed game reaches the launch service without
+  `Load game launcher: 0x80020002`, starts the game and permits returning to the app.
 - [ ] A package installs through BGFT and its task survives closing the application.
 - [ ] Storage panel detects a PS4 Extended Storage drive and updates after disconnect.
 - [ ] Install to each PS4 system destination and verify the resulting game location.

@@ -152,6 +152,9 @@ progress while running. A completed transfer may still be installing.
 Existing-title conflicts are reported without automatically uninstalling a game.
 This version does not offer uninstall, forced replacement, or download-to-USB modes.
 An installed title may require its external drive or original disc to launch.
+If an earlier revision reports `Load game launcher: 0x80020002`, install r14 or
+later. The launcher adapter now resolves the service from its correct system
+module; launching still needs a console retest.
 
 A failed refresh keeps the last valid library. Installed discovery is independent
 of the network; cached remote metadata and covers remain available offline. Limits:

@@ -1,6 +1,7 @@
 #include "storage.hpp"
 #include <sys/stat.h>
 #include <sys/statvfs.h>
+#include <stdexcept>
 
 namespace psgi {
 StorageSpace mountedStorage(const std::string& path, const std::string& parent) {
@@ -12,6 +13,15 @@ StorageSpace mountedStorage(const std::string& path, const std::string& parent) 
     return {true, uint64_t(space.f_bavail) * space.f_frsize};
 }
 InstallStorage scanInstallStorage() {
-    return {mountedStorage("/user", "/"), mountedStorage("/mnt/ext0", "/mnt")};
+    InstallStorage result;
+    result.internal = mountedStorage("/user", "/");
+    result.external = mountedStorage("/mnt/ext0", "/mnt");
+    try { result.destination = readInstallDestination(); }
+    catch (const std::exception& e) { result.error = e.what(); }
+    return result;
 }
+#ifdef PSGI_HOST
+InstallDestination readInstallDestination() { return InstallDestination::Unknown; }
+void setInstallDestination(InstallDestination) { throw std::runtime_error("Storage selection requires a PS4"); }
+#endif
 }

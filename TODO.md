@@ -17,13 +17,16 @@
 - [x] Visible config-save confirmation/errors, draft snapshots and restart persistence tests.
 - [x] Bind native HTTP policies to the same imported service initialized for downloads.
 - [x] Canonical `/data/PS4-Game-Installer` storage and removal of inherited branding/imports.
-- [x] Resolve native game-launch functions from SystemService and test errors/retry.
+- [x] Import the packed LncUtil launcher library from SystemService; validate the generated import table.
 - [x] Resolve the entire HTTP client through one handle, including init and cleanup.
 - [x] Left-stick/D-pad navigation with deadzone, repeat, dialog suppression and SDL hotplug tests.
-- [ ] In-app Internal / External USB destination selection: verify a native setter
-  or per-task destination API first. Current installations follow the PS4 system
-  Application Install Location setting; a BGFT application slot is not assumed to
-  identify a physical drive.
+- [x] Include patched (`gp`) game metadata in Installed discovery.
+- [x] Add Internal / External USB selection using the PS4 Application Install
+  Location preference, with connected-drive and registry readback checks.
+- [x] Probe PKG URLs and stream a direct-download fallback for servers without
+  range support; retain staging until BGFT releases the package.
+- [x] Clean up failed/completed owned BGFT tasks before retrying; preserve active tasks.
+- [x] Remote artwork downloads work (user report for r16, 2026-10-16).
 - [x] Application confirmed working on real PS4 11.00 + GoldHEN (user report, 2026-10-16).
 - [ ] Complete the individual console acceptance checks below.
 
@@ -42,8 +45,8 @@
   preserved, and About displays only the current application's identity.
 - [ ] Verify the saved source/settings survive app restart and library refresh,
   and the config-file confirmation is displayed.
-- [ ] Retest r15: a valid `/games` source loads and refreshes without the reported
-  HTTP pre-init error; repeat refresh and artwork loading, plus connection testing.
+- [x] r16 FTP log shows 44 packages loaded/refreshed and a successful connection
+  test; user confirms remote artwork downloads work (2026-10-16).
 - [ ] Retest r10: Installed tiles, summary backgrounds and details show local icons
   for internal/external titles, including offline startup without a server.
 - [ ] Retest r9: loading ends without a forced splash delay.
@@ -55,14 +58,21 @@
   and details; verify drift filtering, repeat and returning from the PS4 keyboard.
 - [ ] Circle closes each window and Circle twice exits; Options opens its menu.
 - [ ] O cancels PS4 keyboard URL edits without changing the saved source.
-- [ ] Companion server `/games` loads real metadata and covers on the console.
+- [x] Companion source loads real metadata (44 packages in r16 log) and remote
+  artwork (user confirmation, 2026-10-16).
 - [ ] Internal and connected external titles appear with correct local metadata/sizes.
 - [ ] X launches a registered game; service errors remain readable.
-- [ ] Retest r14: X on an installed game reaches the launch service without
-  `Load game launcher: 0x80020002`, starts the game and permits returning to the app.
+- [ ] Retest r17: X launches a game without `Resolve game launcher: 0x80020003`,
+  starts the game and permits returning to the app.
+- [ ] Retest r17: Installed includes patched GTA V, Minecraft, DOOM and DIRT 5;
+  host replay of the actual SFO files recovered 17 game/homebrew candidates.
 - [ ] A package installs through BGFT and its task survives closing the application.
 - [ ] Storage panel detects a PS4 Extended Storage drive and updates after disconnect.
 - [ ] Install to each PS4 system destination and verify the resulting game location.
+- [ ] Retest r17: X in Installation destination changes the selected PS4 default;
+  disconnect Extended Storage and verify the unavailable drive cannot be selected.
+- [ ] Retest r17: clear failed r16 downloads once, then install through the direct
+  fallback, observe progress, retry an error, and verify staging cleanup.
 - [ ] Returning/restarting refreshes installed state and reconciles tracked tasks.
 - [ ] Offline startup retains Installed and the cached remote library.
 - [ ] Missing/corrupt artwork, unavailable storage and connection failures recover.

@@ -28,10 +28,10 @@ CONTENT_ID := IV0000-$(TITLE_ID)_00-PS4GAMEINSTALLER
 CROSSFLAGS := --target=x86_64-pc-freebsd12-elf -fPIC -funwind-tables -D_POSIX_C_SOURCE=200809L \
     -isysroot $(SDK) -isystem $(SDK)/include -Isrc -Ithird_party/cjson -Ithird_party/stb -Ibuild/generated -O2 -g -Wall -Wextra -MMD -MP
 COMMON := catalog settings library sfo installed storage ui
-UI_SOURCES := controller canvas artwork render app demo video main
-CONSOLE := $(UI_SOURCES) http install console lifecycle
+UI_SOURCES := controller canvas artwork render app download demo video main
+CONSOLE := $(UI_SOURCES) http install console lifecycle storage_native
 PS4_OBJECTS := $(addprefix build/ps4/,$(addsuffix .o,$(COMMON) $(CONSOLE))) build/ps4/cJSON.o
-LIBS := -ljbc -lc++ -lSceVideoOut -lSceSysmodule -lSceSystemService -lSceFreeType -lScePad -lSceUserService -lSceNet -lSceNetCtl -lSceSsl -lSceCommonDialog -lSceImeDialog -lc -lkernel
+LIBS := -ljbc -lc++ -lSceVideoOut -lSceSysmodule -lSceLncUtil -lSceSystemService -lSceFreeType -lScePad -lSceUserService -lSceNet -lSceNetCtl -lSceSsl -lSceCommonDialog -lSceImeDialog -lc -lkernel
 HOSTFLAGS := -std=c++17 -DPSGI_HOST -Isrc -Ithird_party/cjson -Ithird_party/stb -Ibuild/generated -Wall -Wextra -Werror -O1 -g -pthread
 HEADERS := $(wildcard src/*.hpp) third_party/cjson/cJSON.h third_party/stb/stb_image.h
 
@@ -54,12 +54,13 @@ build/ps4/cJSON.o: third_party/cjson/cJSON.c
 	@mkdir -p $(@D)
 	clang $(CROSSFLAGS) -c $< -o $@
 
-build/app.elf: $(PS4_OBJECTS)
+build/app.elf: $(PS4_OBJECTS) Makefile
 	ld.lld -m elf_x86_64 -pie --script $(SDK)/link.x --eh-frame-hdr -L$(SDK)/lib -o $@ $(SDK)/lib/crt1.o $(PS4_OBJECTS) $(LIBS)
 
-build/pkg/eboot.bin: build/app.elf
+build/pkg/eboot.bin: build/app.elf scripts/validate_imports.py
 	@mkdir -p $(@D)
 	$(TOOLS)/create-fself -in=$< -out=build/app.oelf --eboot $@ --paid 0x3800000000000011
+	python3 scripts/validate_imports.py build/app.oelf
 
 package-internal: build/pkg/eboot.bin assets
 	python3 scripts/metadata.py "$(SDK)" "$(REVISION)" "$(CONTENT_ID)" "$(TITLE_ID)"
@@ -95,7 +96,7 @@ build/host/ui-test: tests/ui_test.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON
 	g++ $(HOSTFLAGS) $(filter %.cpp %.o,$^) -o $@
 build/host/artwork-test: tests/artwork_test.cpp tests/sfo_fixture.hpp src/artwork.cpp src/canvas.cpp src/catalog.cpp src/http.cpp src/settings.cpp src/installed.cpp src/sfo.cpp build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) -Wno-unused-function -fsanitize=address,undefined -fno-omit-frame-pointer $$(pkg-config --cflags freetype2) $(filter %.cpp %.o,$^) -lcurl $$(pkg-config --libs freetype2) -o $@
-build/host/startup-test: tests/startup_fixtures.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON) canvas artwork render app demo main http)) build/host/cJSON.o build/generated/revision.hpp $(HEADERS)
+build/host/startup-test: tests/startup_fixtures.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON) canvas artwork render app download demo main http)) build/host/cJSON.o build/generated/revision.hpp $(HEADERS)
 	g++ $(HOSTFLAGS) -Wno-unused-function $$(pkg-config --cflags freetype2) $(filter %.cpp %.o,$^) -lcurl $$(pkg-config --libs freetype2) -o $@
 build/host/lifecycle-test: tests/lifecycle_test.cpp src/lifecycle.cpp $(HEADERS)
 	g++ $(HOSTFLAGS) -I/opt/libjbc -idirafter $(SDK)/include $(filter %.cpp,$^) -o $@
@@ -103,17 +104,25 @@ build/host/http-native-test: tests/http_native_test.cpp src/http.cpp src/catalog
 	g++ $(HOSTFLAGS) -UPSGI_HOST -idirafter $(SDK)/include $(filter %.cpp %.o,$^) -o $@
 build/host/launch-native-test: tests/launch_native_test.cpp src/console.cpp src/installed.cpp src/sfo.cpp src/catalog.cpp build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) -idirafter $(SDK)/include $(filter %.cpp %.o,$^) -o $@
-build/host/app-test: tests/app_test.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON) app artwork)) build/host/cJSON.o $(HEADERS)
+build/host/storage-native-test: tests/storage_native_test.cpp src/storage_native.cpp $(HEADERS)
+	g++ $(HOSTFLAGS) -idirafter $(SDK)/include $(filter %.cpp,$^) -o $@
+build/host/install-native-test: tests/install_native_test.cpp src/install.cpp src/catalog.cpp build/host/cJSON.o $(HEADERS)
+	g++ $(HOSTFLAGS) -idirafter $(SDK)/include $(filter %.cpp %.o,$^) -o $@
+build/host/download-runner: tests/download_runner.cpp src/download.cpp src/http.cpp src/catalog.cpp build/host/cJSON.o $(HEADERS)
+	g++ $(HOSTFLAGS) $(filter %.cpp %.o,$^) -lcurl -o $@
+build/host/app-test: tests/app_test.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON) app artwork download)) build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) -Wno-unused-function $$(pkg-config --cflags freetype2) $(filter %.cpp %.o,$^) -o $@
 build/host/controller-test: tests/controller_test.cpp src/controller.cpp src/video.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON))) build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) -idirafter $(SDK)/include $$(pkg-config --cflags freetype2 sdl2) $(filter %.cpp %.o,$^) $$(pkg-config --libs sdl2) -o $@
-test: assets build/host/catalog-test build/host/catalog-check build/host/model-test build/host/ui-test build/host/artwork-test build/host/startup-test build/host/lifecycle-test build/host/http-native-test build/host/launch-native-test build/host/app-test build/host/controller-test
+test: assets build/host/catalog-test build/host/catalog-check build/host/model-test build/host/ui-test build/host/artwork-test build/host/startup-test build/host/lifecycle-test build/host/http-native-test build/host/launch-native-test build/host/storage-native-test build/host/install-native-test build/host/download-runner build/host/app-test build/host/controller-test
 	./build/host/catalog-test
 	./build/host/model-test
 	./build/host/ui-test
 	./build/host/artwork-test
 	./build/host/http-native-test
 	./build/host/launch-native-test
+	./build/host/storage-native-test
+	./build/host/install-native-test
 	./build/host/app-test
 	./build/host/controller-test
 	python3 tests/http_test.py ./build/host/catalog-check
@@ -123,6 +132,7 @@ check: build/host/catalog-check
 	./build/host/catalog-check "$(CONFIG)"
 validate:
 	python3 scripts/package.py --validate
+	python3 scripts/validate_imports.py build/app.oelf
 clean:
 	rm -rf build dist
 -include $(wildcard build/ps4/*.d)

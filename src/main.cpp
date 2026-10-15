@@ -42,6 +42,7 @@ void capture(App& app, Renderer& renderer, Canvas& canvas) {
     ui.storage.external = {}; shot("14-storage-unavailable");
     ui.screen = Screen::Keyboard; ui.keyboardText = ui.draft.sources[0].url; shot("07-url-editor");
     ui.screen = Screen::Details; ui.pending = ui.available[0]; shot("08-details");
+    ui.screen = Screen::ConfirmInstall; shot("15-install-confirmation");
     ui.screen = Screen::About; shot("09-about");
     ui.screen = Screen::ConfirmExit; shot("10-exit");
     ui.screen = Screen::Dashboard; ui.available.clear(); ui.rebuild(); shot("11-empty");

@@ -237,20 +237,21 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
         }
         case Screen::Storage: {
             panel(c, 320, 170, 1280, 740, "Installation storage");
-            c.text("Installation location: PS4 system setting", 370, 320, 30, White, 1180);
-            auto space = [&](const char* name, const StorageSpace& drive, int y) {
-                c.text(name, 370, y, 29, White, 1180);
+            c.text("Choose where new games will be installed", 370, 320, 30, White, 1180);
+            auto space = [&](const char* name, const StorageSpace& drive, int y, size_t index) {
+                if (ui.storageIndex == index) c.rounded(352, y - 36, 1210, 67, 9, Blue, 190);
+                const bool active = ui.storage.destination == (index ? InstallDestination::External : InstallDestination::Internal);
+                c.text(std::string(active ? "[Selected]  " : "") + name, 370, y, 27, White, 650);
                 c.text(!ui.storageChecked ? "Checking..." : drive.available ?
                        (drive.freeBytes ? shortSize(drive.freeBytes) : "0 B") + " free" : "Unavailable",
                        1030, y, 26, drive.available ? Accent : Muted, 510);
             };
-            space("Internal storage", ui.storage.internal, 405);
-            space("External USB (PS4 Extended Storage)", ui.storage.external, 466);
-            c.text("Choose the destination from the PS4 home screen:", 370, 561, 27, White, 1180);
-            c.text("Settings > Storage > Options > Application Install Location", 370, 610, 25, Accent, 1180);
-            c.text("USB installation requires a drive configured as PS4 Extended Storage.", 370, 671, 24, Muted, 1180);
-            c.text("This app currently follows that system choice for new installations.", 370, 716, 24, Muted, 1180);
-            hints(c, 370, 863, {{Button::Triangle, "Check storage"}, {Button::Circle, "Back"}}); break;
+            space("Internal storage", ui.storage.internal, 425, 0);
+            space("External USB (Extended Storage)", ui.storage.external, 510, 1);
+            c.text("Press X to apply. This also changes the PS4's default install location.", 370, 610, 25, Accent, 1180);
+            c.text("A USB drive must already be configured as PS4 Extended Storage.", 370, 671, 24, Muted, 1180);
+            c.text(ui.storage.error.empty() ? "Existing games stay on their current drive." : ui.storage.error, 370, 729, 24, Muted, 1180);
+            hints(c, 370, 863, {{Button::Cross, "Select destination"}, {Button::Triangle, "Check storage"}, {Button::Circle, "Back"}}); break;
         }
         case Screen::Details: {
             panel(c, 230, 120, 1460, 828, "Game details");
@@ -271,12 +272,14 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
             panel(c, 360, 266, 1200, 548, "Install package?");
             c.text(ui.pending.name, 410, 413, 33, White, 1100);
             c.text(shortSize(ui.pending.size) + "  " + ui.pending.titleId, 410, 467, 26, Accent, 1100);
-            c.text("Download and install through the PS4 background installer.", 410, 545, 26, Muted, 1100);
-            c.text(ui.pending.installed ? "An existing title will not be automatically uninstalled." : "Manage the task in PS4 Notifications > Downloads.", 410, 591, 24, Muted, 1100);
+            c.text("Uses background installation or a direct-download fallback.", 410, 545, 26, Muted, 1100);
+            c.text("Keep this app open while a direct-download percentage is shown.", 410, 591, 24, Muted, 1100);
+            c.text(ui.pending.installed ? "An existing title will not be automatically uninstalled." : "Submitted tasks appear in PS4 Notifications > Downloads.", 410, 637, 24, Muted, 1100);
             hints(c, 410, 753, {{Button::Cross, "Confirm install"}, {Button::Circle, "Cancel"}}, 26); break;
         case Screen::ConfirmExit:
             panel(c, 495, 334, 930, 380, "Exit PS4 Games Installer?");
-            c.text("Background installation tasks will continue on the PS4.", 545, 502, 26, Muted, 830);
+            c.text("Submitted PS4 installation tasks will continue.", 545, 502, 25, Muted, 830);
+            c.text("An unfinished direct download will be cancelled.", 545, 549, 25, Muted, 830);
             hints(c, 545, 652, {{Button::Circle, "Confirm exit"}, {Button::Cross, "Stay"}}, 28); break;
         case Screen::Discard:
             panel(c, 495, 334, 930, 380, "Discard unsaved settings?");

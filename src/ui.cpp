@@ -117,7 +117,7 @@ std::vector<std::string> Ui::settingRows() const {
         draft.notInstalledOnly ? "Available: Not installed" : "Available: All packages",
         draft.animations ? "Background animation: On" : "Background animation: Off",
         draft.refreshOnStart ? "Refresh on startup: On" : "Refresh on startup: Off",
-        "Test connection", "Clear artwork cache", "Save settings", "Install location (PS4 system setting)"};
+        "Test connection", "Clear artwork cache", "Save settings", "Installation destination"};
 }
 std::vector<std::string> Ui::actionRows() const {
     if (library == Library::Installed || pending.installed)
@@ -158,6 +158,17 @@ void Ui::handle(Button b) {
     if (screen == Screen::About) return;
     if (screen == Screen::Storage) {
         if (b == Button::Triangle) emit(CommandType::Storage);
+        if (b == Button::Up) storageIndex = 0;
+        if (b == Button::Down) storageIndex = 1;
+        if (b == Button::Cross) {
+            if (!storageChecked || storage.destination == InstallDestination::Unknown) {
+                status = "Check storage before changing the destination"; return;
+            }
+            if (!(storageIndex ? storage.external : storage.internal).available) {
+                status = storageIndex ? "Connect a PS4 Extended Storage drive first" : "Internal storage is unavailable"; return;
+            }
+            commands.push_back({CommandType::SetStorage, {}, storageIndex, ""});
+        }
         return;
     }
     if (screen == Screen::Details) {
@@ -200,7 +211,7 @@ void Ui::handle(Button b) {
             case 8: emit(CommandType::Test); break;
             case 9: emit(CommandType::ClearArtwork); break;
             case 10: emit(CommandType::Save); break;
-            case 11: screen = Screen::Storage; emit(CommandType::Storage); break;
+            case 11: screen = Screen::Storage; storageIndex = storage.destination == InstallDestination::External ? 1 : 0; emit(CommandType::Storage); break;
         }
         return;
     }

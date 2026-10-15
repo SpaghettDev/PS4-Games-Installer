@@ -1,6 +1,7 @@
 #include "app.hpp"
 #include "video.hpp"
 #include "platform.hpp"
+#include "download.hpp"
 #include "cJSON.h"
 #include <chrono>
 #include <cstdio>
@@ -36,13 +37,14 @@ struct App::Worker {
     std::mutex mutex;
     bool running = false;
     std::optional<Result> result;
+    std::string update;
     std::atomic<bool> cancelled{false};
     ~Worker() { cancelled = true; if (thread.joinable()) thread.join(); }
     bool busy() { std::lock_guard<std::mutex> lock(mutex); return running || result.has_value(); }
     bool start(std::function<Result()> job) {
         if (busy()) return false;
         if (thread.joinable()) thread.join();
-        { std::lock_guard<std::mutex> lock(mutex); running = true; }
+        { std::lock_guard<std::mutex> lock(mutex); running = true; update.clear(); }
         try { thread = std::thread([this, job] {
             Result out;
             try { out = job(); } catch (const std::exception& e) { out.message = e.what(); }
@@ -55,6 +57,8 @@ struct App::Worker {
         std::lock_guard<std::mutex> lock(mutex);
         auto out = std::move(result); result.reset(); return out;
     }
+    void report(const std::string& message) { std::lock_guard<std::mutex> lock(mutex); update = message; }
+    std::string takeUpdate() { std::lock_guard<std::mutex> lock(mutex); std::string message; message.swap(update); return message; }
 };
 
 App::App(const std::string& data, bool preview)
@@ -70,7 +74,8 @@ App::App(const std::string& data, bool preview)
         }
         ui.setLibraries(local, entries);
         ui.freeBytes = 423000000000ULL;
-        ui.storage = {{true, ui.freeBytes}, {true, 1200000000000ULL}};
+        ui.storage.internal = {true, ui.freeBytes}; ui.storage.external = {true, 1200000000000ULL};
+        ui.storage.destination = InstallDestination::Internal;
         ui.storageChecked = true;
         ui.status = "Desktop preview — sample library; PS4 operations are disabled";
         ui.loading = false; bootReady = true; initialScan = false;
@@ -138,6 +143,7 @@ void App::refresh(bool remote) {
     if (started) { ui.loading = true; ui.status = remote ? "Refreshing remote library..." : "Reading installed games..."; }
 }
 void App::tick(double elapsed, Video& video) {
+    if (auto message = worker->takeUpdate(); !message.empty()) { ui.status = message; log(message); }
     if (auto result = worker->take()) {
         ui.loading = false;
         ui.status = result->message;
@@ -154,10 +160,14 @@ void App::tick(double elapsed, Video& video) {
         if (result->kind == ResultKind::Poll) {
             bool changed = false;
             for (const auto& item : result->progress) {
-                if (item.second.error || !item.second.found) {
-                    if (item.second.error) ui.status = "Install error " + errorCode(item.second.error) + "; see PS4 Downloads.";
-                    else ui.status = "Task finished or removed. See PS4 Downloads for its final status.";
-                    tasks.erase(item.first); ui.queued.erase(item.first); changed = true;
+                if (item.second.error || item.second.completed || !item.second.found) {
+                    if (item.second.error) ui.status = "Install error " + errorCode(item.second.error) +
+                        (item.second.retired ? "; failed task removed, installation can be retried." : "; cancel the failed task in PS4 Downloads before retrying.");
+                    else ui.status = item.second.completed ? "PS4 installation complete." : "Task finished or removed. See PS4 Downloads for its final status.";
+                    if (!item.second.found || item.second.retired) {
+                        removeStagedPackage(directory, item.first);
+                        tasks.erase(item.first); ui.queued.erase(item.first); changed = true;
+                    }
                 } else if (item.second.total) {
                     unsigned percent = std::min(100.0, double(item.second.transferred) / item.second.total * 100.0);
                     ui.status = percent >= 100 ? "Transfer complete; the PS4 may still be installing. See Downloads." : "Background package transfer: " + std::to_string(percent) + "%";
@@ -198,13 +208,19 @@ void App::tick(double elapsed, Video& video) {
                 }
                 case CommandType::Refresh: startRemote = true; refresh(false); break;
                 case CommandType::Storage:
+                case CommandType::SetStorage: {
                     if (demo) { ui.status = "Desktop preview — sample storage capacities"; break; }
-                    if (!worker->start([] {
+                    const bool apply = command.type == CommandType::SetStorage;
+                    const auto destination = command.source ? InstallDestination::External : InstallDestination::Internal;
+                    if (!worker->start([apply, destination] {
+                        if (apply) setInstallDestination(destination);
                         Result r; r.kind = ResultKind::Storage; r.storage = scanInstallStorage();
-                        r.message = "Storage checked. Installation follows the PS4 system setting.";
+                        r.message = !r.storage->error.empty() ? r.storage->error : apply ?
+                            std::string("Installation destination: ") + (destination == InstallDestination::External ? "External USB" : "Internal storage") : "Installation storage checked";
                         return r;
                     })) throw std::runtime_error("Wait for the current operation, then press Triangle to check storage");
                     ui.status = "Checking installation storage..."; ui.loading = true; break;
+                }
                 case CommandType::Test: {
                     Settings next = ui.draft;
                     if (!worker->start([this, next] {
@@ -229,10 +245,19 @@ void App::tick(double elapsed, Video& video) {
                     if (tasks.count(command.entry.url)) throw std::runtime_error("This package is already queued");
                     Entry entry = command.entry;
                     int user = video.userId;
-                    if (!worker->start([entry, user] {
-                        Result r; r.kind = ResultKind::Install; r.entry = entry; r.task = queueInstall(entry, user); return r;
+                    if (!worker->start([this, entry, user] {
+                        Result r; r.kind = ResultKind::Install; r.entry = entry;
+                        int lastPercent = -1;
+                        r.task = installPackage(entry, user, directory, &worker->cancelled, [&](uint64_t bytes, uint64_t total) {
+                            const int percent = total ? std::min(100.0, double(bytes) / total * 100.0) : 0;
+                            if (lastPercent != percent) {
+                                worker->report("Server has no range support. Direct download: " + std::to_string(percent) + "% — keep this app open.");
+                                lastPercent = percent;
+                            }
+                        });
+                        return r;
                     })) throw std::runtime_error("Wait for the current operation, then retry installation");
-                    ui.status = "Submitting package to the PS4 background installer..."; ui.loading = true; break;
+                    ui.status = "Checking package URL and server range support..."; ui.loading = true; break;
                 }
             }
         } catch (const std::exception& e) { ui.status = e.what(); log(ui.status); }
@@ -246,7 +271,8 @@ void App::tick(double elapsed, Video& video) {
                 bool completed = false;
                 for (const auto& item : tracked) {
                     auto progress = taskProgress(item.second);
-                    completed = completed || !progress.found || progress.error || (progress.total && progress.transferred >= progress.total);
+                    if (progress.found && (progress.error || progress.completed)) progress.retired = retireInactiveTask(item.second);
+                    completed = completed || !progress.found || progress.error || progress.completed || (progress.total && progress.transferred >= progress.total);
                     r.progress[item.first] = progress;
                 }
                 if (rescan || completed) { r.local = scanInstalled(); r.freeBytes = freeSpace("/user"); }

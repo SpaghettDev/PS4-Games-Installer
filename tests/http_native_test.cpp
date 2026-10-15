@@ -38,6 +38,7 @@ int32_t sceNetPoolCreate(const char*, int32_t, int32_t) { return 1; }
 void sceNetPoolDestroy(int32_t id) { assert(id == 1); }
 int32_t sceSslInit(size_t) { return 2; }
 int psgiSslTerm(int id) { assert(id == 2); return 0; }
+void sceSystemServicePowerTick() {}
 }
 
 // These functions belong only to the explicitly resolved module. There are no
@@ -66,7 +67,7 @@ int32_t sceHttpCreateRequestWithURL(int32_t id, int32_t, const char*, uint64_t) 
     assert(conn && id == 5); req = true; return 6;
 }
 int32_t sceHttpSendRequest(int32_t id, const void*, size_t) { assert(req && id == 6); return 0; }
-int32_t sceHttpGetStatusCode(int32_t id, int32_t* status) { assert(id == 6); *status = scenario == "redirect" ? 302 : 200; return 0; }
+int32_t sceHttpGetStatusCode(int32_t id, int32_t* status) { assert(id == 6); *status = scenario == "redirect" ? 302 : scenario == "partial" ? 206 : 200; return 0; }
 int32_t sceHttpReadData(int32_t id, void* data, uint32_t capacity) {
     assert(req && id == 6);
     size_t count = std::min({size_t(capacity), size_t(7), body.size() - offset});
@@ -75,6 +76,12 @@ int32_t sceHttpReadData(int32_t id, void* data, uint32_t capacity) {
     return count;
 }
 int32_t sceHttpAbortRequest(int32_t id) { assert(id == 6); aborted = true; return 0; }
+int32_t sceHttpAddRequestHeader(int32_t id, const char* name, const char* value, int32_t mode) {
+    assert(id == 6 && std::strcmp(name, "Range") == 0 && std::strcmp(value, "bytes=0-3") == 0 && mode == 0); return 0;
+}
+int32_t sceHttpGetResponseContentLength(int32_t id, int32_t* type, size_t* length) {
+    assert(id == 6); *type = ORBIS_HTTP_CONTENTLEN_EXIST; *length = body.size(); return 0;
+}
 int32_t sceHttpDeleteRequest(int32_t id) { assert(id == 6 && req); req = false; return 0; }
 int32_t sceHttpDeleteConnection(int32_t id) { assert(id == 5 && conn && !req); conn = false; return 0; }
 int32_t sceHttpDeleteTemplate(int32_t id) { assert(id == 4 && tmpl && !conn); tmpl = false; return 0; }
@@ -114,6 +121,8 @@ int32_t sceKernelDlsym(int32_t module, const char* name, void** address) {
     RESOLVE("sceHttpGetStatusCode", sceHttpGetStatusCode)
     RESOLVE("sceHttpReadData", sceHttpReadData)
     RESOLVE("sceHttpAbortRequest", sceHttpAbortRequest)
+    RESOLVE("sceHttpAddRequestHeader", sceHttpAddRequestHeader)
+    RESOLVE("sceHttpGetResponseContentLength", sceHttpGetResponseContentLength)
 #undef RESOLVE
     assert(false && "Unexpected HTTP symbol"); return -1;
 }
@@ -130,13 +139,31 @@ int main() {
     assert(moduleLoads == 2 && initializations == 0);
     reset("null-symbol"); rejects([&] { psgi::httpGet(url); }, "Missing HTTP function: sceHttpInit");
     reset("success"); assert(psgi::httpGet(url) == body);
-    assert(initializations == 1 && moduleLoads == 2 && resolutions == 19 && !tmpl && !conn && !req);
+    assert(initializations == 1 && moduleLoads == 2 && resolutions == 21 && !tmpl && !conn && !req);
     reset("redirect"); rejects([&] { psgi::httpGet(url); }, "HTTP 302");
     reset("large"); rejects([&] { psgi::httpGet(url, 4); }, "exceeds limit");
     reset("cancel"); cancelled = false;
     rejects([&] { psgi::httpGet(url, 1024, &cancelled); }, "cancelled"); assert(aborted);
     reset("policy-error"); rejects([&] { psgi::httpGet(url); }, "Disable redirects (0x80431001)");
     reset("success"); assert(psgi::httpGet(url) == body);
-    assert(initializations == 1 && moduleLoads == 2 && resolutions == 19 && !tmpl && !conn && !req);
+    assert(initializations == 1 && moduleLoads == 2 && resolutions == 21 && !tmpl && !conn && !req);
+    reset("success"); std::string streamed;
+    auto info = psgi::httpTransfer(url, [&](const void* data, size_t count, uint64_t total) {
+        assert(total == body.size()); streamed.append(static_cast<const char*>(data), count); return true;
+    }, false);
+    assert(streamed == body && info.status == 200 && info.length == body.size());
+    reset("success");
+    psgi::httpTransfer(url, [](const void*, size_t, uint64_t) { return false; }, true);
+    assert(aborted && offset <= 7 && !tmpl && !conn && !req);
+    reset("partial");
+    rejects([&] { psgi::httpTransfer(url, [](const void*, size_t, uint64_t) { return true; }, false); }, "Package HTTP 206");
+    assert(aborted && offset == 0);
+    reset("success");
+    rejects([&] { psgi::httpTransfer(url, [](const void*, size_t, uint64_t) -> bool { throw std::runtime_error("sink error"); }, false); }, "sink error");
+    assert(aborted && offset == 7);
+    reset("redirect"); rejects([&] { psgi::httpTransfer(url, [](const void*, size_t, uint64_t) { return true; }, false); }, "Package HTTP 302");
+    reset("cancel"); cancelled = false;
+    rejects([&] { psgi::httpTransfer(url, [](const void*, size_t, uint64_t) { return true; }, false, &cancelled); }, "cancelled");
+    assert(aborted);
     std::puts("Native HTTP module binding, initialization, policies, limits, cancellation, cleanup and retry passed");
 }

@@ -77,10 +77,18 @@ int main() {
     assert(ui.take(command) && command.type == CommandType::Storage);
     // Inspecting storage must not apply/discard unsaved configuration or queue an install.
     auto draft = serializeSettings(ui.draft);
-    ui.storage = {{true, 500000000000ULL}, {true, 1000000000000ULL}};
+    ui.storage.internal = {true, 500000000000ULL}; ui.storage.external = {true, 1000000000000ULL};
     ui.storageChecked = true;
     ui.handle(Button::Cross); ui.handle(Button::Right);
     assert(!ui.take(command) && serializeSettings(ui.draft) == draft);
+    ui.storage.destination = InstallDestination::Internal;
+    ui.handle(Button::Down); ui.handle(Button::Cross);
+    assert(ui.take(command) && command.type == CommandType::SetStorage && command.source == 1);
+    assert(serializeSettings(ui.draft) == draft); // Registry choice does not save/discard URL drafts.
+    ui.handle(Button::Up); ui.handle(Button::Cross);
+    assert(ui.take(command) && command.type == CommandType::SetStorage && command.source == 0);
+    ui.storage.external = {}; ui.handle(Button::Down); ui.handle(Button::Cross);
+    assert(!ui.take(command)); // Never silently fall back to the other physical drive.
     ui.storage.external = {}; ui.handle(Button::Triangle);
     assert(ui.take(command) && command.type == CommandType::Storage);
     ui.handle(Button::Circle);

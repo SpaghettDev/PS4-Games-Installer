@@ -6,8 +6,13 @@
 #include <sys/statvfs.h>
 #include <orbis/AppInstUtil.h>
 #include <orbis/SystemService.h>
+#include <orbis/Sysmodule.h>
 #include <orbis/UserService.h>
 #include <orbis/libkernel.h>
+
+// This entry is absent from the pinned SystemService header. Its export belongs
+// to libSceLncUtil inside SystemService and must retain that library in the import.
+extern "C" int sceLncUtilInitialize(void);
 
 namespace psgi {
 namespace {
@@ -59,19 +64,12 @@ std::vector<Entry> scanInstalled() {
 }
 void launchTitle(const std::string& id) {
     if (!validTitleId(id) || id == "PGIN00001") throw std::runtime_error("This title cannot be launched");
-    // LncUtil is an export library inside SystemService, not a separate SPRX.
-    // A failed load must remain retryable rather than caching its error forever.
-    static const int module = [] {
-        int handle = sceKernelLoadStartModule("/system/common/lib/libSceSystemService.sprx", 0, nullptr, 0, nullptr, nullptr);
-        require(handle, "Load game launcher service");
-        return handle;
-    }();
-    using Init = int (*)();
-    Init init = nullptr;
-    require(sceKernelDlsym(module, "sceLncUtilInitialize", reinterpret_cast<void**>(&init)), "Resolve game launcher");
-    if (!init) throw std::runtime_error("Game launcher initialization function is unavailable");
+    // Kernel dlsym searches the module's default library, so it cannot resolve
+    // the packed LncUtil export library. create-fself preserves the proper
+    // library/module pair when these calls are linked with the LncUtil stub.
+    require(static_cast<int>(sceSysmoduleLoadModuleInternal(ORBIS_SYSMODULE_INTERNAL_SYSTEM_SERVICE)), "Load game launcher service");
     // The service can already be initialized when returning from another game.
-    const int initialized = init();
+    const int initialized = sceLncUtilInitialize();
     if (static_cast<uint32_t>(initialized) != 0x80940018u) // Already initialized.
         require(initialized, "Initialize game launcher");
     int user = -1;
@@ -81,11 +79,7 @@ void launchTitle(const std::string& id) {
     param.size = sizeof(param);
     param.user_id = user;
     param.LaunchAppCheck_flag = LaunchApp_SkipSystemUpdate;
-    using Launch = int (*)(const char*, const char*[], LncAppParam*);
-    Launch launch = nullptr;
-    require(sceKernelDlsym(module, "sceLncUtilLaunchApp", reinterpret_cast<void**>(&launch)), "Resolve title launch");
-    if (!launch) throw std::runtime_error("Game launcher function is unavailable");
-    int result = launch(id.c_str(), nullptr, &param);
+    int result = sceLncUtilLaunchApp(id.c_str(), nullptr, &param);
     if (result < 0) {
         char message[180];
         std::snprintf(message, sizeof(message), "Launch failed (0x%08X). Close any running game or check that its storage is connected.", static_cast<unsigned>(result));

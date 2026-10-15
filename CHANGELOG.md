@@ -1,5 +1,24 @@
 # Changelog
 
+## r17 — 2026-10-16
+
+- Include patched-game (`gp`) app metadata in Installed. The previous filter hid
+  GTA V, Minecraft, DOOM, DIRT 5 and other updated titles on the reported console.
+- Link the packed LncUtil launcher library to SystemService instead of resolving
+  it through default-library dlsym, which failed with `0x80020003`. Validate the
+  generated Orbis ELF's library/module imports during packaging.
+- Replace the informational storage panel with an Internal / External USB selector
+  that changes the PS4 Application Install Location preference. Check the drive,
+  reject unknown values, verify writes and restore the previous value on mismatch.
+- Check package URLs and signatures before BGFT registration. Servers without
+  Range support use bounded-memory direct downloads to internal staging, followed
+  by local BGFT installation. Show progress and handle cancellation, short files,
+  invalid responses, missing content lengths and insufficient staging space.
+- Let BGFT read package sizes from metadata. Retire only failed or fully completed
+  owned tasks; keep active tasks and staging files when completion is uncertain.
+- User confirmed remote artwork downloads work in r16. The new launch,
+  destination selector and installation paths still need console acceptance.
+
 ## Console confirmation — 2026-10-16
 
 - User confirmed the application works on real PS4 11.00 + GoldHEN hardware.

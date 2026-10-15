@@ -84,7 +84,7 @@ int main() {
     }
     atomicWrite(root + "/CUSA00001/icon0.png", readFile("assets/icon.png"));
     auto installed = discoverInstalled({root, root}, {}, [](const std::string& id) { return id != "CUSA00003"; }, [](const std::string&) { return uint64_t(32000000000); });
-    assert(installed.size() == 1 && installed[0].titleId == "CUSA00001");
+    assert(installed.size() == 2 && installed[0].titleId == "CUSA00001" && installed[1].titleId == "CUSA00002");
     assert(installed[0].installedSize == 32000000000ULL);
     assert(installed[0].localIcon == root + "/CUSA00001/icon0.png");
     auto remote = parseCatalog(R"({"DATA":{"http://nas/a":{"name":"A","title_id":"CUSA00001","cover_url":"http://nas/icon","release":"2026","size":"32000000000"},"http://nas/b":{"name":"Beta","title_id":"CUSA00002"},"http://nas/c":{"name":"42","size":1}}})", "games");
@@ -96,7 +96,7 @@ int main() {
     Settings settings;
     settings.notInstalledOnly = true;
     auto view = makeView(remote, settings, Library::Available);
-    assert(view.size() == 2 && view[0].index == 2);
+    assert(view.size() == 1 && view[0].index == 2);
     settings.notInstalledOnly = false; settings.grouping = Grouping::Letter;
     view = makeView(remote, settings, Library::Available);
     assert(view.size() == 3 && view[0].group == "#" && view[1].group == "A");

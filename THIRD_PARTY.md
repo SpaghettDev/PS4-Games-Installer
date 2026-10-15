@@ -9,5 +9,7 @@ Application source is distributed under GPLv2; see LICENSE.
 - stb_image (commit 2c980bb59875b0d32144a71867fbdebb2f77cd20): public domain/MIT, `third_party/stb/LICENSE`.
 - Noto Sans: SIL Open Font License, `assets/FONT-LICENSE.txt`.
 - Native prototype and BGFT ABI reference: https://github.com/ItsJokerZz/UnityOrbisBridge (GPLv2).
+- Installation-location registry research reference: https://github.com/ReSo7200/DirectPackageInstaller-Enhanced/blob/DN8/Payload/main_experimental.c
+- Packed launcher import mapping: https://github.com/OpenOrbis/create-fself/blob/master/pkg/oelf/OELFStrangeLibs.go
 
 The new application icon and SVG artwork were created for this project.

@@ -7,7 +7,8 @@ OpenOrbis toolchain. Created by **e1z0 — (c) 2026 Vintage2000.org**.
 
 **Confirmed running on real hardware: PS4 11.00 + GoldHEN** (user confirmation,
 2026-10-16). Source URL entry through the PS4 keyboard and settings saving are
-confirmed working, and the reported exit crash is fixed. The application builds
+confirmed working, remote artwork downloads are confirmed working, and the
+reported exit crash is fixed. The application builds
 on Linux and its package validates; individual feature checks are tracked in
 [TODO.md](TODO.md).
 It requires an active homebrew environment; this app does not install GoldHEN.
@@ -17,8 +18,8 @@ It requires an active homebrew environment; this app does not install GoldHEN.
 - **Installed:** discover registered games and homebrew on the console, show their
   local icons and metadata, and launch them with X. This works without a server.
 - **Available:** browse the complete remote catalog, with installed and queued
-  badges. X opens an installation confirmation; the PS4 downloads and installs
-  the package in the background after you confirm.
+  badges. X opens an installation confirmation. Range-capable servers use the PS4
+  background installer; other servers use a direct-download fallback first.
 - Switch between a cover tile grid and a summary list. The summary background
   follows the selected game's artwork. Group by category, region, first letter,
   or none; sort by name or size and optionally hide installed remote titles.
@@ -100,7 +101,9 @@ matching. Details also retain additional string metadata supplied by the server.
 
 Serve catalogs as direct HTTP 200, uncompressed JSON responses. Redirects and
 interactive authentication are not supported. Package hosting must support direct
-URLs, range requests and correct content lengths for BGFT. TLS verification remains
+URLs and correct content lengths. HTTP Range support enables background downloads
+without an extra staging copy. Servers that ignore ranges use the direct-download
+fallback described below. TLS verification remains
 enabled; firmware TLS/certificate support can limit which HTTPS hosts work.
 
 ## Controls
@@ -130,39 +133,64 @@ The PS4 keyboard uses X to select a character or its Done button, and O to cance
 
 ## Installation storage
 
-Open **Options > Settings > Install location** to check internal storage and a
-connected USB drive configured as **PS4 Extended Storage**, including free space.
-Press Triangle to check again after connecting or disconnecting the drive; Circle
-returns to Settings and preserves unsaved edits.
+Open **Options > Settings > Installation destination**. Use Up/Down to highlight
+**Internal storage** or **External USB**, then press **X** to apply. The selected
+destination is marked `[Selected]`. This changes the PS4's **Application Install
+Location** preference for new installations, including installations outside this
+app. It takes effect immediately and persists independently of Save settings.
+Existing games stay on their current drive. Registry errors or readback failures
+are displayed instead of claiming the selection worked.
 
-The actual destination is currently selected in **PS4 Settings > Storage > Options
-> Application Install Location**. Choose System Storage or Extended Storage there
-before queuing packages. The app's storage panel is informational: an in-app drive
-selector has not yet been implemented because a verified destination-changing API
-is still needed. It does not override the PS4 setting or format drives.
+Press Triangle to check capacities again after connecting or disconnecting a drive;
+Circle returns to Settings and preserves unsaved URL/display edits. An unavailable
+drive cannot be selected. The app does not format drives.
 
 A plain exFAT/FAT32 USB package source is not a PS4 Extended Storage installation
 destination. See [PlayStation's Extended Storage instructions](https://www.playstation.com/en-ca/support/hardware/ps4-external-hdd-support/)
 for configuration and compatibility. Console testing of external installations is
-still pending.
+still pending for the new r17 selector on PS4 11.00 + GoldHEN.
 
 ## Downloads and offline use
 
-Installation is handed to PS4 BGFT. Closing this application does not cancel a
-submitted task. Use **PS4 Notifications > Downloads** for authoritative task status,
+The app checks the actual PKG URL with a small GET range request before submitting
+it. A 404, HTML response or invalid package signature is reported before creating
+a PS4 task. A server that responds with HTTP 206 uses BGFT directly.
+
+When the server ignores ranges, the app streams the package to
+`/data/PS4-Game-Installer/downloads/`, then submits that local file to BGFT. This
+works around package servers that do not implement Range/HEAD correctly. **Keep
+the app open during the direct download.** Its percentage is shown in the status
+bar. Exiting cancels an unfinished transfer and removes the partial file. Internal
+storage needs room for the staging copy plus 64 MiB reserve, even when installing
+onto Extended Storage. Installing to internal storage also needs room for the
+installed game. Enable Range support on the server to avoid this extra copy.
+
+Once a task is submitted to BGFT, closing this application does not cancel it.
+Use **PS4 Notifications > Downloads** for authoritative task status,
 completion and cancellation. The app retains task IDs between launches and polls
-progress while running. A completed transfer may still be installing.
+progress while running. A completed transfer may still be installing. Failed owned
+tasks are unregistered before allowing a retry. A staging copy is retained until
+its task is removed or BGFT confirms installation/copy completion and unregisters
+the task. Reopen the app to reconcile tasks and release these copies. Registration
+errors keep a complete staging file so retrying does not download it again.
+
+**Upgrading from r16:** cancel old failed downloads in PS4 Notifications > Downloads
+once before retrying. r16 discarded their tracking IDs; the app cannot safely
+remove tasks it no longer owns.
 
 Existing-title conflicts are reported without automatically uninstalling a game.
-This version does not offer uninstall, forced replacement, or download-to-USB modes.
+This version does not offer uninstall, forced replacement, or staging to a plain
+USB package-source drive.
 An installed title may require its external drive or original disc to launch.
-If an earlier revision reports `Load game launcher: 0x80020002`, install r14 or
-later. The launcher adapter now resolves the service from its correct system
-module; launching still needs a console retest.
+If an earlier revision reports `Resolve game launcher: 0x80020003` or
+`Load game launcher: 0x80020002`, install r17 or later. The launcher now imports
+the packed LncUtil library from SystemService; the generated executable's import
+table is checked during packaging. Launching still needs a console retest.
 
 A failed refresh keeps the last valid library. Installed discovery is independent
 of the network; cached remote metadata and covers remain available offline. Limits:
-8 MiB per catalog/download, 50,000 combined entries, 64 MiB offline catalog, PNG/JPEG
+8 MiB per catalog/artwork download (packages stream separately), 50,000 combined
+entries, 64 MiB offline catalog, PNG/JPEG
 covers up to 2048×2048, 48 decoded covers and a 128 MiB disk artwork cache.
 Use Settings to clear artwork or Triangle to refresh one game's artwork.
 
@@ -252,6 +280,7 @@ The console stores its files under `/data/PS4-Game-Installer/`:
 - `catalog.json`: last successful remote catalog snapshot.
 - `tasks.json`: submitted task IDs; task cancellation remains in the PS4 system UI.
 - `artwork/`: disposable cover cache.
+- `downloads/`: private package staging; do not remove files used by active PS4 tasks.
 - `app.log`: recent operation results and service errors.
 
 On the first launch of r13 or later, this app's previous
@@ -266,14 +295,16 @@ together. An existing new directory takes precedence.
 | CE-34878-0 when closing the app | The reported exit crash was confirmed fixed by the user on 2026-10-16. r8 introduced credential restoration and exit through the PS4 shell. |
 | Empty Available | Set the direct JSON URL, use Test connection, then Refresh library |
 | HTTP 404 from the companion server | Use its `/games` link on the JSON library port |
+| Install HTTP 404 / CE-40852-9 | Update to r17, cancel failed r16 tasks in PS4 Downloads and retry. The app checks the PKG URL and stages downloads when the server ignores ranges. A 404 during the initial check means that package URL still needs correcting on the server. |
 | Covers or installation fail | Check the URLs inside the JSON and package/artwork server reachability |
 | Installed is empty | Confirm GoldHEN is active, reconnect external storage, refresh, and inspect app.log |
+| Installed only shows a few games | Update to r17 and refresh. Patched games use `gp` app metadata, which earlier builds incorrectly excluded. |
 | Installed titles appear without their icons | Install r10 or later, which looks up icons separately from private metadata. Use Options > Refresh library after reconnecting Extended Storage |
 | Launch fails | Close another running game and check the title's storage/disc and displayed service error |
 | Package already queued | Manage the existing task in PS4 Notifications > Downloads |
 | Existing-title conflict | The installed title was preserved; this app does not force removal |
 | Settings cannot save | Check free space and access to the application data directory |
-| URL is saved but Available stays empty | Read the connection result in Settings and use a direct JSON URL, such as `/games`. For `Disable redirects (0x80431001)`, update to r15 or later, which binds every HTTP operation to one client module. Console retesting is pending. |
+| URL is saved but Available stays empty | Read the connection result in Settings and use a direct JSON URL, such as `/games`. For `Disable redirects (0x80431001)`, update to r15 or later, which binds every HTTP operation to one client module. The user subsequently confirmed artwork downloads work. |
 | HTTPS fails | Check server certificates and firmware TLS compatibility; a private LAN HTTP server is supported |
 
 PS5, database repair, system-menu replacement and automatic game removal are outside

@@ -27,7 +27,9 @@ std::vector<Entry> discoverInstalled(const std::vector<std::string>& metadataRoo
             try {
                 auto sfo = parseSfo(readFile(root + "/" + id + "/param.sfo"));
                 const std::string category = sfo["CATEGORY"];
-                if (category != "gd" && category != "gda" && category != "gdc") continue;
+                // Installed appmeta contains the active SFO; after a patch it
+                // commonly has category gp even though this is the base title.
+                if (category != "gd" && category != "gp" && category != "gda" && category != "gdc") continue;
                 if (!registered(id)) continue;
                 Entry entry;
                 entry.titleId = id;

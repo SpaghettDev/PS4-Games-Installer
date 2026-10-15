@@ -1,5 +1,57 @@
 # Implementation progress
 
+## r17 hardware-driven repairs — 2026-10-16
+
+- Pulled r16 logs, saved settings/catalog/task tracking, installed-title SFOs and
+  selected system-service export metadata through the configured FTP target.
+  Read-only inspection: no console files, settings or downloads were changed.
+  Private evidence remains under ignored `build/hardware-r16/`.
+- The log reports repeated launcher `0x80020003`, BGFT `0x80991404`, only five
+  installed titles, and an informational storage panel. The user separately
+  confirmed that artwork downloads now work.
+- Twelve hidden games have active `gp` metadata. A host replay of the actual SFO
+  files now finds 17 game/homebrew candidates, including GTA V, Minecraft, DOOM
+  and DIRT 5. Native registration checks remain in the console discovery path;
+  this replay does not establish the final console count.
+- Actual SystemService exports place LncUtil in a packed export library. Replaced
+  default-library dlsym with linked LncUtil imports and checked the generated
+  Orbis ELF's library/module pair for both initialization and launch.
+- The live package endpoint serves a valid PKG with HTTP 200 even when a Range
+  request asks for four bytes; HEAD probes also stall for most packages. The
+  reference server ignores ranges and includes query strings in filesystem
+  lookup. The exact BGFT request causing its 404 was not captured, so that
+  particular URL transformation is not claimed as proven.
+- Added a PKG probe and a streaming direct-download/local-BGFT fallback for
+  servers without ranges, using private internal staging. A full 126,222,336-byte
+  package from the live server was streamed to PC staging through the production
+  host transfer code; length and PKG magic passed. No console task was submitted,
+  and the temporary PC package was removed afterward.
+- Added a real Internal / External USB selector using Application Install
+  Location registry research, with availability checks, recognized-value checks,
+  write/readback verification and rollback on mismatch. This changes the system
+  default and does not interpret BGFT application slots as physical drives.
+- `make test` passes: catalog/model/UI checks, sanitized artwork checks, native
+  launcher/storage/BGFT/HTTP adapters, application state/persistence checks,
+  controller tests, HTTP integration, and all 15 Python cases. New application
+  checks preserve tracking/staging while copying or when unregister fails, allow
+  retry after a failed owned task is retired, and release staging after confirmed
+  installation. HTTP coverage includes ranges, ignored ranges, cache reuse, 404,
+  HTML, cancellation, low space, missing length and truncated transfers.
+- `make all` produced `dist/PS4Game_installer-r17.pkg`. `make validate` passed all
+  package hashes/signatures and packed launcher import checks; the current source
+  fingerprint matches revision 17. `make screenshots` generated 15 captures;
+  inspected connected/disconnected storage, install confirmation and exit screens.
+- Source identity audit and `git diff --check` pass. Updated README, changelog,
+  tracker and attribution. Deployment tests used disposable localhost FTP servers;
+  no package was uploaded to the console and no remote Git push was made. The new
+  launch, storage selection and BGFT installation paths still need a PS4 retest.
+
+Research references:
+
+- https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/issues/218
+- https://github.com/OpenOrbis/create-fself/blob/master/pkg/oelf/OELFStrangeLibs.go
+- https://github.com/ReSo7200/DirectPackageInstaller-Enhanced/blob/DN8/Payload/main_experimental.c
+
 ## Repository migration
 
 - Removed the old Git history, Unity project, original workflow, and obsolete files.

@@ -40,7 +40,9 @@ std::vector<Entry> scanInstalled() {
     auto& service = appService();
     size_t queried = 0, failures = 0;
     int lastError = 0;
-    auto entries = discoverInstalled({"/user/appmeta", "/system_data/priv/appmeta", "/system_data/priv/appmeta/external"},
+    auto entries = discoverInstalled(
+        {"/system_data/priv/appmeta", "/system_data/priv/appmeta/external", "/user/appmeta", "/user/appmeta/external"},
+        {"/user/appmeta", "/user/appmeta/external"},
         [&](const std::string& id) {
             int exists = 0;
             int result = service.exists(id.c_str(), &exists);

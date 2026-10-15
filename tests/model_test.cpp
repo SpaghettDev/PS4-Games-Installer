@@ -3,6 +3,7 @@
 #include "sfo.hpp"
 #include "installed.hpp"
 #include "storage.hpp"
+#include "sfo_fixture.hpp"
 #include <cassert>
 #include <cstdio>
 #include <fstream>
@@ -12,23 +13,6 @@
 
 using namespace psgi;
 template<class F> void rejects(F f) { bool failed = false; try { f(); } catch (const std::exception&) { failed = true; } assert(failed); }
-std::string fixtureSfo(std::string title = "A game", std::string category = "gd") {
-    std::vector<std::pair<std::string, std::string>> fields{{"TITLE", title}, {"TITLE_ID", "CUSA00001"}, {"CATEGORY", category}, {"APP_VER", "1.00"}};
-    std::string keys, values;
-    std::string out(20 + fields.size() * 16, '\0');
-    auto u32 = [&](size_t offset, uint32_t n) { for (int i = 0; i < 4; ++i) out[offset + i] = n >> (i * 8); };
-    u32(0, 0x46535000); u32(4, 0x101); u32(8, out.size()); u32(16, fields.size());
-    for (size_t i = 0; i < fields.size(); ++i) {
-        size_t offset = 20 + i * 16;
-        u32(offset, uint32_t(keys.size()) | 0x02040000);
-        u32(offset + 4, fields[i].second.size() + 1);
-        u32(offset + 8, fields[i].second.size() + 1);
-        u32(offset + 12, values.size());
-        keys += fields[i].first + '\0'; values += fields[i].second + '\0';
-    }
-    u32(12, out.size() + keys.size());
-    return out + keys + values;
-}
 int main() {
     Settings defaults;
     assert(sameSettings(defaults, parseSettings(serializeSettings(defaults))));
@@ -64,11 +48,13 @@ int main() {
 
     for (const std::string id : {"CUSA00001", "CUSA00002", "CUSA00003", "NPXS00001", "PGIN00001"}) {
         mkdir((root + "/" + id).c_str(), 0700);
-        atomicWrite(root + "/" + id + "/param.sfo", fixtureSfo(id, id == "CUSA00002" ? "gp" : "gd"));
+        atomicWrite(root + "/" + id + "/param.sfo", fixtureSfo(id, id == "CUSA00002" ? "gp" : "gd", id));
     }
-    auto installed = discoverInstalled({root, root}, [](const std::string& id) { return id != "CUSA00003"; }, [](const std::string&) { return uint64_t(32000000000); });
+    atomicWrite(root + "/CUSA00001/icon0.png", readFile("assets/icon.png"));
+    auto installed = discoverInstalled({root, root}, {}, [](const std::string& id) { return id != "CUSA00003"; }, [](const std::string&) { return uint64_t(32000000000); });
     assert(installed.size() == 1 && installed[0].titleId == "CUSA00001");
     assert(installed[0].installedSize == 32000000000ULL);
+    assert(installed[0].localIcon == root + "/CUSA00001/icon0.png");
     auto remote = parseCatalog(R"({"DATA":{"http://nas/a":{"name":"A","title_id":"CUSA00001","cover_url":"http://nas/icon","release":"2026","size":"32000000000"},"http://nas/b":{"name":"Beta","title_id":"CUSA00002"},"http://nas/c":{"name":"42","size":1}}})", "games");
     matchInstalled(remote, installed, {"http://nas/b"});
     assert(remote[0].installed && remote[1].queued && !remote[2].installed);

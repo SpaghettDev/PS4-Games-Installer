@@ -89,11 +89,11 @@ screenshots: assets build/host/preview build/demo/0.png
 	python3 scripts/screenshots.py
 	@echo 'Screenshots: build/screenshots/ — see README for interactive preview controls.'
 
-build/host/model-test: tests/model_test.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON))) build/host/cJSON.o $(HEADERS)
+build/host/model-test: tests/model_test.cpp tests/sfo_fixture.hpp $(addprefix src/,$(addsuffix .cpp,$(COMMON))) build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) $(filter %.cpp %.o,$^) -o $@
 build/host/ui-test: tests/ui_test.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON))) build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) $(filter %.cpp %.o,$^) -o $@
-build/host/artwork-test: tests/artwork_test.cpp src/artwork.cpp src/canvas.cpp src/catalog.cpp src/http.cpp src/settings.cpp build/host/cJSON.o $(HEADERS)
+build/host/artwork-test: tests/artwork_test.cpp tests/sfo_fixture.hpp src/artwork.cpp src/canvas.cpp src/catalog.cpp src/http.cpp src/settings.cpp src/installed.cpp src/sfo.cpp build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) -Wno-unused-function -fsanitize=address,undefined -fno-omit-frame-pointer $$(pkg-config --cflags freetype2) $(filter %.cpp %.o,$^) -lcurl $$(pkg-config --libs freetype2) -o $@
 build/host/startup-test: tests/startup_fixtures.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON) canvas artwork render app demo main http)) build/host/cJSON.o build/generated/revision.hpp $(HEADERS)
 	g++ $(HOSTFLAGS) -Wno-unused-function $$(pkg-config --cflags freetype2) $(filter %.cpp %.o,$^) -lcurl $$(pkg-config --libs freetype2) -o $@

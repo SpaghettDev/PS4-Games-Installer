@@ -13,6 +13,7 @@
 - [x] Route native shutdown through the PS4 shell after cleanup and credential restoration.
 - [x] Draw PS4 controller button symbols next to action labels.
 - [x] Request X confirm / O cancel for native dialogs in package metadata.
+- [x] Resolve installed icons independently from title metadata, including Extended Storage.
 - [ ] In-app Internal / External USB destination selection: verify a native setter
   or per-task destination API first. Current installations follow the PS4 system
   Application Install Location setting; a BGFT application slot is not assumed to
@@ -25,6 +26,10 @@
   (user report, 2026-10-16; failed opening the icon in the previous build).
 - [x] Console reaches the source editor and opens the PS4 keyboard (user report,
   2026-10-16; O selects characters in the previous package).
+- [x] Console shows Installed game tiles and names (user report, 2026-10-16;
+  icons were missing in the previous package).
+- [ ] Retest r10: Installed tiles, summary backgrounds and details show local icons
+  for internal/external titles, including offline startup without a server.
 - [ ] Retest r9: loading ends without a forced splash delay; the native keyboard
   selects characters/Done with X and cancels with O.
 - [ ] Retest the reported end-of-app CE-34878-0: normal Circle exit and closing a

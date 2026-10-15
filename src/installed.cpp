@@ -5,14 +5,19 @@
 #include <memory>
 #include <set>
 #include <sys/stat.h>
+#include <unistd.h>
 
 namespace psgi {
-std::vector<Entry> discoverInstalled(const std::vector<std::string>& roots,
+std::vector<Entry> discoverInstalled(const std::vector<std::string>& metadataRoots,
+    const std::vector<std::string>& iconRoots,
     const std::function<bool(const std::string&)>& registered,
     const std::function<uint64_t(const std::string&)>& installedSize) {
     std::vector<Entry> entries;
     std::set<std::string> seen;
-    for (const auto& root : roots) {
+    auto artworkRoots = iconRoots;
+    for (const auto& root : metadataRoots)
+        if (std::find(artworkRoots.begin(), artworkRoots.end(), root) == artworkRoots.end()) artworkRoots.push_back(root);
+    for (const auto& root : metadataRoots) {
         auto closeDirectory = [](DIR* dir) { closedir(dir); };
         std::unique_ptr<DIR, decltype(closeDirectory)> dir(opendir(root.c_str()), closeDirectory);
         if (!dir) continue;
@@ -34,9 +39,14 @@ std::vector<Entry> discoverInstalled(const std::vector<std::string>& roots,
                 if (entry.contentId.compare(0, 2, "UP") == 0) entry.region = "USA";
                 else if (entry.contentId.compare(0, 2, "EP") == 0) entry.region = "EUR";
                 else if (entry.contentId.compare(0, 2, "JP") == 0) entry.region = "JAP";
-                std::string icon = root + "/" + id + "/icon0.png";
-                struct stat st{};
-                if (stat(icon.c_str(), &st) == 0 && S_ISREG(st.st_mode)) entry.localIcon = icon;
+                for (const auto& iconRoot : artworkRoots) {
+                    std::string icon = iconRoot + "/" + id + "/icon0.png";
+                    struct stat st{};
+                    if (stat(icon.c_str(), &st) == 0 && S_ISREG(st.st_mode) && st.st_size > 0 && access(icon.c_str(), R_OK) == 0) {
+                        entry.localIcon = std::move(icon);
+                        break;
+                    }
+                }
                 entry.installedSize = installedSize(id);
                 for (const auto& m : sfo) entry.metadata.push_back(m);
                 seen.insert(id);

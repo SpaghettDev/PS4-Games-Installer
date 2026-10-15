@@ -1,6 +1,9 @@
 #include "artwork.hpp"
 #include "canvas.hpp"
 #include "text.hpp"
+#include "installed.hpp"
+#include "settings.hpp"
+#include "sfo_fixture.hpp"
 #include <cassert>
 #include <chrono>
 #include <cstdio>
@@ -55,6 +58,48 @@ int main() {
         entry.localIcon = "/missing/icon.png";
         assert(!cache.request(entry));
     }
+    // Match the console's separate metadata/icon trees, including Extended Storage.
+    {
+        const std::string internalMeta = std::string(root) + "/system_data/priv/appmeta";
+        const std::string externalMeta = internalMeta + "/external";
+        const std::string internalIcons = std::string(root) + "/user/appmeta";
+        const std::string externalIcons = internalIcons + "/external";
+        auto metadata = [&](const std::string& directory, const std::string& id) {
+            std::filesystem::create_directories(directory + "/" + id);
+            atomicWrite(directory + "/" + id + "/param.sfo", fixtureSfo(id, "gd", id));
+        };
+        auto icon = [&](const std::string& directory, const std::string& id) {
+            std::filesystem::create_directories(directory + "/" + id);
+            atomicWrite(directory + "/" + id + "/icon0.png", readFile("assets/icon.png"));
+        };
+        metadata(internalMeta, "CUSA00001"); icon(internalIcons, "CUSA00001");
+        metadata(externalMeta, "CUSA00001"); // Duplicate metadata must not hide its public icon.
+        metadata(externalMeta, "CUSA00002"); icon(externalIcons, "CUSA00002");
+        metadata(internalMeta, "CUSA00003"); // Missing artwork must not hide the title.
+        metadata(internalMeta, "CUSA00004"); icon(internalMeta, "CUSA00004"); // Co-located fallback.
+        // Ignore an empty icon in an earlier tree, and prefer public over private art.
+        std::filesystem::create_directories(internalIcons + "/CUSA00002");
+        atomicWrite(internalIcons + "/CUSA00002/icon0.png", "");
+        atomicWrite(internalMeta + "/CUSA00001/icon0.png", "not the public PNG");
+        auto entries = discoverInstalled({internalMeta, externalMeta}, {internalIcons, externalIcons},
+            [](const std::string&) { return true; }, [](const std::string&) { return uint64_t(32); });
+        assert(entries.size() == 4);
+        assert(entries[0].localIcon == internalIcons + "/CUSA00001/icon0.png");
+        assert(entries[1].localIcon == externalIcons + "/CUSA00002/icon0.png");
+        assert(entries[2].localIcon.empty());
+        assert(entries[3].localIcon == internalMeta + "/CUSA00004/icon0.png");
+        ArtworkCache cache(std::string(root) + "/offline-cache");
+        for (size_t index : {0u, 1u, 3u}) {
+            const auto& entry = entries[index];
+            assert(entry.coverUrl.empty()); // No server/catalog is needed for installed icons.
+            std::shared_ptr<Image> loaded;
+            for (int i = 0; i < 100 && !loaded; ++i) {
+                loaded = cache.request(entry, true);
+                if (!loaded) std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+            assert(loaded && loaded->pixels == image->pixels);
+        }
+    }
     std::filesystem::remove_all(root);
-    std::puts("Artwork, Unicode and renderer bounds tests passed");
+    std::puts("Artwork, installed icons across metadata trees, Unicode and renderer bounds tests passed");
 }

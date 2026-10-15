@@ -196,3 +196,30 @@ Exit-path references:
 
 Native packaging reference:
 https://github.com/Mayo1970/ioQuake3-PS4/blob/main/Makefile
+
+## Missing installed-title icons — 2026-10-16
+
+- User reported that Installed game tiles appear without icons. Discovery searched
+  for `icon0.png` beside the SFO that supplied each title. This misses the console's
+  split layout: private metadata is in `/system_data/priv/appmeta`, while artwork
+  is in `/user/appmeta`. The old scan also omitted the public external subtree.
+- Confirmed separate internal/external metadata and icon paths in Itemzflow's
+  installed-library implementation. Discovery now accepts independent icon roots,
+  searches the public internal/external paths first, and retains metadata-directory
+  fallback for co-located layouts. Empty, non-file and unreadable candidates are
+  skipped; missing artwork does not remove the title from Installed.
+- Added an offline regression that discovers titles from private metadata, resolves
+  their separate public icons and loads the actual PNGs through ArtworkCache.
+  It covers internal/external titles, duplicate metadata, an empty earlier icon,
+  public-icon priority, missing artwork and the co-located fallback under ASan/UBSan.
+- `make test` passed all host suites, including the installed-icon regression under
+  ASan/UBSan, and fourteen Python integration tests. Internal, external and fallback
+  icons loaded through the cache without any configured remote artwork URL.
+- Built `dist/PS4Game_installer-r10.pkg`; `make validate` passed all package hash and
+  signature checks. Generated fourteen desktop captures and inspected Installed
+  tiles and the details view using the preview's sample artwork.
+- No live deployment or console retest was performed. The reported console symptom
+  still needs a retest with r10, including internal/external titles and offline use.
+
+Installed-library reference:
+https://github.com/LightningMods/Itemzflow/blob/main/itemzflow/source/ls_dir.cpp

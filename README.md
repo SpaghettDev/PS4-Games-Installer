@@ -7,9 +7,9 @@ OpenOrbis toolchain. Created by **e1z0 — (c) 2026 Vintage2000.org**.
 [Companion FPKGi-node-server](https://github.com/e1z0/FPKGi-node-server)
 
 **First hardware target: PS4 11.00 with GoldHEN.** The application builds on Linux
-and its package validates. A user console run reached the source editor and opened
-the system keyboard. The X/O keyboard correction in r9 needs a console retest;
-shell exit, installed discovery, launching and installation still need validation.
+and its package validates. User console runs reached the source editor, system
+keyboard and Installed listing. The r9 keyboard assignment and r10 installed-icon
+corrections need retesting; shell exit, game launching and installation also need validation.
 It requires an active homebrew environment; this app does not install GoldHEN.
 
 ## What it does
@@ -31,6 +31,9 @@ It requires an active homebrew environment; this app does not install GoldHEN.
 
 The preview uses original sample artwork and fictitious IDs/sizes. On the console,
 Installed reads local game icons; Available uses your server's `cover_url` images.
+Installed artwork is read from `/user/appmeta/<TITLE_ID>/icon0.png` or
+`/user/appmeta/external/<TITLE_ID>/icon0.png`, independently of the private title
+metadata directory. It does not require a configured server or Internet access.
 
 ## Install and set up
 
@@ -254,6 +257,7 @@ structures are accepted; PS5 sources are ignored.
 | HTTP 404 from the companion server | Use its `/games` link on the JSON library port |
 | Covers or installation fail | Check the URLs inside the JSON and package/artwork server reachability |
 | Installed is empty | Confirm GoldHEN is active, reconnect external storage, refresh, and inspect app.log |
+| Installed titles appear without their icons | Install r10 or later, which looks up icons separately from private metadata. Use Options > Refresh library after reconnecting Extended Storage |
 | Launch fails | Close another running game and check the title's storage/disc and displayed service error |
 | Package already queued | Manage the existing task in PS4 Notifications > Downloads |
 | Existing-title conflict | The installed title was preserved; this app does not force removal |

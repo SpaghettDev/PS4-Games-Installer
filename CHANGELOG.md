@@ -1,5 +1,14 @@
 # Changelog
 
+## r10 — 2026-10-16
+
+- Fixed installed-title icon lookup: read public `/user/appmeta` artwork separately
+  from `/system_data/priv/appmeta` title metadata, including both external subtrees.
+- Keep a fallback for layouts with icons beside their metadata, skip empty or
+  unreadable icon files, and retain titles whose artwork is missing.
+- Added an offline discovery-to-image-loading regression for internal and external
+  titles, duplicate metadata, missing artwork and co-located icon fallback.
+
 ## r9 — 2026-10-16
 
 - Removed the artificial three-second splash minimum. Startup shows the dashboard

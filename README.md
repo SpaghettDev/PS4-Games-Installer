@@ -106,7 +106,7 @@ enabled; firmware TLS/certificate support can limit which HTTPS hosts work.
 
 | Button | Action |
 | --- | --- |
-| D-pad | Navigate games, sidebar, menus and details |
+| Left analog stick / D-pad | Navigate games, sidebar, menus and details; hold to repeat |
 | Left at the first tile/list column | Focus the sidebar |
 | X / Right on the sidebar | Return to games |
 | L1 / R1 | Switch Installed / Available |
@@ -121,6 +121,9 @@ enabled; firmware TLS/certificate support can limit which HTTPS hosts work.
 Selecting Exit from Options opens the same Circle confirmation. Settings are saved
 only when Save settings is selected; Circle offers to discard unsaved edits.
 Quick view/group/sort/filter changes in Options are saved immediately.
+The stick has a deadzone to filter drift; the D-pad takes priority when both are
+used. After closing the keyboard, release any held buttons and center the stick
+before navigating again.
 The loading splash is visible while startup runs, with no artificial delay.
 The PS4 keyboard uses X to select a character or its Done button, and O to cancel.
 

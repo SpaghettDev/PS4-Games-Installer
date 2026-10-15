@@ -1,5 +1,16 @@
 # Changelog
 
+## r16 — 2026-10-16
+
+- Added left analog stick navigation to the PS4 app and desktop preview for games,
+  sidebar, menus, settings and details. Previously only the D-pad was read.
+- Filter stick drift with separate activation/release thresholds, stabilize
+  diagonal movement and repeat held directions after a short delay. D-pad input
+  takes priority; action buttons still emit once per press.
+- Suppress held controls after closing the keyboard until buttons are released
+  and the stick is centered. Handle controller disconnect/reconnect in the preview.
+- Added native pad-sample, navigation-state and SDL virtual-controller coverage.
+
 ## r15 — 2026-10-16
 
 - Use one explicitly resolved HTTP module for initialization, templates, request

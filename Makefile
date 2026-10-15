@@ -28,7 +28,7 @@ CONTENT_ID := IV0000-$(TITLE_ID)_00-PS4GAMEINSTALLER
 CROSSFLAGS := --target=x86_64-pc-freebsd12-elf -fPIC -funwind-tables -D_POSIX_C_SOURCE=200809L \
     -isysroot $(SDK) -isystem $(SDK)/include -Isrc -Ithird_party/cjson -Ithird_party/stb -Ibuild/generated -O2 -g -Wall -Wextra -MMD -MP
 COMMON := catalog settings library sfo installed storage ui
-UI_SOURCES := canvas artwork render app demo video main
+UI_SOURCES := controller canvas artwork render app demo video main
 CONSOLE := $(UI_SOURCES) http install console lifecycle
 PS4_OBJECTS := $(addprefix build/ps4/,$(addsuffix .o,$(COMMON) $(CONSOLE))) build/ps4/cJSON.o
 LIBS := -ljbc -lc++ -lSceVideoOut -lSceSysmodule -lSceSystemService -lSceFreeType -lScePad -lSceUserService -lSceNet -lSceNetCtl -lSceSsl -lSceCommonDialog -lSceImeDialog -lc -lkernel
@@ -105,7 +105,9 @@ build/host/launch-native-test: tests/launch_native_test.cpp src/console.cpp src/
 	g++ $(HOSTFLAGS) -idirafter $(SDK)/include $(filter %.cpp %.o,$^) -o $@
 build/host/app-test: tests/app_test.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON) app artwork)) build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) -Wno-unused-function $$(pkg-config --cflags freetype2) $(filter %.cpp %.o,$^) -o $@
-test: assets build/host/catalog-test build/host/catalog-check build/host/model-test build/host/ui-test build/host/artwork-test build/host/startup-test build/host/lifecycle-test build/host/http-native-test build/host/launch-native-test build/host/app-test
+build/host/controller-test: tests/controller_test.cpp src/controller.cpp src/video.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON))) build/host/cJSON.o $(HEADERS)
+	g++ $(HOSTFLAGS) -idirafter $(SDK)/include $$(pkg-config --cflags freetype2 sdl2) $(filter %.cpp %.o,$^) $$(pkg-config --libs sdl2) -o $@
+test: assets build/host/catalog-test build/host/catalog-check build/host/model-test build/host/ui-test build/host/artwork-test build/host/startup-test build/host/lifecycle-test build/host/http-native-test build/host/launch-native-test build/host/app-test build/host/controller-test
 	./build/host/catalog-test
 	./build/host/model-test
 	./build/host/ui-test
@@ -113,6 +115,7 @@ test: assets build/host/catalog-test build/host/catalog-check build/host/model-t
 	./build/host/http-native-test
 	./build/host/launch-native-test
 	./build/host/app-test
+	./build/host/controller-test
 	python3 tests/http_test.py ./build/host/catalog-check
 	python3 -m unittest discover -s tests -p '*_test.py'
 check: build/host/catalog-check

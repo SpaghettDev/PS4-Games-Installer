@@ -354,3 +354,38 @@ Launcher references:
 
 HTTP lifecycle reference:
 https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/blob/v0.5.4/samples/net_http/net_http/main.c
+
+## Controller navigation report — 2026-10-16
+
+- User reports navigation does not work with the controller/manipulator. The
+  existing native adapter reads digital buttons only, and the preview ignores
+  analog axes. Implemented left-stick navigation while retaining D-pad/buttons.
+- Added a shared controller state machine and a native SDK pad-data adapter.
+  Native byte axes are centered at 128 and converted to the preview's signed
+  axis range. Disconnected/failed reads produce no movement.
+- Stick navigation uses activation/release deadzones, dominant-axis selection and
+  hysteresis near diagonals. Direction repeat begins after 350 ms, then runs at
+  100 ms intervals. D-pad overrides analog input; face/menu buttons do not repeat,
+  and each controller sample emits at most one action.
+- Closing the keyboard suppresses controls still held until release/centering.
+  The preview now owns/closes its controller handle and supports hotplug. Both
+  backends route controller input through the same state machine.
+- Added tests for native pad samples driving the real tile/summary/sidebar/menu/
+  settings/details UI, deadzones/repeat, opposing/simultaneous buttons, disconnect
+  recovery and keyboard suppression. The SDL test drives the real preview Video
+  adapter with a virtual controller, including detach/reconnect and keyboard exit.
+- `make test` passed all host suites, including the new controller suite, native
+  HTTP/launcher tests, App persistence, artwork/font ASan/UBSan and fourteen Python
+  integrations. The SDL virtual-controller test passed repeat, keyboard return
+  and detach/reconnect checks using the real Video adapter.
+- `make all` reused the matching `dist/PS4Game_installer-r16.pkg`; `make validate`
+  passed all hashes and signatures. The native ELF contains the shared controller
+  poll/suppression implementation. The source identity audit passes.
+- Generated fourteen desktop captures and inspected Installed tiles and Options.
+  No live deployment or hardware navigation success is claimed; PS4 11.00 +
+  GoldHEN retesting remains unchecked.
+
+Controller references:
+
+- https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/blob/v0.5.4/include/orbis/_types/pad.h
+- https://wiki.libsdl.org/SDL2/SDL_GameControllerGetAxis

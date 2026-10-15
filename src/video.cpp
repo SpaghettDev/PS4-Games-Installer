@@ -7,6 +7,34 @@
 
 #ifdef PSGI_HOST
 #include <SDL2/SDL.h>
+namespace {
+SDL_GameController* openController() {
+    for (int i = 0; i < SDL_NumJoysticks(); ++i) if (SDL_IsGameController(i)) {
+        if (auto* controller = SDL_GameControllerOpen(i)) return controller;
+    }
+    return nullptr;
+}
+psgi::ControllerState readController(void* handle) {
+    auto* controller = static_cast<SDL_GameController*>(handle);
+    psgi::ControllerState state;
+    if (!controller || !SDL_GameControllerGetAttached(controller)) return state;
+    state.connected = true;
+    state.leftX = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX);
+    state.leftY = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY);
+    using psgi::Button;
+    const std::pair<SDL_GameControllerButton, Button> bindings[] = {
+        {SDL_CONTROLLER_BUTTON_A, Button::Cross}, {SDL_CONTROLLER_BUTTON_B, Button::Circle},
+        {SDL_CONTROLLER_BUTTON_X, Button::Square}, {SDL_CONTROLLER_BUTTON_Y, Button::Triangle},
+        {SDL_CONTROLLER_BUTTON_START, Button::Options}, {SDL_CONTROLLER_BUTTON_LEFTSHOULDER, Button::L1},
+        {SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, Button::R1}, {SDL_CONTROLLER_BUTTON_DPAD_UP, Button::Up},
+        {SDL_CONTROLLER_BUTTON_DPAD_DOWN, Button::Down}, {SDL_CONTROLLER_BUTTON_DPAD_LEFT, Button::Left},
+        {SDL_CONTROLLER_BUTTON_DPAD_RIGHT, Button::Right}
+    };
+    for (const auto& binding : bindings)
+        if (SDL_GameControllerGetButton(controller, binding.first)) state.buttons |= psgi::buttonMask(binding.second);
+    return state;
+}
+}
 namespace psgi {
 Video::Video(bool headless) {
     if (headless) return;
@@ -18,9 +46,10 @@ Video::Video(bool headless) {
     texture = SDL_CreateTexture(static_cast<SDL_Renderer*>(renderer), SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, Canvas::Width, Canvas::Height);
     if (!texture) throw std::runtime_error(SDL_GetError());
     SDL_RenderSetLogicalSize(static_cast<SDL_Renderer*>(renderer), Canvas::Width, Canvas::Height);
-    for (int i = 0; i < SDL_NumJoysticks(); ++i) if (SDL_IsGameController(i)) SDL_GameControllerOpen(i);
+    controller = openController();
 }
 Video::~Video() {
+    if (controller) SDL_GameControllerClose(static_cast<SDL_GameController*>(controller));
     if (texture) SDL_DestroyTexture(static_cast<SDL_Texture*>(texture));
     if (renderer) SDL_DestroyRenderer(static_cast<SDL_Renderer*>(renderer));
     if (window) SDL_DestroyWindow(static_cast<SDL_Window*>(window));
@@ -35,12 +64,20 @@ void Video::present(const Canvas& c) {
 }
 void Video::startKeyboard(Ui&) { keyboard = true; SDL_StartTextInput(); }
 void Video::pollKeyboard(Ui&) {}
-void Video::flushInput() { SDL_FlushEvents(SDL_KEYDOWN, SDL_KEYUP); }
+void Video::flushInput() {
+    SDL_FlushEvents(SDL_KEYDOWN, SDL_KEYUP);
+    controllerInput.suppress(readController(controller));
+}
 std::vector<Button> Video::input(Ui& ui) {
     std::vector<Button> buttons;
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
-        if (event.type == SDL_CONTROLLERDEVICEADDED && SDL_IsGameController(event.cdevice.which)) SDL_GameControllerOpen(event.cdevice.which);
+        if (event.type == SDL_CONTROLLERDEVICEADDED && !controller) controller = openController();
+        if (event.type == SDL_CONTROLLERDEVICEREMOVED && controller &&
+            event.cdevice.which == SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(static_cast<SDL_GameController*>(controller)))) {
+            SDL_GameControllerClose(static_cast<SDL_GameController*>(controller));
+            controller = nullptr; controllerInput.suppress({});
+        }
         if (event.type == SDL_QUIT) { if (keyboard) { ui.finishEdit({}); keyboard = false; SDL_StopTextInput(); } else buttons.push_back(Button::Circle); }
         if (keyboard) {
             if (event.type == SDL_CONTROLLERBUTTONDOWN && (event.cbutton.button == SDL_CONTROLLER_BUTTON_A || event.cbutton.button == SDL_CONTROLLER_BUTTON_B)) {
@@ -85,27 +122,15 @@ std::vector<Button> Video::input(Ui& ui) {
                 case SDLK_e: if (!repeated) buttons.push_back(Button::R1); break;
             }
         }
-        if (event.type == SDL_CONTROLLERBUTTONDOWN) {
-            switch (event.cbutton.button) {
-                case SDL_CONTROLLER_BUTTON_A: buttons.push_back(Button::Cross); break;
-                case SDL_CONTROLLER_BUTTON_B: buttons.push_back(Button::Circle); break;
-                case SDL_CONTROLLER_BUTTON_X: buttons.push_back(Button::Square); break;
-                case SDL_CONTROLLER_BUTTON_Y: buttons.push_back(Button::Triangle); break;
-                case SDL_CONTROLLER_BUTTON_START: buttons.push_back(Button::Options); break;
-                case SDL_CONTROLLER_BUTTON_LEFTSHOULDER: buttons.push_back(Button::L1); break;
-                case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER: buttons.push_back(Button::R1); break;
-                case SDL_CONTROLLER_BUTTON_DPAD_UP: buttons.push_back(Button::Up); break;
-                case SDL_CONTROLLER_BUTTON_DPAD_DOWN: buttons.push_back(Button::Down); break;
-                case SDL_CONTROLLER_BUTTON_DPAD_LEFT: buttons.push_back(Button::Left); break;
-                case SDL_CONTROLLER_BUTTON_DPAD_RIGHT: buttons.push_back(Button::Right); break;
-            }
-        }
     }
+    if (!controller) controller = openController();
+    if (!keyboard) if (auto button = controllerInput.poll(readController(controller), SDL_GetTicks64() * 1000))
+        buttons.push_back(*button);
     return buttons;
 }
 }
 #else
-#include <orbis/Pad.h>
+#include "pad_native.hpp"
 #include <orbis/UserService.h>
 #include <orbis/Sysmodule.h>
 #include <orbis/CommonDialog.h>
@@ -161,29 +186,15 @@ void Video::present(const Canvas& canvas) {
 }
 void Video::flushInput() {
     OrbisPadData data{};
-    previous = scePadReadState(pad, &data) >= 0 ? data.buttons : 0;
-    repeatMask = 0;
+    const bool valid = scePadReadState(pad, &data) >= 0;
+    controllerInput.suppress(readNativeController(data, valid));
 }
 std::vector<Button> Video::input(Ui&) {
     if (keyboard) return {};
     OrbisPadData data{};
-    uint32_t held = scePadReadState(pad, &data) >= 0 && data.connected ? data.buttons : 0;
-    uint32_t pressed = held & ~previous;
-    uint32_t directions = held & 0xf0;
-    uint64_t now = sceKernelGetProcessTime();
-    if (directions != repeatMask) { repeatMask = directions; repeatAt = now + 350000; }
-    else if (directions && now >= repeatAt) { pressed |= directions; repeatAt = now + 100000; }
-    previous = held;
-    std::vector<Button> events;
-    const std::pair<uint32_t, Button> bindings[] = {
-        {ORBIS_PAD_BUTTON_CIRCLE, Button::Circle}, {ORBIS_PAD_BUTTON_OPTIONS, Button::Options},
-        {ORBIS_PAD_BUTTON_CROSS, Button::Cross}, {ORBIS_PAD_BUTTON_SQUARE, Button::Square}, {ORBIS_PAD_BUTTON_TRIANGLE, Button::Triangle},
-        {ORBIS_PAD_BUTTON_UP, Button::Up}, {ORBIS_PAD_BUTTON_DOWN, Button::Down}, {ORBIS_PAD_BUTTON_LEFT, Button::Left}, {ORBIS_PAD_BUTTON_RIGHT, Button::Right},
-        {ORBIS_PAD_BUTTON_L1, Button::L1}, {ORBIS_PAD_BUTTON_R1, Button::R1}
-    };
-    // One action per frame prevents combined buttons from closing then confirming a dialog.
-    for (const auto& pair : bindings) if (pressed & pair.first) { events.push_back(pair.second); break; }
-    return events;
+    const bool valid = scePadReadState(pad, &data) >= 0;
+    auto button = controllerInput.poll(readNativeController(data, valid), sceKernelGetProcessTime());
+    return button ? std::vector<Button>{*button} : std::vector<Button>{};
 }
 void Video::startKeyboard(Ui& ui) {
     sceSysmoduleLoadModule(ORBIS_SYSMODULE_IME_DIALOG);

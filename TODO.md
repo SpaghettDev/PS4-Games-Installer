@@ -19,6 +19,7 @@
 - [x] Canonical `/data/PS4-Game-Installer` storage and removal of inherited branding/imports.
 - [x] Resolve native game-launch functions from SystemService and test errors/retry.
 - [x] Resolve the entire HTTP client through one handle, including init and cleanup.
+- [x] Left-stick/D-pad navigation with deadzone, repeat, dialog suppression and SDL hotplug tests.
 - [ ] In-app Internal / External USB destination selection: verify a native setter
   or per-task destination API first. Current installations follow the PS4 system
   Application Install Location setting; a BGFT application slot is not assumed to
@@ -48,6 +49,8 @@
 - [ ] Retest the reported end-of-app CE-34878-0: normal Circle exit and closing a
   startup/runtime error screen return to the PS4 shell without an error report.
 - [ ] Splash, bubbles, controller repeat and both layouts render smoothly on the PS4.
+- [ ] Retest r16: left stick and D-pad navigate tiles/list, sidebar, menus, Settings
+  and details; verify drift filtering, repeat and returning from the PS4 keyboard.
 - [ ] Circle closes each window and Circle twice exits; Options opens its menu.
 - [ ] PS4 keyboard accepts/cancels URL edits and settings persist after restarting.
 - [ ] Companion server `/games` loads real metadata and covers on the console.

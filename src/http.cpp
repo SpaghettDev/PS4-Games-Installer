@@ -6,22 +6,27 @@
 #ifdef PSGI_HOST
 #include <curl/curl.h>
 namespace {
+struct Transfer { std::string text; size_t limit; const std::atomic<bool>* cancelled; };
+int progress(void* p, curl_off_t, curl_off_t, curl_off_t, curl_off_t) {
+    auto* t = static_cast<Transfer*>(p); return t->cancelled && *t->cancelled ? 1 : 0;
+}
 size_t receive(char* p, size_t size, size_t count, void* userdata) {
-    auto& out = *static_cast<std::string*>(userdata);
+    auto& transfer = *static_cast<Transfer*>(userdata);
+    auto& out = transfer.text;
     const size_t n = size * count;
-    if (n > psgi::MaxCatalogBytes - out.size()) return 0;
+    if (n > transfer.limit - out.size()) return 0;
     try { out.append(p, n); } catch (...) { return 0; }
     return n;
 }
 }
 namespace psgi {
-std::string httpGet(const std::string& url) {
+std::string httpGet(const std::string& url, size_t limit, const std::atomic<bool>* cancelled) {
     if (!isHttpUrl(url)) throw std::runtime_error("Invalid catalog URL");
     static const CURLcode initialized = curl_global_init(CURL_GLOBAL_DEFAULT);
     if (initialized != CURLE_OK) throw std::runtime_error("curl initialization failed");
     std::unique_ptr<CURL, decltype(&curl_easy_cleanup)> curl(curl_easy_init(), curl_easy_cleanup);
     if (!curl) throw std::runtime_error("curl allocation failed");
-    std::string out;
+    Transfer transfer{ "", limit, cancelled };
     curl_easy_setopt(curl.get(), CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl.get(), CURLOPT_PROTOCOLS_STR, "http,https");
     curl_easy_setopt(curl.get(), CURLOPT_FOLLOWLOCATION, 0L);
@@ -30,13 +35,16 @@ std::string httpGet(const std::string& url) {
     curl_easy_setopt(curl.get(), CURLOPT_NOSIGNAL, 1L);
     curl_easy_setopt(curl.get(), CURLOPT_USERAGENT, "PS4-Games-Installer/1.0");
     curl_easy_setopt(curl.get(), CURLOPT_WRITEFUNCTION, receive);
-    curl_easy_setopt(curl.get(), CURLOPT_WRITEDATA, &out);
+    curl_easy_setopt(curl.get(), CURLOPT_WRITEDATA, &transfer);
+    curl_easy_setopt(curl.get(), CURLOPT_NOPROGRESS, 0L);
+    curl_easy_setopt(curl.get(), CURLOPT_XFERINFOFUNCTION, progress);
+    curl_easy_setopt(curl.get(), CURLOPT_XFERINFODATA, &transfer);
     CURLcode rc = curl_easy_perform(curl.get());
     if (rc != CURLE_OK) throw std::runtime_error(std::string("Catalog download failed: ") + curl_easy_strerror(rc));
     long status = 0;
     curl_easy_getinfo(curl.get(), CURLINFO_RESPONSE_CODE, &status);
     if (status != 200) throw std::runtime_error("Catalog HTTP " + std::to_string(status) + "; use a direct URL");
-    return out;
+    return transfer.text;
 }
 }
 #else
@@ -105,8 +113,9 @@ void setRequestPolicy(int id) {
 }
 
 namespace psgi {
-std::string httpGet(const std::string& url) {
+std::string httpGet(const std::string& url, size_t limit, const std::atomic<bool>* cancelled) {
     if (!isHttpUrl(url)) throw std::runtime_error("Invalid catalog URL");
+    if (cancelled && *cancelled) throw std::runtime_error("Download cancelled");
     static Network net;
     Request r;
     r.tmpl = sceHttpCreateTemplate(net.http, "PS4-Games-Installer/1.0", ORBIS_HTTP_VERSION_1_1, 0);
@@ -128,11 +137,12 @@ std::string httpGet(const std::string& url) {
     char block[16384];
     const uint64_t deadline = sceKernelGetProcessTime() + 30000000;
     for (;;) {
+        if (cancelled && *cancelled) { sceHttpAbortRequest(r.req); throw std::runtime_error("Download cancelled"); }
         if (sceKernelGetProcessTime() > deadline) throw std::runtime_error("Catalog download timed out");
         int n = sceHttpReadData(r.req, block, sizeof(block));
         check(n, "Read catalog");
         if (!n) break;
-        if (static_cast<size_t>(n) > MaxCatalogBytes - out.size()) throw std::runtime_error("Catalog exceeds 8 MiB");
+        if (static_cast<size_t>(n) > limit - out.size()) throw std::runtime_error("Download exceeds limit");
         out.append(block, n);
     }
     return out;

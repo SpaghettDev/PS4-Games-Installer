@@ -40,28 +40,33 @@ class Handler(http.server.BaseHTTPRequestHandler):
         pass
 
 
-server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-thread = threading.Thread(target=server.serve_forever, daemon=True)
-thread.start()
-try:
-    with tempfile.TemporaryDirectory() as tmp:
-        config = Path(tmp) / "config.json"
-        for endpoint, expected, text in [
-            ("catalog", 0, "1 unique packages"),
-            ("empty", 0, "0 unique packages"),
-            ("redirect", 1, "HTTP 302"),
-            ("missing", 1, "HTTP 404"),
-            ("malformed", 1, "Expected a JSON object"),
-            ("large", 1, "Catalog download failed"),
-        ]:
-            config.write_text(json.dumps({"content_urls": {
-                "games": f"http://127.0.0.1:{server.server_port}/{endpoint}"
-            }}))
-            result = subprocess.run([sys.argv[1], str(config)], capture_output=True, text=True, timeout=15)
-            assert result.returncode == expected, (endpoint, result.stdout, result.stderr)
-            assert text in result.stdout + result.stderr, (endpoint, result.stdout, result.stderr)
-    print("HTTP integration tests passed")
-finally:
-    server.shutdown()
-    server.server_close()
-    thread.join()
+def main():
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            config = Path(tmp) / "config.json"
+            for endpoint, expected, text in [
+                ("catalog", 0, "1 unique packages"),
+                ("empty", 0, "0 unique packages"),
+                ("redirect", 1, "HTTP 302"),
+                ("missing", 1, "HTTP 404"),
+                ("malformed", 1, "Expected a JSON object"),
+                ("large", 1, "Catalog download failed"),
+            ]:
+                config.write_text(json.dumps({"content_urls": {
+                    "games": f"http://127.0.0.1:{server.server_port}/{endpoint}"
+                }}))
+                result = subprocess.run([sys.argv[1], str(config)], capture_output=True, text=True, timeout=15)
+                assert result.returncode == expected, (endpoint, result.stdout, result.stderr)
+                assert text in result.stdout + result.stderr, (endpoint, result.stdout, result.stderr)
+        print("HTTP integration tests passed")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
+if __name__ == "__main__":
+    main()

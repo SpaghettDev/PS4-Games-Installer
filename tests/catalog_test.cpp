@@ -53,7 +53,7 @@ int main() {
     rejects([] { parseCatalog(R"({"DATA":{"http://nas/a":{"name":"A","size":true}}})", "games"); });
     rejects([] { parseCatalog(R"({"DATA":{"http://nas/a":{"name":"A"},"http://nas/a":{"name":"B"}}})", "games"); });
     rejects([] { parseCatalog(std::string(MaxCatalogBytes + 1, ' '), "games"); });
-    assert(formatSize(8589934592ULL) == "8.0 GiB");
+    assert(formatSize(8589934592ULL) == "8.6 GB");
     assert(formatSize(0) == "Unknown size");
     std::puts("Catalog tests passed");
 }

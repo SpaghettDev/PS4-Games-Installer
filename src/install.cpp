@@ -16,6 +16,13 @@ struct DownloadParams {
     const char *playgoScenarioId, *releaseDate, *packageType, *packageSubType;
     uint64_t packageSize;
 };
+struct Progress {
+    uint32_t bits; int32_t error;
+    uint64_t length, transferred, lengthTotal, transferredTotal;
+    uint32_t numIndex, numTotal, restSec, restSecTotal;
+    int32_t preparingPercent, localCopyPercent;
+};
+static_assert(sizeof(Progress) == 64, "BGFT progress ABI");
 static_assert(offsetof(DownloadParams, packageSize) == 96, "BGFT ABI");
 static_assert(sizeof(DownloadParams) == 104, "BGFT download ABI");
 
@@ -38,6 +45,7 @@ struct Installer {
     int (*registerPkg)(DownloadParams*, int*) = nullptr;
     int (*start)(int) = nullptr;
     int (*unregisterTask)(int) = nullptr;
+    int (*progress)(int, Progress*) = nullptr;
     Installer() : heap(1024 * 1024) {
         int module = sceKernelLoadStartModule("/system/common/lib/libSceBgft.sprx", 0, nullptr, 0, nullptr, nullptr);
         if (module < 0) throw std::runtime_error("Load BGFT: " + hexCode(module));
@@ -45,6 +53,7 @@ struct Installer {
         registerPkg = symbol<decltype(registerPkg)>(module, "sceBgftServiceIntDebugDownloadRegisterPkg");
         start = symbol<decltype(start)>(module, "sceBgftServiceDownloadStartTask");
         unregisterTask = symbol<decltype(unregisterTask)>(module, "sceBgftServiceIntDownloadUnregisterTask");
+        progress = symbol<decltype(progress)>(module, "sceBgftServiceDownloadGetProgress");
         InitParams params{heap.data(), heap.size()};
         check(init(&params), "BGFT init");
     }
@@ -75,7 +84,7 @@ int queueInstall(const Entry& entry, int userId) {
     params.contentUrl = entry.url.c_str();
     params.contentExUrl = "";
     params.contentName = entry.name.c_str();
-    params.iconPath = "";
+    params.iconPath = entry.coverUrl.c_str();
     params.skuId = "";
     params.option = 0x10000; // Do not append CDN query parameters to private URLs.
     params.playgoScenarioId = "0";
@@ -96,6 +105,12 @@ int queueInstall(const Entry& entry, int userId) {
             (cleanup ? "; remove task in PS4 Notifications > Downloads" : "; registration removed"));
     }
     return task;
+}
+
+TaskProgress taskProgress(int id) {
+    Progress p{};
+    int result = installer().progress(id, &p);
+    return {p.transferredTotal, p.lengthTotal, p.error, result == 0};
 }
 
 }

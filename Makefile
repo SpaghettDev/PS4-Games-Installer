@@ -21,8 +21,9 @@ TITLE_ID := PGIN00001
 CONTENT_ID := IV0000-$(TITLE_ID)_00-PS4GAMEINSTALLER
 CROSSFLAGS := --target=x86_64-pc-freebsd12-elf -fPIC -funwind-tables -D_POSIX_C_SOURCE=200809L \
     -isysroot $(SDK) -isystem $(SDK)/include -Isrc -Ithird_party/cjson -Ithird_party/stb -Ibuild/generated -O2 -g -Wall -Wextra -MMD -MP
-COMMON := catalog
-CONSOLE := display main http install
+COMMON := catalog settings library sfo installed ui
+UI_SOURCES := canvas artwork render app demo video main
+CONSOLE := $(UI_SOURCES) http install console
 PS4_OBJECTS := $(addprefix build/ps4/,$(addsuffix .o,$(COMMON) $(CONSOLE))) build/ps4/cJSON.o
 LIBS := -ljbc -lc++ -lSceVideoOut -lSceSysmodule -lSceFreeType -lScePad -lSceUserService -lSceNet -lSceNetCtl -lSceSsl -lSceHttp -lc -lkernel
 HOSTFLAGS := -std=c++17 -DPSGI_HOST -Isrc -Ithird_party/cjson -Ithird_party/stb -Ibuild/generated -Wall -Wextra -Werror -O1 -g -pthread
@@ -63,8 +64,24 @@ build/host/catalog-test: tests/catalog_test.cpp src/catalog.cpp build/host/cJSON
 build/host/catalog-check: src/check.cpp src/catalog.cpp src/http.cpp build/host/cJSON.o src/platform.hpp
 	g++ $(HOSTFLAGS) src/check.cpp src/catalog.cpp src/http.cpp build/host/cJSON.o -lcurl -o $@
 
-test: build/host/catalog-test build/host/catalog-check
+build/generated/revision.hpp:
+	@mkdir -p $(@D)
+	python3 -c 'import json; from pathlib import Path; r=json.load(open("revision.json"))["revision"]; Path("$@").write_text("#pragma once\n#define PSGI_REVISION %d\n#define PSGI_VERSION \"r%d\"\n" % (r,r))'
+
+build/host/preview: $(addprefix src/,$(addsuffix .cpp,$(COMMON) $(UI_SOURCES) http desktop)) build/host/cJSON.o build/generated/revision.hpp
+	g++ $(HOSTFLAGS) -Wno-unused-function $$(pkg-config --cflags freetype2 sdl2) $(filter %.cpp %.o,$^) -lcurl $$(pkg-config --libs freetype2 sdl2) -o $@
+build/demo/0.png: scripts/demo_assets.py assets/font.ttf
+	python3 scripts/demo_assets.py
+screenshots preview: assets build/host/preview build/demo/0.png
+	./build/host/preview --capture
+	python3 scripts/screenshots.py
+	@echo 'Screenshots: build/screenshots/ — see README for interactive preview controls.'
+
+build/host/model-test: tests/model_test.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON))) build/host/cJSON.o
+	g++ $(HOSTFLAGS) $^ -o $@
+test: build/host/catalog-test build/host/catalog-check build/host/model-test
 	./build/host/catalog-test
+	./build/host/model-test
 	python3 tests/http_test.py ./build/host/catalog-check
 	python3 -m unittest discover -s tests -p '*_test.py'
 check: build/host/catalog-check

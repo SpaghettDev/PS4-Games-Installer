@@ -7,3 +7,11 @@
 - Native code lives in `src/`; third-party notices and GPLv2 license are retained.
 - Build tools run in Docker. The first new package revision will be r2.
 - Hardware target: PS4 11.00 + GoldHEN. No console checks have been performed.
+
+## Data and platform layer
+
+- Added bounded SFO parsing and internal/external installed-title discovery with registration checks.
+- Added settings migration, atomic saves, complete catalog metadata, offline serialization, grouping and matching.
+- Added PS4 launch service integration, UTF-16 keyboard support and 64-bit BGFT task progress.
+- Host catalog/HTTP, settings, library and SFO fixture tests pass.
+- The shared dashboard and desktop renderer are now being compiled and visually checked.

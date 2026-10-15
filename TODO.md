@@ -2,7 +2,7 @@
 
 - [x] Remove Unity files and initialize independent repository.
 - [x] Root Makefile, application identity, assets, and revision packaging.
-- [ ] Library metadata, installed discovery, settings persistence, and offline cache.
+- [x] Library metadata, installed discovery, settings persistence, and offline cache.
 - [ ] Tile/list dashboard, dialogs, controller navigation, splash, and About.
 - [ ] Artwork loading, background animation, desktop preview, and screenshots.
 - [ ] Console URL keyboard, game launching, and installation monitoring.

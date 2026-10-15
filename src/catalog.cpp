@@ -10,14 +10,14 @@
 #include <stdexcept>
 
 namespace psgi {
-namespace {
-using Json = std::unique_ptr<cJSON, decltype(&cJSON_Delete)>;
 std::string lower(std::string s) {
     for (char& c : s) if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
     return s;
 }
-Json parse(const std::string& s) {
-    if (s.size() > MaxCatalogBytes) throw std::runtime_error("JSON exceeds 8 MiB limit");
+namespace {
+using Json = std::unique_ptr<cJSON, decltype(&cJSON_Delete)>;
+Json parse(const std::string& s, size_t limit = MaxCatalogBytes) {
+    if (s.size() > limit) throw std::runtime_error("JSON exceeds 8 MiB limit");
     if (s.find('\0') != std::string::npos) throw std::runtime_error("JSON contains NUL bytes");
     Json result(cJSON_ParseWithLengthOpts(s.c_str(), s.size() + 1, nullptr, true), cJSON_Delete);
     if (!result || !cJSON_IsObject(result.get())) throw std::runtime_error("Expected a JSON object");
@@ -83,8 +83,8 @@ std::vector<Source> parseConfig(const std::string& text) {
     return sources;
 }
 
-std::vector<Entry> parseCatalog(const std::string& text, const std::string& category) {
-    auto root = parse(text);
+std::vector<Entry> parseCatalog(const std::string& text, const std::string& category, size_t limit) {
+    auto root = parse(text, limit);
     const cJSON* data = cJSON_GetObjectItem(root.get(), "DATA");
     if (!cJSON_IsObject(data)) throw std::runtime_error("Catalog needs a DATA object");
     std::vector<Entry> result;
@@ -99,8 +99,16 @@ std::vector<Entry> parseCatalog(const std::string& text, const std::string& cate
         entry.region = field(item, "region");
         entry.version = field(item, "version");
         entry.minFirmware = field(item, "min_fw");
+        entry.coverUrl = field(item, "cover_url");
+        if (!entry.coverUrl.empty() && !isHttpUrl(entry.coverUrl)) entry.coverUrl.clear();
+        entry.release = field(item, "release");
+        entry.contentId = field(item, "content_id");
+        entry.description = field(item, "description");
         entry.size = sizeField(item);
-        entry.category = lower(category);
+        entry.category = lower(category.empty() ? field(item, "category") : category);
+        for (const cJSON* m = item->child; m && entry.metadata.size() < 64; m = m->next) {
+            if (cJSON_IsString(m)) entry.metadata.emplace_back(m->string, std::string(m->valuestring).substr(0, 4096));
+        }
         if (entry.name.empty() || entry.name.size() >= 600)
             throw std::runtime_error("Package name is missing or too long");
         if (!urls.insert(entry.url).second) throw std::runtime_error("Duplicate package URL in catalog");
@@ -138,16 +146,36 @@ std::vector<size_t> filterCatalog(const std::vector<Entry>& entries, const std::
 
 std::string formatSize(uint64_t bytes) {
     if (!bytes) return "Unknown size";
-    const char* units[] = {"B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB"};
+    const char* units[] = {"B", "KB", "MB", "GB", "TB", "PB", "EB"};
     double n = static_cast<double>(bytes);
     size_t i = 0;
-    while (n >= 1024 && i < 6) { n /= 1024; ++i; }
+    while (n >= 1000 && i < 6) { n /= 1000; ++i; }
     char out[64];
     std::snprintf(out, sizeof(out), "%.1f %s", n, units[i]);
     return out;
 }
 
-std::string readFile(const std::string& path) {
+std::string serializeCatalog(const std::vector<Entry>& entries) {
+    Json root(cJSON_CreateObject(), cJSON_Delete);
+    auto* data = cJSON_AddObjectToObject(root.get(), "DATA");
+    for (const auto& e : entries) {
+        auto* item = cJSON_AddObjectToObject(data, e.url.c_str());
+        for (const auto& m : e.metadata) cJSON_AddStringToObject(item, m.first.c_str(), m.second.c_str());
+        auto set = [&](const char* key, const std::string& value) {
+            cJSON_DeleteItemFromObjectCaseSensitive(item, key);
+            cJSON_AddStringToObject(item, key, value.c_str());
+        };
+        set("name", e.name); set("title_id", e.titleId); set("region", e.region);
+        set("version", e.version); set("min_fw", e.minFirmware); set("category", e.category);
+        set("cover_url", e.coverUrl); set("release", e.release); set("content_id", e.contentId);
+        set("description", e.description); set("size", std::to_string(e.size));
+    }
+    std::unique_ptr<char, decltype(&cJSON_free)> text(cJSON_PrintUnformatted(root.get()), cJSON_free);
+    if (!text) throw std::runtime_error("Cannot serialize library");
+    return text.get();
+}
+
+std::string readFile(const std::string& path, size_t limit) {
     FILE* f = std::fopen(path.c_str(), "rb");
     if (!f) throw std::runtime_error("Cannot open " + path);
     auto closeFile = [](FILE* stream) { std::fclose(stream); };
@@ -156,7 +184,7 @@ std::string readFile(const std::string& path) {
     char block[8192];
     size_t n;
     while ((n = std::fread(block, 1, sizeof(block), f))) {
-        if (text.size() + n > MaxCatalogBytes) throw std::runtime_error("File exceeds 8 MiB limit");
+        if (text.size() + n > limit) throw std::runtime_error("File exceeds 8 MiB limit");
         text.append(block, n);
     }
     if (std::ferror(f)) throw std::runtime_error("Failed reading " + path);

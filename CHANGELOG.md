@@ -6,3 +6,5 @@
 - Moved application sources to `src/` and builds to the root Makefile.
 - Added new application identity, original SVG icon, and licensed Noto Sans font.
 - Added persistent, input-based package revisions and Docker-managed tools.
+- Added settings persistence/migration, full catalog details and installed-title matching.
+- Added installed metadata discovery, game launching and BGFT progress adapters.

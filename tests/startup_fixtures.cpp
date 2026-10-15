@@ -23,14 +23,11 @@ void Video::pollKeyboard(Ui&) {}
 void Video::flushInput() {}
 std::vector<Button> Video::input(Ui& ui) {
     const double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - firstFrame).count();
-    if (ui.screen != Screen::Splash && elapsed < 3.0)
-        throw std::runtime_error("Splash disappeared before three seconds");
     if (ui.screen == Screen::Dashboard && !dashboardSeen) {
         dashboardSeen = true;
         std::printf("DASHBOARD_AFTER_SECONDS=%.6f\n", elapsed);
     }
-    if (ui.screen == Screen::Splash && elapsed >= 3.0) return {};
-    // Simulate pressing Circle even during startup. The minimum must still hold.
+    // Startup input must not open an exit dialog before the dashboard is ready.
     return {Button::Circle};
 }
 void prepareConsole() {

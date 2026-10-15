@@ -30,7 +30,10 @@ subprocess.run([tool, "sfo_new", sfo], check=True)
 version = f"{int(revision) // 100:02d}.{int(revision) % 100:02d}"
 for name, value, kind, size in [
     ("APP_TYPE", "1", "Integer", 4), ("APP_VER", version, "Utf8", 8),
-    ("ATTRIBUTE", "0", "Integer", 4), ("CATEGORY", "gd", "Utf8", 4),
+    # Common dialogs use Circle when the Cross-assignment flag is absent.
+    # Keep the native IME consistent with the application's X confirm / O cancel.
+    ("ATTRIBUTE", "2", "Integer", 4), ("ATTRIBUTE2", "2", "Integer", 4),
+    ("CATEGORY", "gd", "Utf8", 4),
     ("CONTENT_ID", content_id, "Utf8", 48), ("DOWNLOAD_DATA_SIZE", "0", "Integer", 4),
     ("SYSTEM_VER", "0", "Integer", 4), ("TITLE", "PS4 Games Installer", "Utf8", 128),
     ("TITLE_ID", title_id, "Utf8", 12), ("VERSION", version, "Utf8", 8),

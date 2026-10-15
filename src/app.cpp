@@ -168,7 +168,7 @@ void App::tick(double elapsed, Video& video) {
         if (!ui.status.empty()) log(ui.status);
         if (startRemote && !worker->busy()) { startRemote = false; refresh(true); }
     }
-    if (bootReady && elapsed >= MinimumSplashSeconds && ui.screen == Screen::Splash) ui.screen = Screen::Dashboard;
+    if (bootReady && ui.screen == Screen::Splash) ui.screen = Screen::Dashboard;
     Command command;
     while (ui.take(command)) {
         try {

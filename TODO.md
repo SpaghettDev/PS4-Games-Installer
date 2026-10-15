@@ -9,8 +9,10 @@
 - [x] Host tests, PS4 package build/validation, and consumer documentation.
 - [x] Private `.env` FTP target configuration and `make deploy` with local FTP tests.
 - [x] Settings installation-storage availability/free-space panel and manual refresh.
-- [x] Fix startup asset loading across privilege setup and enforce a three-second splash.
+- [x] Fix startup asset loading across privilege setup; show the splash only while loading.
 - [x] Route native shutdown through the PS4 shell after cleanup and credential restoration.
+- [x] Draw PS4 controller button symbols next to action labels.
+- [x] Request X confirm / O cancel for native dialogs in package metadata.
 - [ ] In-app Internal / External USB destination selection: verify a native setter
   or per-task destination API first. Current installations follow the PS4 system
   Application Install Location setting; a BGFT application slot is not assumed to
@@ -21,7 +23,10 @@
 
 - [x] Initial console launch reaches the splash and readable startup-error screen
   (user report, 2026-10-16; failed opening the icon in the previous build).
-- [ ] Retest r8: startup reaches the dashboard with its icon, and splash lasts at least three seconds.
+- [x] Console reaches the source editor and opens the PS4 keyboard (user report,
+  2026-10-16; O selects characters in the previous package).
+- [ ] Retest r9: loading ends without a forced splash delay; the native keyboard
+  selects characters/Done with X and cancels with O.
 - [ ] Retest the reported end-of-app CE-34878-0: normal Circle exit and closing a
   startup/runtime error screen return to the PS4 shell without an error report.
 - [ ] Splash, bubbles, controller repeat and both layouts render smoothly on the PS4.

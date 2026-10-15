@@ -7,8 +7,9 @@ OpenOrbis toolchain. Created by **e1z0 — (c) 2026 Vintage2000.org**.
 [Companion FPKGi-node-server](https://github.com/e1z0/FPKGi-node-server)
 
 **First hardware target: PS4 11.00 with GoldHEN.** The application builds on Linux
-and its package validates. Console validation is in progress; the startup and
-shell-exit fixes in r8 still need a console retest, and dashboard/service operation remains unverified.
+and its package validates. A user console run reached the source editor and opened
+the system keyboard. The X/O keyboard correction in r9 needs a console retest;
+shell exit, installed discovery, launching and installation still need validation.
 It requires an active homebrew environment; this app does not install GoldHEN.
 
 ## What it does
@@ -114,8 +115,8 @@ enabled; firmware TLS/certificate support can limit which HTTPS hosts work.
 Selecting Exit from Options opens the same Circle confirmation. Settings are saved
 only when Save settings is selected; Circle offers to discard unsaved edits.
 Quick view/group/sort/filter changes in Options are saved immediately.
-The loading splash stays visible for at least three seconds from its first frame,
-and remains longer while startup is still running.
+The loading splash is visible while startup runs, with no artificial delay.
+The PS4 keyboard uses X to select a character or its Done button, and O to cancel.
 
 ## Installation storage
 
@@ -247,6 +248,7 @@ structures are accepted; PS5 sources are ignored.
 | Problem | Check |
 | --- | --- |
 | Cannot open `/app0/assets/icon.png` at startup | Install r7 or later; the startup asset-loading order was corrected |
+| System keyboard types with O and closes with X | Install r9 or later; package metadata now requests X confirm / O cancel for native dialogs |
 | CE-34878-0 when closing the app or an error screen | Retest with r8 or later, which restores startup credentials and requests exit through the PS4 shell. The reported end-of-app crash is not yet verified fixed on hardware |
 | Empty Available | Set the direct JSON URL, use Test connection, then Refresh library |
 | HTTP 404 from the companion server | Use its `/games` link on the JSON library port |

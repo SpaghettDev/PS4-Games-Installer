@@ -2,11 +2,53 @@
 #include "revision.hpp"
 #include <algorithm>
 #include <cmath>
+#include <initializer_list>
 
 namespace psgi {
 namespace {
 constexpr uint32_t White = 0xf2f7ff, Muted = 0x9bbdd8, Accent = 0x7ae5e0, Blue = 0x267bb8, Panel = 0x102c49;
 const char* Copyright = "Created by e1z0 (c) 2026 Vintage2000.org";
+void buttonIcon(Canvas& c, Button button, int x, int baseline, int width) {
+    const int top = baseline - 27;
+    c.rounded(x, top, width, 36, 8, 0x46647e);
+    c.rounded(x + 1, top + 1, width - 2, 34, 7, 0x16344f);
+    auto line = [&](int ax, int ay, int bx, int by, uint32_t color) {
+        const int steps = std::max(std::abs(bx - ax), std::abs(by - ay));
+        for (int i = 0; i <= steps; ++i)
+            c.rectangle(x + ax + (bx - ax) * i / steps, top + ay + (by - ay) * i / steps, 2, 2, color);
+    };
+    switch (button) {
+        case Button::Cross:
+            line(10, 10, 24, 24, 0x8cbfff); line(10, 24, 24, 10, 0x8cbfff); break;
+        case Button::Square:
+            line(9, 9, 25, 9, 0xf4a5d7); line(25, 9, 25, 25, 0xf4a5d7);
+            line(25, 25, 9, 25, 0xf4a5d7); line(9, 25, 9, 9, 0xf4a5d7); break;
+        case Button::Triangle:
+            line(17, 8, 27, 25, 0x7ae5b5); line(27, 25, 7, 25, 0x7ae5b5);
+            line(7, 25, 17, 8, 0x7ae5b5); break;
+        case Button::Circle:
+            for (int i = 0; i < 64; ++i) {
+                double angle = i * 6.283185307 / 64;
+                c.rectangle(x + 17 + int(std::round(9 * std::cos(angle))),
+                            top + 17 + int(std::round(9 * std::sin(angle))), 2, 2, 0xff9b9f);
+            }
+            break;
+        default: {
+            const std::string label = button == Button::Options ? "OPTIONS" : "L1 / R1";
+            c.text(label, x + (width - c.textWidth(label, 13)) / 2, top + 23, 13, White);
+            break;
+        }
+    }
+}
+void hints(Canvas& c, int x, int baseline,
+           std::initializer_list<std::pair<Button, std::string>> items, int size = 23) {
+    for (const auto& item : items) {
+        const int width = item.first == Button::Options || item.first == Button::L1 ? 80 : 36;
+        buttonIcon(c, item.first, x, baseline, width);
+        c.text(item.second, x + width + 10, baseline, size, White);
+        x += width + 10 + c.textWidth(item.second, size) + 32;
+    }
+}
 std::shared_ptr<Image> softened(const Image& input) {
     auto image = std::make_shared<Image>(input);
     std::vector<uint32_t> scratch(input.pixels.size());
@@ -162,19 +204,22 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
     }
     c.rectangle(54, 964, 1812, 1, 0x638aad, 65);
     c.text(ui.status, 70, 1000, 23, ui.loading ? Accent : White, 1778);
-    c.text("X " + std::string(ui.library == Library::Installed ? "Launch" : "Install") + "     Square Details     Triangle Actions     L1/R1 Library     Options Menu     O Back / Exit", 70, 1045, 22, Muted, 1778);
+    hints(c, 70, 1045, {{Button::Cross, ui.library == Library::Installed ? "Launch" : "Install"},
+        {Button::Square, "Details"}, {Button::Triangle, "Actions"}, {Button::Options, "Menu"},
+        {Button::Circle, "Back / Exit"}, {Button::L1, "Library"}}, 22);
 
     switch (ui.screen) {
         case Screen::Options:
             panel(c, 520, 168, 880, 728, "Options");
             menu(c, ui.options(), ui.menuIndex, 553, 310, 814, 58);
-            c.text("X Select     O Back", 570, 862, 23, Accent); break;
+            hints(c, 570, 862, {{Button::Cross, "Select"}, {Button::Circle, "Back"}}); break;
         case Screen::Settings: {
             panel(c, 352, 115, 1216, 840, "Settings");
             menu(c, ui.settingRows(), ui.settingsIndex, 390, 251, 1140, 48);
             std::string url = ui.draft.sources[0].url;
             c.text(url.empty() ? "Games URL is not configured" : url, 412, 844, 21, Muted, 1090);
-            c.text("X Change / Select     Left / Right Change     O Cancel", 412, 913, 23, Accent); break;
+            hints(c, 412, 913, {{Button::Cross, "Change / Select"}, {Button::Circle, "Cancel"}});
+            c.text("Left / Right Change", 1100, 913, 23, Muted); break;
         }
         case Screen::Sources: {
             panel(c, 352, 140, 1216, 800, "Additional catalog sources");
@@ -185,7 +230,7 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
                 c.text(i == ui.draft.sources.size() ? "+ Add catalog source" : ui.draft.sources[i].category, 414, y - 4, 27, White, 1090);
                 if (i < ui.draft.sources.size()) c.text(ui.draft.sources[i].url.empty() ? "Disabled" : ui.draft.sources[i].url, 414, y + 22, 18, Muted, 1090);
             }
-            c.text("X Edit / Add     Triangle Remove     O Back", 412, 898, 23, Accent); break;
+            hints(c, 412, 898, {{Button::Cross, "Edit / Add"}, {Button::Triangle, "Remove"}, {Button::Circle, "Back"}}); break;
         }
         case Screen::Storage: {
             panel(c, 320, 170, 1280, 740, "Installation storage");
@@ -202,7 +247,7 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
             c.text("Settings > Storage > Options > Application Install Location", 370, 610, 25, Accent, 1180);
             c.text("USB installation requires a drive configured as PS4 Extended Storage.", 370, 671, 24, Muted, 1180);
             c.text("This app currently follows that system choice for new installations.", 370, 716, 24, Muted, 1180);
-            c.text("Triangle Check storage     O Back", 370, 863, 23, Accent, 1180); break;
+            hints(c, 370, 863, {{Button::Triangle, "Check storage"}, {Button::Circle, "Back"}}); break;
         }
         case Screen::Details: {
             panel(c, 230, 120, 1460, 828, "Game details");
@@ -212,27 +257,28 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
             auto rows = ui.details();
             for (size_t i = ui.detailScroll; i < std::min(rows.size(), ui.detailScroll + 12); ++i)
                 c.text(rows[i], 574, 322 + (i - ui.detailScroll) * 43, 23, i % 2 ? Muted : White, 1040);
-            c.text("Up / Down Scroll     O Back", 575, 908, 23, Accent); break;
+            c.text("Up / Down Scroll", 575, 908, 23, Muted);
+            hints(c, 840, 908, {{Button::Circle, "Back"}}); break;
         }
         case Screen::Actions:
             panel(c, 495, 275, 930, 510, ui.pending.name);
             menu(c, ui.actionRows(), ui.menuIndex, 532, 413, 856, 64);
-            c.text("X Select     O Back", 548, 747, 23, Accent); break;
+            hints(c, 548, 747, {{Button::Cross, "Select"}, {Button::Circle, "Back"}}); break;
         case Screen::ConfirmInstall:
             panel(c, 360, 266, 1200, 548, "Install package?");
             c.text(ui.pending.name, 410, 413, 33, White, 1100);
             c.text(shortSize(ui.pending.size) + "  " + ui.pending.titleId, 410, 467, 26, Accent, 1100);
             c.text("Download and install through the PS4 background installer.", 410, 545, 26, Muted, 1100);
             c.text(ui.pending.installed ? "An existing title will not be automatically uninstalled." : "Manage the task in PS4 Notifications > Downloads.", 410, 591, 24, Muted, 1100);
-            c.text("X Confirm install     O Cancel", 410, 753, 26, Accent); break;
+            hints(c, 410, 753, {{Button::Cross, "Confirm install"}, {Button::Circle, "Cancel"}}, 26); break;
         case Screen::ConfirmExit:
             panel(c, 495, 334, 930, 380, "Exit PS4 Games Installer?");
             c.text("Background installation tasks will continue on the PS4.", 545, 502, 26, Muted, 830);
-            c.text("O Confirm exit     X Stay", 545, 652, 28, Accent); break;
+            hints(c, 545, 652, {{Button::Circle, "Confirm exit"}, {Button::Cross, "Stay"}}, 28); break;
         case Screen::Discard:
             panel(c, 495, 334, 930, 380, "Discard unsaved settings?");
             c.text("Your saved configuration will be kept.", 545, 502, 26, Muted, 830);
-            c.text("O Discard     X Keep editing", 545, 652, 28, Accent); break;
+            hints(c, 545, 652, {{Button::Circle, "Discard"}, {Button::Cross, "Keep editing"}}, 28); break;
         case Screen::About:
             panel(c, 290, 210, 1340, 660, "About PS4 Games Installer");
             c.image(*placeholder, 345, 334, 180, 180);
@@ -243,12 +289,18 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
             c.text("The projects work together for catalog, cover and package hosting.", 345, 625, 24, Muted, 1230);
             c.text("https://github.com/e1z0/PS4-Games-Installer", 345, 700, 24, Accent, 1230);
             c.text("https://github.com/e1z0/FPKGi-node-server", 345, 745, 24, Accent, 1230);
-            c.text("O Back", 345, 827, 23, Muted); break;
+            hints(c, 345, 827, {{Button::Circle, "Back"}}); break;
         case Screen::Keyboard:
             panel(c, 300, 330, 1320, 400, ui.editKind == EditKind::Search ? "Search library" : ui.editKind == EditKind::SourceCategory ? "Category name" : "Catalog JSON URL");
             c.rounded(340, 466, 1240, 88, 10, 0x061c32, 255);
             c.text(ui.keyboardText + "|", 367, 522, 28, White, 1185);
-            c.text("Enter / X Save     Escape / O Cancel", 350, 671, 24, Accent); break;
+#ifdef PSGI_HOST
+            c.text("Type with your keyboard. Enter saves; Escape cancels.", 350, 671, 24, Accent);
+#else
+            c.text("X selects a character. Choose Done on the keyboard to accept.", 350, 610, 24, Muted);
+            hints(c, 350, 671, {{Button::Cross, "Select key"}, {Button::Circle, "Cancel"}});
+#endif
+            break;
         default: break;
     }
 }

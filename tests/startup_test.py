@@ -39,15 +39,14 @@ class StartupRegression(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         match = re.search(r"DASHBOARD_AFTER_SECONDS=([0-9.]+)", result.stdout)
         self.assertIsNotNone(match, result.stdout)
-        self.assertGreaterEqual(float(match[1]), 3.0)
-        self.assertGreaterEqual(elapsed, 3.0)
+        self.assertLess(float(match[1]), 3.0, "Ready dashboard was held behind a splash timer")
 
-    def test_initialization_failure_keeps_minimum_splash(self):
+    def test_initialization_failure_exits_without_splash_delay(self):
         result, elapsed = self.run_startup(fail=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Simulated privilege setup failure", result.stderr)
         self.assertNotIn("DASHBOARD_AFTER_SECONDS", result.stdout)
-        self.assertGreaterEqual(elapsed, 3.0)
+        self.assertLess(elapsed, 3.0, "Startup failure was held behind a splash timer")
 
 
 if __name__ == "__main__":

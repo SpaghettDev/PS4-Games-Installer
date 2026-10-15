@@ -1,5 +1,17 @@
 # Changelog
 
+## r9 — 2026-10-16
+
+- Removed the artificial three-second splash minimum. Startup shows the dashboard
+  as soon as the initial library scan finishes, and errors appear without a delay.
+- Replaced written controller button names with drawn PS4 button symbols and
+  keycaps alongside action labels throughout the dashboard and dialogs.
+- Corrected package metadata to request X confirm / O cancel for the native PS4
+  keyboard, matching application controls. Previously O selected characters and
+  X closed the keyboard. The system keyboard is retained.
+- Updated keyboard guidance and added a regression that generates and reads real
+  SFO metadata to check the common-dialog button assignment.
+
 ## r8 — 2026-10-16
 
 - Changed native termination to request exit through the PS4 system service after

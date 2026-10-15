@@ -65,7 +65,7 @@ static int runApplication(int argc, char** argv) {
         canvas.centered("Loading PS4 Games Installer", 560, 48, 0xf2f7ff);
         canvas.centered("Created by e1z0 (c) 2026 Vintage2000.org", 1016, 23, 0x9bbdd8);
         video.present(canvas);
-        // Measure from the first visible frame, including initialization time.
+        // Animation time starts at the first presented frame.
         const auto start = std::chrono::steady_clock::now();
         try {
         // libjbc changes the filesystem root. Read /app0 resources while the
@@ -85,7 +85,7 @@ static int runApplication(int argc, char** argv) {
             double seconds = std::chrono::duration<double>(frameStart - start).count();
             video.pollKeyboard(app.ui);
             auto buttons = video.input(app.ui);
-            if (seconds >= App::MinimumSplashSeconds)
+            if (app.ui.screen != Screen::Splash)
                 for (Button button : buttons) app.ui.handle(button);
             app.tick(seconds, video);
             renderer.draw(canvas, app.ui, app.artwork, seconds);
@@ -93,8 +93,6 @@ static int runApplication(int argc, char** argv) {
             std::this_thread::sleep_until(frameStart + std::chrono::milliseconds(33));
         }
         } catch (const std::exception& e) {
-            // Startup failures must not replace the splash before its minimum.
-            std::this_thread::sleep_until(start + std::chrono::duration<double>(App::MinimumSplashSeconds));
 #ifdef PSGI_HOST
             throw;
 #else

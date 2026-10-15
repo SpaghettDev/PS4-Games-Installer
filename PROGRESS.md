@@ -164,3 +164,35 @@ Exit-path references:
 - https://github.com/bucanero/PS4CheatsManager/blob/main/source/main.c
 - https://github.com/LightningMods/Itemzflow/blob/main/itemzflow/source/sig_handler.cpp
 - https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/blob/v0.5.4/include/orbis/SystemService.h
+
+## Splash, controller hints and PS4 keyboard assignment — 2026-10-16
+
+- Removed the requested splash minimum, including the error-path sleep. The
+  dashboard now appears as soon as the initial scan is ready; input during startup
+  is still consumed so a held button does not open menus over the splash.
+- Replaced written face-button names with drawn Cross, Square, Triangle and Circle
+  symbols in keycaps, plus Options and L1/R1 keycaps, beside their action text.
+  Dialogs use the same hints and the keyboard guidance describes selecting keys
+  and the native Done button rather than suggesting X immediately saves the field.
+- User clarified that the PS4 keyboard works, but O selects characters while X
+  closes it. Inspection found the generated SFO used ATTRIBUTE=0. The new package
+  requests Cross for common dialogs using ATTRIBUTE=2 (without the system-default
+  override bit), and includes ATTRIBUTE2=2 as used in current native PS4 packaging.
+  The system IME remains in place; no global console button mapping is changed.
+- Added a regression running the real metadata staging script and pinned publishing
+  tool, then parsing the resulting SFO to check the assignment flags. Startup
+  regressions now check that a ready dashboard and startup errors are not held
+  behind a three-second timer, while retaining asset-root and cleanup-order checks.
+- `make test` passed all host suites (including artwork/font ASan/UBSan) and
+  fourteen Python integration tests, including real SFO generation. Successful and
+  failed startup both passed the updated no-delay regression checks.
+- Built `dist/PS4Game_installer-r9.pkg`; `make validate` passed all package hash and
+  signature checks. Extracted the package and verified ATTRIBUTE=2, ATTRIBUTE2=2
+  and APP_VER=00.09 in its actual SFO, matching the staged metadata.
+- Generated fourteen desktop captures and inspected the Available dashboard,
+  Settings and URL editor. Updated the library, summary and storage images used
+  in the documentation. No live deployment was performed. The corrected native
+  keyboard assignment still needs a PS4 retest.
+
+Native packaging reference:
+https://github.com/Mayo1970/ioQuake3-PS4/blob/main/Makefile

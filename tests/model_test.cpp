@@ -7,6 +7,7 @@
 #include <cassert>
 #include <cstdio>
 #include <fstream>
+#include <filesystem>
 #include <stdexcept>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -36,15 +37,46 @@ int main() {
     assert(!mountedStorage("/dev/null", "/dev").available);
     auto mounted = mountedStorage("/dev/shm", "/dev");
     assert(mounted.available && mounted.freeBytes > 0);
-    atomicWrite(root + "/legacy.json", R"({"content_urls":{"games":"http://nas/catalog"}})");
-    auto migrated = loadSettings(root + "/data", root + "/legacy.json");
-    assert(migrated.sources[0].url == "http://nas/catalog");
-    migrated.layout = Layout::Summary; migrated.animations = false;
-    saveSettings(root + "/data", migrated);
-    assert(sameSettings(migrated, loadSettings(root + "/data", "")));
-    auto invalid = migrated; invalid.sources[0].url = "bad";
+    auto configured = loadSettings(root + "/data");
+    assert(configured.sources[0].url.empty());
+    configured.sources[0].url = "http://nas/catalog";
+    configured.layout = Layout::Summary; configured.animations = false;
+    saveSettings(root + "/data", configured);
+    assert(sameSettings(configured, loadSettings(root + "/data")));
+    auto invalid = configured; invalid.sources[0].url = "bad";
     rejects([&] { saveSettings(root + "/data", invalid); });
-    assert(sameSettings(migrated, loadSettings(root + "/data", "")));
+    assert(sameSettings(configured, loadSettings(root + "/data")));
+
+    // Move only this application's existing directory, preserving all its data.
+    const std::string parent = root + "/console";
+    const std::string previous = parent + "/PS4-Games-Installer";
+    const std::string canonical = parent + "/PS4-Game-Installer";
+    std::filesystem::create_directories(previous + "/artwork");
+    saveSettings(previous, configured);
+    atomicWrite(previous + "/catalog.json", "cached catalog");
+    atomicWrite(previous + "/tasks.json", "tracked tasks");
+    atomicWrite(previous + "/artwork/retained.img", "cached artwork");
+    assert(applicationDataDirectory(parent) == canonical);
+    assert(!std::filesystem::exists(previous));
+    assert(sameSettings(configured, loadSettings(canonical)));
+    assert(readFile(canonical + "/catalog.json") == "cached catalog");
+    assert(readFile(canonical + "/tasks.json") == "tracked tasks");
+    assert(readFile(canonical + "/artwork/retained.img") == "cached artwork");
+    // Repeated launches and an existing destination must never overwrite it.
+    assert(applicationDataDirectory(parent) == canonical);
+    std::filesystem::create_directory(previous);
+    saveSettings(previous, defaults);
+    assert(applicationDataDirectory(parent) == canonical);
+    assert(sameSettings(configured, loadSettings(canonical)));
+    assert(std::filesystem::exists(previous + "/config.json"));
+    const std::string fresh = root + "/fresh";
+    std::filesystem::create_directory(fresh);
+    assert(applicationDataDirectory(fresh) == fresh + "/PS4-Game-Installer");
+    assert(loadSettings(fresh + "/PS4-Game-Installer").sources[0].url.empty());
+    const std::string blocked = root + "/blocked";
+    std::filesystem::create_directory(blocked);
+    atomicWrite(blocked + "/PS4-Game-Installer", "not a directory");
+    rejects([&] { applicationDataDirectory(blocked); });
 
     for (const std::string id : {"CUSA00001", "CUSA00002", "CUSA00003", "NPXS00001", "PGIN00001"}) {
         mkdir((root + "/" + id).c_str(), 0700);

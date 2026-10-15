@@ -63,7 +63,7 @@ bool isHttpUrl(const std::string& url) {
 std::vector<Source> parseConfig(const std::string& text) {
     auto root = parse(text);
     const cJSON* object = root.get();
-    // Accept the Unity config's preferences.content_urls, including uppercase keys.
+    // Accept nested preferences.content_urls, including uppercase keys.
     const cJSON* prefs = cJSON_GetObjectItem(object, "preferences");
     if (prefs) object = prefs;
     const cJSON* urls = cJSON_GetObjectItem(object, "content_urls");

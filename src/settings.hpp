@@ -14,6 +14,7 @@ Settings parseSettings(const std::string& text);
 std::string serializeSettings(const Settings& settings);
 bool sameSettings(const Settings& a, const Settings& b);
 void atomicWrite(const std::string& path, const std::string& text);
-Settings loadSettings(const std::string& directory, const std::string& legacyPath = "/data/FPKGi-openorbis/config.json");
+std::string applicationDataDirectory(const std::string& parent = "/data");
+Settings loadSettings(const std::string& directory);
 void saveSettings(const std::string& directory, const Settings& settings);
 }

@@ -16,6 +16,7 @@
 - [x] Resolve installed icons independently from title metadata, including Extended Storage.
 - [x] Visible config-save confirmation/errors, draft snapshots and restart persistence tests.
 - [x] Bind native HTTP policies to the same imported service initialized for downloads.
+- [x] Canonical `/data/PS4-Game-Installer` storage and removal of inherited branding/imports.
 - [ ] In-app Internal / External USB destination selection: verify a native setter
   or per-task destination API first. Current installations follow the PS4 system
   Application Install Location setting; a BGFT application slot is not assumed to
@@ -30,8 +31,10 @@
   2026-10-16; O selects characters in the previous package).
 - [x] Console shows Installed game tiles and names (user report, 2026-10-16;
   icons were missing in the previous package).
-- [x] Read-only FTP check confirms a games URL exists in the console's current
-  `/data/PS4-Games-Installer/config.json` (2026-10-16).
+- [x] Read-only FTP check confirmed a saved games URL before the data-directory
+  correction (2026-10-16).
+- [ ] Retest r13: data moves to `/data/PS4-Game-Installer`, settings and caches are
+  preserved, and About displays only the current application's identity.
 - [ ] Retest r12: Save settings shows the config-file confirmation, survives app
   restart, and a valid `/games` source loads without the HTTP pre-init error.
 - [ ] Retest r10: Installed tiles, summary backgrounds and details show local icons

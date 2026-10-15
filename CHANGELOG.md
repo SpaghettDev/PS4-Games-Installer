@@ -1,5 +1,15 @@
 # Changelog
 
+## r13 — 2026-10-16
+
+- Standardized console storage on `/data/PS4-Game-Installer` for settings, catalog,
+  tasks, artwork and logs. This app's existing data is moved there on first launch
+  when the destination does not exist.
+- Removed the unrelated application importer and inherited branding/repository
+  references from application sources, About, README and packaged credits.
+- Added data-directory tests for preservation, repeated launches, destination
+  precedence, fresh installs and blocked paths.
+
 ## r12 — 2026-10-16
 
 - Kept Settings open after saving, with a visible config-file confirmation, inline

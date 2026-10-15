@@ -288,10 +288,10 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
             c.text("PS4 Games Installer " PSGI_VERSION, 570, 365, 37, White, 1000);
             c.text(Copyright, 570, 420, 25, Accent, 1000);
             c.text("An OpenOrbis game library, launcher and package installer.", 570, 477, 24, Muted, 1000);
-            c.text("Developed in cooperation with FPKGi-node-server.", 345, 580, 27, White, 1230);
-            c.text("The projects work together for catalog, cover and package hosting.", 345, 625, 24, Muted, 1230);
+            c.text("Works with a companion catalog and package server.", 345, 580, 27, White, 1230);
+            c.text("Browse its library, view game artwork and install packages.", 345, 625, 24, Muted, 1230);
             c.text("https://github.com/e1z0/PS4-Games-Installer", 345, 700, 24, Accent, 1230);
-            c.text("https://github.com/e1z0/FPKGi-node-server", 345, 745, 24, Accent, 1230);
+            c.text("Native PS4 dashboard built with the OpenOrbis toolchain.", 345, 745, 24, Muted, 1230);
             hints(c, 345, 827, {{Button::Circle, "Back"}}); break;
         case Screen::Keyboard:
             panel(c, 300, 330, 1320, 400, ui.editKind == EditKind::Search ? "Search library" : ui.editKind == EditKind::SourceCategory ? "Category name" : "Catalog JSON URL");

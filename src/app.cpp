@@ -59,7 +59,7 @@ struct App::Worker {
 
 App::App(const std::string& data, bool preview)
     : worker(new Worker), directory(ensureDirectory(data)), demo(preview), artwork(directory + "/artwork") {
-    try { ui.settings = loadSettings(directory, preview ? "" : "/data/FPKGi-openorbis/config.json"); }
+    try { ui.settings = loadSettings(directory); }
     catch (const std::exception& e) { ui.status = std::string("Settings: ") + e.what(); }
     saved = ui.settings; ui.draft = saved;
     if (demo) {

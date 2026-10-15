@@ -2,6 +2,7 @@
 #include "render.hpp"
 #include "video.hpp"
 #include "platform.hpp"
+#include "settings.hpp"
 #include <chrono>
 #include <cstdio>
 #include <cstring>
@@ -57,7 +58,7 @@ static int runApplication(int argc, char** argv) {
 #else
         (void)argc; (void)argv;
         const bool screenshots = false;
-        const std::string assets = "/app0/assets", data = "/data/PS4-Games-Installer";
+        const std::string assets = "/app0/assets";
 #endif
         Canvas canvas(assets + "/font.ttf");
         Video video(screenshots);
@@ -75,7 +76,7 @@ static int runApplication(int argc, char** argv) {
 #ifdef PSGI_HOST
         App app(data, true);
 #else
-        App app(data);
+        App app(applicationDataDirectory());
 #endif
 #ifdef PSGI_HOST
         if (screenshots) { capture(app, renderer, canvas); return 0; }

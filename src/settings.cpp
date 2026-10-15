@@ -101,12 +101,31 @@ void atomicWrite(const std::string& path, const std::string& text) {
         unlink(temporary.c_str()); throw std::runtime_error("Cannot save " + path);
     }
 }
-Settings loadSettings(const std::string& directory, const std::string& legacyPath) {
+std::string applicationDataDirectory(const std::string& parent) {
+    const std::string directory = parent + "/PS4-Game-Installer";
+    struct stat st{};
+    if (stat(directory.c_str(), &st) == 0) {
+        if (!S_ISDIR(st.st_mode)) throw std::runtime_error("Application data path is not a directory: " + directory);
+        return directory;
+    }
+    if (errno != ENOENT) throw std::runtime_error("Cannot inspect application data directory: " + directory);
+    // Preserve data from this application's earlier releases when adopting the
+    // canonical directory. An existing destination always takes precedence.
+    const std::string previous = parent + "/PS4-Games-Installer";
+    if (stat(previous.c_str(), &st) == 0) {
+        if (!S_ISDIR(st.st_mode) || rename(previous.c_str(), directory.c_str()))
+            throw std::runtime_error("Cannot move application data to " + directory);
+    } else {
+        if (errno != ENOENT || mkdir(directory.c_str(), 0700))
+            throw std::runtime_error("Cannot create application data directory: " + directory);
+    }
+    return directory;
+}
+Settings loadSettings(const std::string& directory) {
     if (mkdir(directory.c_str(), 0700) && errno != EEXIST) throw std::runtime_error("Cannot create application data directory");
     const std::string config = directory + "/config.json";
     if (access(config.c_str(), F_OK) == 0) return parseSettings(readFile(config));
     Settings settings;
-    if (!legacyPath.empty() && access(legacyPath.c_str(), F_OK) == 0) settings = parseSettings(readFile(legacyPath));
     saveSettings(directory, settings);
     return settings;
 }

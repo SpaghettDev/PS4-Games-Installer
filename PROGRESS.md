@@ -264,3 +264,25 @@ Native HTTP ABI references:
 
 - https://github.com/shadps4-emu/shadPS4/blob/main/src/core/libraries/network/http.cpp
 - https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/blob/v0.5.4/include/orbis/Http.h
+
+## Application identity and canonical data directory — 2026-10-16
+
+- Removed inherited branding and unrelated repository references from current
+  sources, About, README and packaged credits. Removed the unrelated application
+  settings importer and its API argument, rather than hiding or renaming it.
+- Console startup now selects `/data/PS4-Game-Installer` after privilege setup.
+  The first upgraded launch moves this application's previous data directory as
+  a unit when the destination is absent, preserving config, tasks, catalog,
+  artwork and logs. An existing destination is never overwritten or merged.
+- Added model tests for data preservation, repeated launches, fresh installs,
+  destination precedence and rejecting a regular file at the data-directory path.
+  Updated App persistence tests to use the simplified settings API.
+- Added the canonical storage/identity rule to AGENTS.md. All host suites passed,
+  including directory preservation, App persistence, native HTTP, artwork/font
+  ASan/UBSan and fourteen Python integrations.
+- Built `dist/PS4Game_installer-r13.pkg`; `make validate` passed every package hash
+  and signature check. Scanned current tracked files, the native ELF and extracted
+  package files: no inherited-name references remain.
+- Generated fourteen desktop captures and inspected the updated About screen.
+  No package was deployed or live console data moved; startup relocation still
+  needs a hardware retest.

@@ -3,8 +3,7 @@
 A native PS4 library, game launcher and remote package installer built with the
 OpenOrbis toolchain. Created by **e1z0 — (c) 2026 Vintage2000.org**.
 
-[Project](https://github.com/e1z0/PS4-Games-Installer) ·
-[Companion FPKGi-node-server](https://github.com/e1z0/FPKGi-node-server)
+[Project](https://github.com/e1z0/PS4-Games-Installer)
 
 **First hardware target: PS4 11.00 with GoldHEN.** The application builds on Linux
 and its package validates. User console runs reached the source editor, system
@@ -46,20 +45,19 @@ metadata directory. It does not require a configured server or Internet access.
    a source change. Other sources can be added under **Other catalog sources**.
 
 Accepting the keyboard updates a draft. **Save settings** writes
-`/data/PS4-Games-Installer/config.json` and keeps Settings open with a visible
+`/data/PS4-Game-Installer/config.json` and keeps Settings open with a visible
 confirmation. Connection results and save errors appear inside the Settings window.
 If saving fails, the edited draft is kept for another attempt.
 
-The title ID is `PGIN00001`, separate from the earlier prototype and FPKGi.
+The title ID is `PGIN00001`.
 Sizes use decimal GB/MB. Installed size and remote package size are separate fields;
 unknown values are shown as unknown.
 
-## Using FPKGi-node-server
+## Using a companion catalog server
 
-This project is developed in cooperation with
-[e1z0/FPKGi-node-server](https://github.com/e1z0/FPKGi-node-server), which scans your
-packages, extracts PS4 icons, and serves catalogs, artwork and package files.
-Follow that repository's Linux/Docker setup instructions.
+Use a companion server that scans your packages, extracts PS4 icons, and serves
+catalogs, artwork and package files. Follow your server's Linux/Docker setup
+instructions.
 
 Use the JSON link from its catalog page. For example, with its JSON library server
 on port 3000:
@@ -241,7 +239,7 @@ An SDL-compatible controller can also navigate the preview.
 
 ## Data and troubleshooting
 
-The console stores its files under `/data/PS4-Games-Installer/`:
+The console stores its files under `/data/PS4-Game-Installer/`:
 
 - `config.json`: saved sources and display preferences; see config.example.json.
 - `catalog.json`: last successful remote catalog snapshot.
@@ -249,9 +247,10 @@ The console stores its files under `/data/PS4-Games-Installer/`:
 - `artwork/`: disposable cover cache.
 - `app.log`: recent operation results and service errors.
 
-The old prototype's `/data/FPKGi-openorbis/config.json` is imported once if no new
-configuration exists. It is not modified. Older `preferences.CONTENT_URLS` config
-structures are accepted; PS5 sources are ignored.
+On the first launch of r13 or later, this app's previous
+`/data/PS4-Games-Installer/` directory is moved to `/data/PS4-Game-Installer/` when
+the new directory does not exist. Saved settings, catalog, tasks and artwork stay
+together. An existing new directory takes precedence.
 
 | Problem | Check |
 | --- | --- |

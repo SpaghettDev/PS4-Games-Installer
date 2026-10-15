@@ -1,5 +1,8 @@
 # Project workflow
 
+- Console data belongs in `/data/PS4-Game-Installer`. Do not restore inherited
+  project branding, unrelated app data paths, or imports from other applications.
+
 - This is PS4 Games Installer, a native C++17 OpenOrbis application. Keep application
   sources in `src/` and use the root Makefile with Docker-managed build tools.
 - Maintain `TODO.md`, `CHANGELOG.md`, and `PROGRESS.md` as work progresses. Record

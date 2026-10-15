@@ -101,3 +101,30 @@ Research references:
 - https://github.com/flatz/ps4_stub_lib_maker_v2/blob/master/include/bgft.h
 - https://github.com/idc/ps4libdoc/tree/9.00
 - https://www.playstation.com/en-ca/support/hardware/ps4-external-hdd-support/
+
+## Reported console startup failure — 2026-10-16
+
+- User hardware report: initial splash rendered briefly, then the application
+  displayed `Cannot open /app0/assets/icon.png` on its readable error screen.
+- Extracted r6 and confirmed the packaged icon's SHA-256 matches the source. The startup order opened the font
+  before privilege setup but opened the icon afterward. The pinned libjbc changes
+  the process root/current/jail directory to the global root; `/app0` refers to the
+  application's sandbox path before that transition.
+- Moved icon loading before privilege setup and retained the bundled font bytes in
+  memory for FreeType's lazy glyph reads. The renderer uses loaded artwork afterward.
+- The splash minimum is now three seconds measured from its first presented frame,
+  including initialization time. Early controller input is consumed without opening
+  menus; initialization failures retain the splash until the same deadline.
+- Added regressions using the real main/App/UI/renderer with test-only platform and
+  video adapters. They remove asset-path access during privilege setup and check
+  successful dashboard rendering plus failure-path timing.
+- `make test` passed all native host suites (including artwork/font ASan/UBSan)
+  and twelve Python integration tests. Both new startup regressions passed:
+  the dashboard rendered after asset-path removal, and normal/error startup each
+  kept the splash for at least three seconds.
+- Built `dist/PS4Game_installer-r7.pkg`; `make validate` passed all package hash
+  and signature checks. Generated fourteen desktop captures and visually inspected
+  the splash and dashboard with the memory-backed font and preloaded icon.
+- The corrected build has not been retested on a PS4 or deployed to the live target.
+
+libjbc reference: https://github.com/bucanero/ps4-libjbc/blob/835fe016ff0ae5dd89b9249f39cc0fe093fd07dd/jailbreak.c

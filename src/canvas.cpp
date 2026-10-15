@@ -32,11 +32,17 @@ uint32_t nextCodepoint(const std::string& text, size_t& i) {
     return value;
 }
 }
-Canvas::Canvas(const std::string& font) : pixels(Width * Height) {
+Canvas::Canvas(const std::string& font) : fontBytes(readFile(font)), pixels(Width * Height) {
 #ifndef PSGI_HOST
     if (sceSysmoduleLoadModule(ORBIS_SYSMODULE_FREETYPE_OL) < 0) throw std::runtime_error("Cannot load font module");
 #endif
-    if (FT_Init_FreeType(&library) || FT_New_Face(library, font.c_str(), 0, &face)) throw std::runtime_error("Cannot load bundled font");
+    if (FT_Init_FreeType(&library)) throw std::runtime_error("Cannot initialize font renderer");
+    // Keep the bytes alive for the face: FreeType reads glyph data lazily.
+    if (FT_New_Memory_Face(library, reinterpret_cast<const FT_Byte*>(fontBytes.data()),
+                           static_cast<FT_Long>(fontBytes.size()), 0, &face)) {
+        FT_Done_FreeType(library); library = nullptr;
+        throw std::runtime_error("Cannot load bundled font");
+    }
 }
 Canvas::~Canvas() {
     if (face) FT_Done_Face(face);

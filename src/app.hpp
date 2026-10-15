@@ -19,6 +19,7 @@ class App {
     void log(const std::string& message);
     void saveTasks();
 public:
+    static constexpr double MinimumSplashSeconds = 3.0;
     Ui ui;
     ArtworkCache artwork;
     App(const std::string& dataDirectory, bool preview = false);

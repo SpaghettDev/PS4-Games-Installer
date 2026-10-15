@@ -1,5 +1,16 @@
 # Changelog
 
+## r7 — 2026-10-16
+
+- Fixed the reported startup failure opening `/app0/assets/icon.png`: load bundled
+  artwork before homebrew privilege setup changes the process filesystem root.
+- Retained the bundled font in memory so later glyph loading does not depend on
+  sandbox asset paths after privilege setup.
+- Kept the splash visible for at least three seconds from its first presented
+  frame, including startup failures and early controller input.
+- Added real-application startup regressions that hide the asset directory at the
+  privilege boundary and check both successful and failed startup timing.
+
 ## r6 — 2026-10-15
 
 - Added a Settings installation-storage panel with internal/PS4 Extended Storage

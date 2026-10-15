@@ -7,7 +7,8 @@ OpenOrbis toolchain. Created by **e1z0 — (c) 2026 Vintage2000.org**.
 [Companion FPKGi-node-server](https://github.com/e1z0/FPKGi-node-server)
 
 **First hardware target: PS4 11.00 with GoldHEN.** The application builds on Linux
-and its package validates, but console operation has not yet been hardware-tested.
+and its package validates. Console validation is in progress; the startup fix in
+r7 still needs a console retest, and dashboard/service operation remains unverified.
 It requires an active homebrew environment; this app does not install GoldHEN.
 
 ## What it does
@@ -113,6 +114,8 @@ enabled; firmware TLS/certificate support can limit which HTTPS hosts work.
 Selecting Exit from Options opens the same Circle confirmation. Settings are saved
 only when Save settings is selected; Circle offers to discard unsaved edits.
 Quick view/group/sort/filter changes in Options are saved immediately.
+The loading splash stays visible for at least three seconds from its first frame,
+and remains longer while startup is still running.
 
 ## Installation storage
 
@@ -243,6 +246,7 @@ structures are accepted; PS5 sources are ignored.
 
 | Problem | Check |
 | --- | --- |
+| Cannot open `/app0/assets/icon.png` at startup | Install r7 or later; the startup asset-loading order was corrected |
 | Empty Available | Set the direct JSON URL, use Test connection, then Refresh library |
 | HTTP 404 from the companion server | Use its `/games` link on the JSON library port |
 | Covers or installation fail | Check the URLs inside the JSON and package/artwork server reachability |

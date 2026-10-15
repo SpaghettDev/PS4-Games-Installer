@@ -9,6 +9,7 @@
 - [x] Host tests, PS4 package build/validation, and consumer documentation.
 - [x] Private `.env` FTP target configuration and `make deploy` with local FTP tests.
 - [x] Settings installation-storage availability/free-space panel and manual refresh.
+- [x] Fix startup asset loading across privilege setup and enforce a three-second splash.
 - [ ] In-app Internal / External USB destination selection: verify a native setter
   or per-task destination API first. Current installations follow the PS4 system
   Application Install Location setting; a BGFT application slot is not assumed to
@@ -17,6 +18,9 @@
 
 ## Console acceptance checks
 
+- [x] Initial console launch reaches the splash and readable startup-error screen
+  (user report, 2026-10-16; failed opening the icon in the previous build).
+- [ ] Retest r7: startup reaches the dashboard with its icon, and splash lasts at least three seconds.
 - [ ] Splash, bubbles, controller repeat and both layouts render smoothly on the PS4.
 - [ ] Circle closes each window and Circle twice exits; Options opens its menu.
 - [ ] PS4 keyboard accepts/cancels URL edits and settings persist after restarting.

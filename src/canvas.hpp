@@ -10,6 +10,7 @@
 namespace psgi {
 class Canvas {
     struct Glyph { int width, height, left, top, advance; std::vector<uint8_t> alpha; };
+    std::string fontBytes;
     FT_Library library = nullptr;
     FT_Face face = nullptr;
     std::map<uint64_t, Glyph> glyphs;

@@ -8,7 +8,8 @@ OpenOrbis toolchain. Created by **e1z0 — (c) 2026 Vintage2000.org**.
 **First hardware target: PS4 11.00 with GoldHEN.** The application builds on Linux
 and its package validates. User console runs reached the source editor, system
 keyboard and Installed listing. The r9 keyboard assignment and r10 installed-icon
-corrections need retesting; shell exit, game launching and installation also need validation.
+corrections need retesting. The user confirmed the reported exit crash is fixed
+(2026-10-16); game launching and installation still need validation.
 It requires an active homebrew environment; this app does not install GoldHEN.
 
 ## What it does
@@ -262,7 +263,7 @@ together. An existing new directory takes precedence.
 | --- | --- |
 | Cannot open `/app0/assets/icon.png` at startup | Install r7 or later; the startup asset-loading order was corrected |
 | System keyboard types with O and closes with X | Install r9 or later; package metadata now requests X confirm / O cancel for native dialogs |
-| CE-34878-0 when closing the app or an error screen | Retest with r8 or later, which restores startup credentials and requests exit through the PS4 shell. The reported end-of-app crash is not yet verified fixed on hardware |
+| CE-34878-0 when closing the app | The reported exit crash was confirmed fixed by the user on 2026-10-16. r8 introduced credential restoration and exit through the PS4 shell. |
 | Empty Available | Set the direct JSON URL, use Test connection, then Refresh library |
 | HTTP 404 from the companion server | Use its `/games` link on the JSON library port |
 | Covers or installation fail | Check the URLs inside the JSON and package/artwork server reachability |

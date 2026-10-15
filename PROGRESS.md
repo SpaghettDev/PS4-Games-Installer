@@ -158,8 +158,8 @@ libjbc reference: https://github.com/bucanero/ps4-libjbc/blob/835fe016ff0ae5dd89
   signature checks. Verified the linked ELF imports `sceSystemServiceLoadExec`
   and its native finish routine waits after the request without returning to libc.
 - Updated the changelog, consumer troubleshooting and console acceptance tracker.
-  No UI layout changed. No live deployment or console retest was performed; the
-  end-of-app crash remains unconfirmed fixed until the user tests r8 on hardware.
+  No UI layout changed. No live deployment or console retest was performed at
+  this stage. The user's subsequent exit-crash confirmation is recorded below.
 
 Exit-path references:
 
@@ -389,3 +389,14 @@ Controller references:
 
 - https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/blob/v0.5.4/include/orbis/_types/pad.h
 - https://wiki.libsdl.org/SDL2/SDL_GameControllerGetAxis
+
+## Exit-crash hardware confirmation — 2026-10-16
+
+- User explicitly confirmed that the exit crash is fixed. Marked the reported
+  end-of-app CE-34878-0 issue resolved and updated consumer troubleshooting and
+  the changelog to reflect this console evidence.
+- The exact installed revision and exit path were not stated. The separate
+  startup/runtime error-screen shutdown check remains open; no other console
+  acceptance checks were marked complete from this confirmation.
+- Documentation-only change: reviewed the diff and ran `git diff --check`.
+  No application code, package or revision record changed; no rebuild was needed.

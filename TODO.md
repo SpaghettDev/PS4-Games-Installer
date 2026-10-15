@@ -46,8 +46,9 @@
   for internal/external titles, including offline startup without a server.
 - [ ] Retest r9: loading ends without a forced splash delay; the native keyboard
   selects characters/Done with X and cancels with O.
-- [ ] Retest the reported end-of-app CE-34878-0: normal Circle exit and closing a
-  startup/runtime error screen return to the PS4 shell without an error report.
+- [x] Reported end-of-app CE-34878-0 resolved (user confirmation, 2026-10-16).
+- [ ] Separately verify closing startup/runtime error screens returns to the PS4
+  shell without an error report; this path was not specified in the confirmation.
 - [ ] Splash, bubbles, controller repeat and both layouts render smoothly on the PS4.
 - [ ] Retest r16: left stick and D-pad navigate tiles/list, sidebar, menus, Settings
   and details; verify drift filtering, repeat and returning from the PS4 keyboard.

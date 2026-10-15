@@ -1,5 +1,11 @@
 # Changelog
 
+## Console confirmation — 2026-10-16
+
+- User confirmed the reported end-of-app CE-34878-0 crash is fixed. The exact
+  installed revision and exit path were not specified. Documentation/tracker
+  update only; no package revision increment.
+
 ## r16 — 2026-10-16
 
 - Added left analog stick navigation to the PS4 app and desktop preview for games,
@@ -83,8 +89,8 @@
 - Restore the original process credentials and sandbox directories before the exit
   request, including recovery after a partially failed privilege setup.
 - Added native lifecycle regressions for successful shutdown, startup/restore
-  failures and an unsuccessful shell exit request. The reported CE-34878-0 at the
-  end of the application still needs a console retest.
+  failures and an unsuccessful shell exit request. The user subsequently confirmed
+  the reported end-of-app CE-34878-0 crash is fixed (2026-10-16).
 
 ## r7 — 2026-10-16
 

@@ -80,5 +80,17 @@ int main() {
     ui.selected[1] = 1; ui.handle(Button::Cross); assert(ui.screen == Screen::Dashboard && !ui.take(command));
     ui.available.clear(); ui.rebuild(); ui.handle(Button::Cross); ui.handle(Button::Triangle); ui.handle(Button::Square);
     assert(ui.screen == Screen::Dashboard); ui.handle(Button::Left); assert(ui.sidebar);
+    // Large-library navigation must retain short last rows and group boundaries.
+    ui = Ui(); ui.screen = Screen::Dashboard; ui.library = Library::Available;
+    for (int i = 0; i < 50000; ++i) {
+        Entry e; e.name = "Game " + std::to_string(i); e.url = "http://nas/" + std::to_string(i);
+        e.category = i % 2 ? "games" : "homebrew"; ui.available.push_back(std::move(e));
+    }
+    ui.settings.grouping = Grouping::Category; ui.rebuild();
+    assert(ui.visible.size() == 50000 && ui.tileRows().size() == 12500);
+    ui.selected[1] = 49999; ui.handle(Button::Down); assert(ui.position() == 49999);
+    ui.handle(Button::Up); assert(ui.position() == 49995);
+    ui.pending.name = std::string(300, static_cast<char>(0x80));
+    assert(!ui.details().empty()); // Invalid metadata must not trap dialog wrapping.
     std::puts("Controller navigation, dialogs, settings and Circle exit tests passed");
 }

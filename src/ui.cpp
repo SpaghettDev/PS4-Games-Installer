@@ -68,6 +68,7 @@ std::vector<std::string> Ui::details() const {
             size_t cut = line.rfind(' ', 72);
             if (cut < 20 || cut == std::string::npos) cut = 72;
             while (cut > 0 && (static_cast<unsigned char>(line[cut]) & 0xc0) == 0x80) --cut;
+            if (!cut) cut = 72; // Invalid UTF-8 must still make forward progress.
             lines.push_back(line.substr(0, cut));
             line.erase(0, cut + (line[cut] == ' ' ? 1 : 0));
         }

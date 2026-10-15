@@ -62,9 +62,9 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
     c.background(time, ui.screen == Screen::Settings ? ui.draft.animations : ui.settings.animations);
     const Entry* selected = ui.current();
     if (ui.screen == Screen::Splash) {
-        c.image(*placeholder, 904, 300, 112, 112);
-        c.centered("Loading PS4 Games Installer", 530, 48, White);
-        for (int i = 0; i < 3; ++i) c.rounded(925 + i * 28, 578, 10, 10, 5, Accent,
+        c.image(*placeholder, 904, 330, 112, 112);
+        c.centered("Loading PS4 Games Installer", 560, 48, White);
+        for (int i = 0; i < 3; ++i) c.rounded(925 + i * 28, 608, 10, 10, 5, Accent,
             uint8_t(100 + 150 * (.5 + .5 * std::sin(time * 3 - i))));
         c.centered(Copyright, 1016, 23, Muted);
         return;

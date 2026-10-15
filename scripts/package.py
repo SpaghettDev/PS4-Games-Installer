@@ -14,7 +14,7 @@ CONTENT_ID = "IV0000-PGIN00001_00-PS4GAMEINSTALLER"
 
 def fingerprint(root=ROOT):
     digest = hashlib.sha256()
-    files = [root / "Makefile", root / "Dockerfile"]
+    files = [root / name for name in ("Makefile", "Dockerfile", "LICENSE", "THIRD_PARTY.md")]
     for directory in ("src", "assets", "scripts", "third_party"):
         files.extend(p for p in (root / directory).rglob("*")
                      if p.is_file() and "__pycache__" not in p.parts and not p.name.endswith(".tmp"))

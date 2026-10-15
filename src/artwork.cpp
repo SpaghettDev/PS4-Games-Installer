@@ -73,6 +73,7 @@ std::shared_ptr<Image> ArtworkCache::request(const Entry& e, bool priority) {
 void ArtworkCache::refresh(const Entry& e) {
     std::lock_guard<std::mutex> lock(mutex);
     std::string key = artworkKey(e);
+    ++generation; jobs.clear(); queued.clear();
     images.erase(key); failed.erase(key);
     unlink((directory + "/" + cacheName(key)).c_str());
 }
@@ -122,8 +123,10 @@ void ArtworkCache::run() {
         try {
             std::shared_ptr<Image> image;
             std::string downloaded;
-            if (!job.entry.localIcon.empty()) image = loadImage(job.entry.localIcon);
-            else {
+            if (!job.entry.localIcon.empty()) {
+                try { image = loadImage(job.entry.localIcon); } catch (const std::exception&) {}
+            }
+            if (!image) {
                 try { image = loadImage(path); } catch (const std::exception&) { unlink(path.c_str()); }
                 if (!image) { downloaded = httpGet(job.entry.coverUrl, MaxCatalogBytes, &stopped); image = decodeImage(downloaded); }
             }

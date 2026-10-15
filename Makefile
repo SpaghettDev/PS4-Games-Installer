@@ -8,10 +8,16 @@ image:
 	docker build --label org.psgi.dockerfile="$$(sha256sum Dockerfile | cut -d ' ' -f1)" -t $(IMAGE) .
 
 ifneq ($(PSGI_IN_CONTAINER),1)
-all package test check preview screenshots validate:
+all package test check screenshots validate:
 	@test "$$(docker image inspect $(IMAGE) --format '{{index .Config.Labels "org.psgi.dockerfile"}}' 2>/dev/null)" = "$$(sha256sum Dockerfile | cut -d ' ' -f1)" || $(MAKE) image
 	docker run --rm --user "$$(id -u):$$(id -g)" -v "$(CURDIR):/work" \
       -e SDL_VIDEODRIVER=dummy $(IMAGE) make $@ CONFIG="$(CONFIG)"
+preview:
+	@test "$$(docker image inspect $(IMAGE) --format '{{index .Config.Labels "org.psgi.dockerfile"}}' 2>/dev/null)" = "$$(sha256sum Dockerfile | cut -d ' ' -f1)" || $(MAKE) image
+	@if [[ -z "$$DISPLAY" ]]; then $(MAKE) screenshots; else \
+        preview_args=(--rm --user "$$(id -u):$$(id -g)" -v "$(CURDIR):/work" -v /tmp/.X11-unix:/tmp/.X11-unix:ro -e DISPLAY -e SDL_VIDEODRIVER=x11); \
+        if [[ -n "$$XAUTHORITY" && -f "$$XAUTHORITY" ]]; then preview_args+=(-v "$$XAUTHORITY:/tmp/psgi-xauth:ro" -e XAUTHORITY=/tmp/psgi-xauth); fi; \
+        docker run "$${preview_args[@]}" $(IMAGE) make preview; fi
 clean:
 	rm -rf build dist
 else
@@ -25,7 +31,7 @@ COMMON := catalog settings library sfo installed ui
 UI_SOURCES := canvas artwork render app demo video main
 CONSOLE := $(UI_SOURCES) http install console
 PS4_OBJECTS := $(addprefix build/ps4/,$(addsuffix .o,$(COMMON) $(CONSOLE))) build/ps4/cJSON.o
-LIBS := -ljbc -lc++ -lSceVideoOut -lSceSysmodule -lSceFreeType -lScePad -lSceUserService -lSceNet -lSceNetCtl -lSceSsl -lSceHttp -lSceAppInstUtil -lSceSystemService -lSceCommonDialog -lSceImeDialog -lc -lkernel
+LIBS := -ljbc -lc++ -lSceVideoOut -lSceSysmodule -lSceFreeType -lScePad -lSceUserService -lSceNet -lSceNetCtl -lSceSsl -lSceHttp -lSceCommonDialog -lSceImeDialog -lc -lkernel
 HOSTFLAGS := -std=c++17 -DPSGI_HOST -Isrc -Ithird_party/cjson -Ithird_party/stb -Ibuild/generated -Wall -Wextra -Werror -O1 -g -pthread
 HEADERS := $(wildcard src/*.hpp) third_party/cjson/cJSON.h third_party/stb/stb_image.h
 
@@ -73,7 +79,9 @@ build/host/preview: $(addprefix src/,$(addsuffix .cpp,$(COMMON) $(UI_SOURCES) ht
 	g++ $(HOSTFLAGS) -Wno-unused-function $$(pkg-config --cflags freetype2 sdl2) $(filter %.cpp %.o,$^) -lcurl $$(pkg-config --libs freetype2 sdl2) -o $@
 build/demo/0.png: scripts/demo_assets.py assets/font.ttf
 	python3 scripts/demo_assets.py
-screenshots preview: assets build/host/preview build/demo/0.png
+preview: assets build/host/preview build/demo/0.png
+	./build/host/preview
+screenshots: assets build/host/preview build/demo/0.png
 	./build/host/preview --capture
 	python3 scripts/screenshots.py
 	@echo 'Screenshots: build/screenshots/ — see README for interactive preview controls.'
@@ -82,10 +90,13 @@ build/host/model-test: tests/model_test.cpp $(addprefix src/,$(addsuffix .cpp,$(
 	g++ $(HOSTFLAGS) $(filter %.cpp %.o,$^) -o $@
 build/host/ui-test: tests/ui_test.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON))) build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) $(filter %.cpp %.o,$^) -o $@
-test: build/host/catalog-test build/host/catalog-check build/host/model-test build/host/ui-test
+build/host/artwork-test: tests/artwork_test.cpp src/artwork.cpp src/canvas.cpp src/catalog.cpp src/http.cpp src/settings.cpp build/host/cJSON.o $(HEADERS)
+	g++ $(HOSTFLAGS) -Wno-unused-function -fsanitize=address,undefined -fno-omit-frame-pointer $$(pkg-config --cflags freetype2) $(filter %.cpp %.o,$^) -lcurl $$(pkg-config --libs freetype2) -o $@
+test: assets build/host/catalog-test build/host/catalog-check build/host/model-test build/host/ui-test build/host/artwork-test
 	./build/host/catalog-test
 	./build/host/model-test
 	./build/host/ui-test
+	./build/host/artwork-test
 	python3 tests/http_test.py ./build/host/catalog-check
 	python3 -m unittest discover -s tests -p '*_test.py'
 check: build/host/catalog-check

@@ -43,6 +43,11 @@ std::vector<Button> Video::input(Ui& ui) {
         if (event.type == SDL_CONTROLLERDEVICEADDED && SDL_IsGameController(event.cdevice.which)) SDL_GameControllerOpen(event.cdevice.which);
         if (event.type == SDL_QUIT) { if (keyboard) { ui.finishEdit({}); keyboard = false; SDL_StopTextInput(); } else buttons.push_back(Button::Circle); }
         if (keyboard) {
+            if (event.type == SDL_CONTROLLERBUTTONDOWN && (event.cbutton.button == SDL_CONTROLLER_BUTTON_A || event.cbutton.button == SDL_CONTROLLER_BUTTON_B)) {
+                keyboard = false; SDL_StopTextInput();
+                if (event.cbutton.button == SDL_CONTROLLER_BUTTON_A) ui.finishEdit(ui.keyboardText); else ui.finishEdit({});
+                flushInput(); continue;
+            }
             if (event.type == SDL_TEXTINPUT) {
                 size_t maximum = ui.editKind == EditKind::SourceCategory ? 32 : ui.editKind == EditKind::Search ? 128 : 2047;
                 if (ui.keyboardText.size() + std::strlen(event.text.text) <= maximum) ui.keyboardText += event.text.text;

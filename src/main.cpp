@@ -61,9 +61,10 @@ int main(int argc, char** argv) {
         Canvas canvas(assets + "/font.ttf");
         Video video(screenshots);
         canvas.background(0, true);
-        canvas.centered("Loading PS4 Games Installer", 530, 48, 0xf2f7ff);
+        canvas.centered("Loading PS4 Games Installer", 560, 48, 0xf2f7ff);
         canvas.centered("Created by e1z0 (c) 2026 Vintage2000.org", 1016, 23, 0x9bbdd8);
         video.present(canvas);
+        try {
         prepareConsole();
 #ifdef PSGI_HOST
         App app(data, true);
@@ -84,6 +85,27 @@ int main(int argc, char** argv) {
             renderer.draw(canvas, app.ui, app.artwork, seconds);
             video.present(canvas);
             std::this_thread::sleep_until(frameStart + std::chrono::milliseconds(33));
+        }
+        } catch (const std::exception& e) {
+#ifdef PSGI_HOST
+            throw;
+#else
+            // Keep startup/runtime failures readable on a television until Circle closes them.
+            Ui errorUi;
+            bool stay = true;
+            video.flushInput();
+            while (stay) {
+                canvas.background(0, false);
+                canvas.centered("PS4 Games Installer could not continue", 430, 40, 0xf2f7ff);
+                canvas.text(e.what(), 200, 520, 27, 0x9bbdd8, 1520);
+                canvas.centered("Check GoldHEN and application storage, then try again.", 600, 26, 0x9bbdd8);
+                canvas.centered("O Exit", 750, 28, 0x7ae5e0);
+                video.present(canvas);
+                for (Button button : video.input(errorUi)) if (button == Button::Circle) stay = false;
+                std::this_thread::sleep_for(std::chrono::milliseconds(33));
+            }
+            return 1;
+#endif
         }
     } catch (const std::exception& e) {
         std::fprintf(stderr, "PS4 Games Installer: %s\n", e.what());

@@ -41,13 +41,13 @@ struct App::Worker {
     bool start(std::function<Result()> job) {
         if (busy()) return false;
         if (thread.joinable()) thread.join();
-        running = true;
-        thread = std::thread([this, job] {
+        { std::lock_guard<std::mutex> lock(mutex); running = true; }
+        try { thread = std::thread([this, job] {
             Result out;
             try { out = job(); } catch (const std::exception& e) { out.message = e.what(); }
             std::lock_guard<std::mutex> lock(mutex);
             result = std::move(out); running = false;
-        });
+        }); } catch (...) { std::lock_guard<std::mutex> lock(mutex); running = false; throw; }
         return true;
     }
     std::optional<Result> take() {

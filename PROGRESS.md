@@ -24,3 +24,18 @@
 - Desktop preview generated 12 screenshots; tiles, summary and settings were visually inspected.
 - Controller flow tests pass. PS4 executable and initial package r2 compile and validate.
 - Review found a launch-library stub mismatch; the adapter now resolves the real LncUtil module.
+
+## Console integration and reliability review
+
+- Completed dynamic loading for LncUtil and AppInstUtil after homebrew privilege setup.
+- Added UTF-8/UTF-16 keyboard conversion, readable startup failures and task ledger polling.
+- Hardened artwork invalidation, settings schema validation and large-library grid caching.
+- Package r3 built in Docker and passed all LibOrbisPkg hash/signature checks.
+- A second unchanged `make` reused r3 without compiling or consuming a revision.
+- Final host tests pass: catalog/HTTP, settings/SFO/installed fixtures, controller flows,
+  50,000-entry navigation, Unicode/artwork and renderer bounds with ASan/UBSan.
+- Four packaging integration tests pass: unchanged/changed/clean builds, failed builds,
+  concurrent builds and changes to inputs during packaging.
+- Final desktop captures include splash, both library views, Options, Settings, URL entry,
+  details, About, exit confirmation, empty library and offline presentation.
+- Hardware behavior remains unverified; console acceptance checks are recorded in TODO.md.

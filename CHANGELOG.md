@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased — PS4 Games Installer
+## r3 — 2026-10-15
+
+Native PS4 Games Installer redesign (hardware validation pending).
 
 - Replaced the inherited repository with an independent native OpenOrbis project.
 - Moved application sources to `src/` and builds to the root Makefile.
@@ -12,3 +14,10 @@
 - Added graphical source configuration, game details, splash, About and Circle exit confirmation.
 - Added animated bubbles, asynchronous cover caching, offline libraries and task tracking.
 - Added desktop preview, sample covers, screenshots and controller navigation tests.
+
+- Added transaction tests for failed/concurrent builds and input changes while packaging.
+- Added artwork/Unicode/clipping checks under AddressSanitizer and UBSan.
+- Added 50,000-entry library navigation coverage and reusable screenshot captures.
+- Resolved launcher functions from LncUtil and loaded private installed-title services after privilege setup.
+- Bundled dependency notices and added consumer setup, server integration and troubleshooting docs.
+- Verified unchanged builds retain their revision; r3 supersedes the intermediate r2 package.

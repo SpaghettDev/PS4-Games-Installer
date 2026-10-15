@@ -29,6 +29,8 @@ Settings parseSettings(const std::string& text) {
         throw std::runtime_error("Invalid settings data");
     Json root(cJSON_ParseWithLengthOpts(text.c_str(), text.size() + 1, nullptr, true), cJSON_Delete);
     if (!root || !cJSON_IsObject(root.get())) throw std::runtime_error("Invalid settings JSON");
+    auto* schema = cJSON_GetObjectItem(root.get(), "schema");
+    if (schema && (!cJSON_IsNumber(schema) || schema->valuedouble != 1)) throw std::runtime_error("Unsupported settings version");
     Settings s;
     s.sources.clear();
     const cJSON* prefs = cJSON_GetObjectItem(root.get(), "preferences");

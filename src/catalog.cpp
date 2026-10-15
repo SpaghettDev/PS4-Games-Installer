@@ -108,6 +108,10 @@ std::vector<Entry> parseCatalog(const std::string& text, const std::string& cate
         entry.category = lower(category.empty() ? field(item, "category") : category);
         for (const cJSON* m = item->child; m && entry.metadata.size() < 64; m = m->next) {
             if (cJSON_IsString(m)) entry.metadata.emplace_back(m->string, std::string(m->valuestring).substr(0, 4096));
+            else if (cJSON_IsNumber(m) || cJSON_IsBool(m)) {
+                std::unique_ptr<char, decltype(&cJSON_free)> value(cJSON_PrintUnformatted(m), cJSON_free);
+                if (value) entry.metadata.emplace_back(m->string, value.get());
+            }
         }
         if (entry.name.empty() || entry.name.size() >= 600)
             throw std::runtime_error("Package name is missing or too long");

@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "content_urls": {
+    "games": "http://192.168.1.10:3000/games",
+    "homebrew": ""
+  },
+  "layout": "tiles",
+  "grouping": "none",
+  "size_sort": false,
+  "not_installed_only": false,
+  "animations": true,
+  "refresh_on_start": true
+}

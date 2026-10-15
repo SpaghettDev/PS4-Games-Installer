@@ -17,30 +17,43 @@ void require(int result, const char* action) {
         throw std::runtime_error(std::string(action) + ": " + code);
     }
 }
-int appModule() {
-    static int module = [] {
-        int id = sceKernelLoadStartModule("/system/common/lib/libSceAppInstUtil.sprx", 0, nullptr, 0, nullptr, nullptr);
-        require(id, "Load installed library service");
-        require(sceAppInstUtilInitialize(), "Initialize installed library");
-        return id;
-    }();
-    return module;
+struct AppService {
+    int (*exists)(const char*, int*) = nullptr;
+    int (*getSize)(const char*, uint64_t*) = nullptr;
+    AppService() {
+        int module = sceKernelLoadStartModule("/system/common/lib/libSceAppInstUtil.sprx", 0, nullptr, 0, nullptr, nullptr);
+        require(module, "Load installed library service");
+        int (*initialize)() = nullptr;
+        require(sceKernelDlsym(module, "sceAppInstUtilInitialize", reinterpret_cast<void**>(&initialize)), "Resolve installed service init");
+        require(sceKernelDlsym(module, "sceAppInstUtilAppExists", reinterpret_cast<void**>(&exists)), "Resolve installed registrations");
+        require(sceKernelDlsym(module, "sceAppInstUtilAppGetSize", reinterpret_cast<void**>(&getSize)), "Resolve installed size");
+        require(initialize(), "Initialize installed library");
+    }
+};
+AppService& appService() {
+    // Load privileged services after homebrew credentials have been established.
+    static AppService service;
+    return service;
 }
 }
 std::vector<Entry> scanInstalled() {
-    int module = appModule();
-    using GetSize = int (*)(const char*, uint64_t*);
-    GetSize getSize = nullptr;
-    require(sceKernelDlsym(module, "sceAppInstUtilAppGetSize", reinterpret_cast<void**>(&getSize)), "Resolve installed size");
-    return discoverInstalled({"/user/appmeta", "/system_data/priv/appmeta", "/system_data/priv/appmeta/external"},
-        [](const std::string& id) {
+    auto& service = appService();
+    size_t queried = 0, failures = 0;
+    int lastError = 0;
+    auto entries = discoverInstalled({"/user/appmeta", "/system_data/priv/appmeta", "/system_data/priv/appmeta/external"},
+        [&](const std::string& id) {
             int exists = 0;
-            return sceAppInstUtilAppExists(id.c_str(), &exists) == 0 && exists != 0;
-        }, [getSize](const std::string& id) {
+            int result = service.exists(id.c_str(), &exists);
+            ++queried;
+            if (result < 0) { ++failures; lastError = result; }
+            return result == 0 && exists != 0;
+        }, [&service](const std::string& id) {
             uint64_t size = 0;
-            if (getSize(id.c_str(), &size) != 0) return uint64_t(0);
+            if (service.getSize(id.c_str(), &size) != 0) return uint64_t(0);
             return size;
         });
+    if (queried && failures == queried) require(lastError, "Read installed registrations");
+    return entries;
 }
 void launchTitle(const std::string& id) {
     if (!validTitleId(id) || id == "PGIN00001") throw std::runtime_error("This title cannot be launched");

@@ -18,6 +18,7 @@
 - [x] Bind native HTTP policies to the same imported service initialized for downloads.
 - [x] Canonical `/data/PS4-Game-Installer` storage and removal of inherited branding/imports.
 - [x] Resolve native game-launch functions from SystemService and test errors/retry.
+- [x] Resolve the entire HTTP client through one handle, including init and cleanup.
 - [ ] In-app Internal / External USB destination selection: verify a native setter
   or per-task destination API first. Current installations follow the PS4 system
   Application Install Location setting; a BGFT application slot is not assumed to
@@ -37,7 +38,9 @@
 - [ ] Retest r13: data moves to `/data/PS4-Game-Installer`, settings and caches are
   preserved, and About displays only the current application's identity.
 - [ ] Retest r12: Save settings shows the config-file confirmation, survives app
-  restart, and a valid `/games` source loads without the HTTP pre-init error.
+  restart, and remains saved after refreshing the library.
+- [ ] Retest r15: a valid `/games` source loads and refreshes without the reported
+  HTTP pre-init error; repeat refresh and artwork loading, plus connection testing.
 - [ ] Retest r10: Installed tiles, summary backgrounds and details show local icons
   for internal/external titles, including offline startup without a server.
 - [ ] Retest r9: loading ends without a forced splash delay; the native keyboard

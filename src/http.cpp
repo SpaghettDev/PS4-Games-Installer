@@ -64,39 +64,92 @@ void check(int rc, const char* operation) {
         throw std::runtime_error(std::string(operation) + code);
     }
 }
+struct HttpApi {
+    decltype(&sceHttpInit) init = nullptr;
+    decltype(&sceHttpTerm) term = nullptr;
+    decltype(&sceHttpCreateTemplate) createTemplate = nullptr;
+    decltype(&sceHttpDeleteTemplate) deleteTemplate = nullptr;
+    decltype(&sceHttpCreateConnectionWithURL) createConnection = nullptr;
+    decltype(&sceHttpDeleteConnection) deleteConnection = nullptr;
+    decltype(&sceHttpCreateRequestWithURL) createRequest = nullptr;
+    decltype(&sceHttpDeleteRequest) deleteRequest = nullptr;
+    decltype(&psgiHttpSetAutoRedirect) setAutoRedirect = nullptr;
+    decltype(&psgiHttpSetRecvTimeOut) setRecvTimeout = nullptr;
+    decltype(&sceHttpSetConnectTimeOut) setConnectTimeout = nullptr;
+    decltype(&sceHttpSetResolveTimeOut) setResolveTimeout = nullptr;
+    decltype(&sceHttpSetSendTimeOut) setSendTimeout = nullptr;
+    decltype(&sceHttpSendRequest) send = nullptr;
+    decltype(&sceHttpGetStatusCode) getStatus = nullptr;
+    decltype(&sceHttpReadData) read = nullptr;
+    decltype(&sceHttpAbortRequest) abort = nullptr;
+
+    template<class T> void bind(int module, const char* name, T& function) {
+        check(sceKernelDlsym(module, name, reinterpret_cast<void**>(&function)), name);
+        if (!function) throw std::runtime_error(std::string("Missing HTTP function: ") + name);
+    }
+    void load() {
+        // Use the same module instance for every operation, including init and
+        // cleanup. Resolving only setters separately can select different state.
+        static const int module = [] {
+            int handle = sceKernelLoadStartModule("/system/common/lib/libSceHttp.sprx", 0, nullptr, 0, nullptr, nullptr);
+            check(handle, "Load HTTP client");
+            return handle;
+        }();
+        bind(module, "sceHttpInit", init);
+        bind(module, "sceHttpTerm", term);
+        bind(module, "sceHttpCreateTemplate", createTemplate);
+        bind(module, "sceHttpDeleteTemplate", deleteTemplate);
+        bind(module, "sceHttpCreateConnectionWithURL", createConnection);
+        bind(module, "sceHttpDeleteConnection", deleteConnection);
+        bind(module, "sceHttpCreateRequestWithURL", createRequest);
+        bind(module, "sceHttpDeleteRequest", deleteRequest);
+        bind(module, "sceHttpSetAutoRedirect", setAutoRedirect);
+        bind(module, "sceHttpSetRecvTimeOut", setRecvTimeout);
+        bind(module, "sceHttpSetConnectTimeOut", setConnectTimeout);
+        bind(module, "sceHttpSetResolveTimeOut", setResolveTimeout);
+        bind(module, "sceHttpSetSendTimeOut", setSendTimeout);
+        bind(module, "sceHttpSendRequest", send);
+        bind(module, "sceHttpGetStatusCode", getStatus);
+        bind(module, "sceHttpReadData", read);
+        bind(module, "sceHttpAbortRequest", abort);
+    }
+};
 struct Network {
+    HttpApi api;
     int pool = -1, ssl = -1, http = -1;
     Network() {
         check(sceSysmoduleLoadModuleInternal(ORBIS_SYSMODULE_INTERNAL_NET), "Load Net");
         check(sceSysmoduleLoadModuleInternal(ORBIS_SYSMODULE_INTERNAL_NETCTL), "Load NetCtl");
         check(sceSysmoduleLoadModuleInternal(ORBIS_SYSMODULE_INTERNAL_SSL), "Load SSL");
         check(sceSysmoduleLoadModuleInternal(ORBIS_SYSMODULE_INTERNAL_HTTP), "Load HTTP");
+        api.load();
         check(sceNetInit(), "Net init");
         check(sceNetCtlInit(), "NetCtl init");
         pool = sceNetPoolCreate("psgi", 1024 * 1024, 0);
         check(pool, "Network pool");
         ssl = sceSslInit(1024 * 1024);
         if (ssl < 0) { sceNetPoolDestroy(pool); check(ssl, "SSL init"); }
-        http = sceHttpInit(pool, ssl, 1024 * 1024);
+        http = api.init(pool, ssl, 1024 * 1024);
         if (http < 0) { psgiSslTerm(ssl); sceNetPoolDestroy(pool); check(http, "HTTP init"); }
     }
     ~Network() {
-        if (http >= 0) sceHttpTerm(http);
+        if (http >= 0) api.term(http);
         if (ssl >= 0) psgiSslTerm(ssl);
         if (pool >= 0) sceNetPoolDestroy(pool);
     }
 };
 struct Request {
+    HttpApi& api;
     int tmpl = -1, conn = -1, req = -1;
     ~Request() {
-        if (req >= 0) sceHttpDeleteRequest(req);
-        if (conn >= 0) sceHttpDeleteConnection(conn);
-        if (tmpl >= 0) sceHttpDeleteTemplate(tmpl);
+        if (req >= 0) api.deleteRequest(req);
+        if (conn >= 0) api.deleteConnection(conn);
+        if (tmpl >= 0) api.deleteTemplate(tmpl);
     }
 };
-void setRequestPolicy(int id) {
-    check(psgiHttpSetAutoRedirect(id, 0), "Disable redirects");
-    check(psgiHttpSetRecvTimeOut(id, 10000000), "Set receive timeout");
+void setRequestPolicy(HttpApi& api, int id) {
+    check(api.setAutoRedirect(id, 0), "Disable redirects");
+    check(api.setRecvTimeout(id, 10000000), "Set receive timeout");
 }
 }
 
@@ -105,29 +158,30 @@ std::string httpGet(const std::string& url, size_t limit, const std::atomic<bool
     if (!isHttpUrl(url)) throw std::runtime_error("Invalid catalog URL");
     if (cancelled && *cancelled) throw std::runtime_error("Download cancelled");
     static Network net;
-    Request r;
-    r.tmpl = sceHttpCreateTemplate(net.http, "PS4-Games-Installer/1.0", ORBIS_HTTP_VERSION_1_1, 0);
+    auto& api = net.api;
+    Request r{api};
+    r.tmpl = api.createTemplate(net.http, "PS4-Games-Installer/1.0", ORBIS_HTTP_VERSION_1_1, 0);
     check(r.tmpl, "HTTP template");
-    setRequestPolicy(r.tmpl);
-    check(sceHttpSetConnectTimeOut(r.tmpl, 10000000), "Connect timeout");
-    check(sceHttpSetResolveTimeOut(r.tmpl, 10000000), "DNS timeout");
-    check(sceHttpSetSendTimeOut(r.tmpl, 10000000), "Send timeout");
+    setRequestPolicy(api, r.tmpl);
+    check(api.setConnectTimeout(r.tmpl, 10000000), "Connect timeout");
+    check(api.setResolveTimeout(r.tmpl, 10000000), "DNS timeout");
+    check(api.setSendTimeout(r.tmpl, 10000000), "Send timeout");
     // Keep the platform's certificate verification enabled.
-    r.conn = sceHttpCreateConnectionWithURL(r.tmpl, url.c_str(), false);
+    r.conn = api.createConnection(r.tmpl, url.c_str(), false);
     check(r.conn, "HTTP connection");
-    r.req = sceHttpCreateRequestWithURL(r.conn, ORBIS_METHOD_GET, url.c_str(), 0);
+    r.req = api.createRequest(r.conn, ORBIS_METHOD_GET, url.c_str(), 0);
     check(r.req, "HTTP request");
-    check(sceHttpSendRequest(r.req, nullptr, 0), "Send request");
+    check(api.send(r.req, nullptr, 0), "Send request");
     int status = 0;
-    check(sceHttpGetStatusCode(r.req, &status), "HTTP status");
+    check(api.getStatus(r.req, &status), "HTTP status");
     if (status != 200) throw std::runtime_error("Catalog HTTP " + std::to_string(status) + "; use a direct URL");
     std::string out;
     char block[16384];
     const uint64_t deadline = sceKernelGetProcessTime() + 30000000;
     for (;;) {
-        if (cancelled && *cancelled) { sceHttpAbortRequest(r.req); throw std::runtime_error("Download cancelled"); }
+        if (cancelled && *cancelled) { api.abort(r.req); throw std::runtime_error("Download cancelled"); }
         if (sceKernelGetProcessTime() > deadline) throw std::runtime_error("Catalog download timed out");
-        int n = sceHttpReadData(r.req, block, sizeof(block));
+        int n = api.read(r.req, block, sizeof(block));
         check(n, "Read catalog");
         if (!n) break;
         if (static_cast<size_t>(n) > limit - out.size()) throw std::runtime_error("Download exceeds limit");

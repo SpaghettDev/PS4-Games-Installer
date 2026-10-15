@@ -31,7 +31,7 @@ COMMON := catalog settings library sfo installed storage ui
 UI_SOURCES := canvas artwork render app demo video main
 CONSOLE := $(UI_SOURCES) http install console lifecycle
 PS4_OBJECTS := $(addprefix build/ps4/,$(addsuffix .o,$(COMMON) $(CONSOLE))) build/ps4/cJSON.o
-LIBS := -ljbc -lc++ -lSceVideoOut -lSceSysmodule -lSceSystemService -lSceFreeType -lScePad -lSceUserService -lSceNet -lSceNetCtl -lSceSsl -lSceHttp -lSceCommonDialog -lSceImeDialog -lc -lkernel
+LIBS := -ljbc -lc++ -lSceVideoOut -lSceSysmodule -lSceSystemService -lSceFreeType -lScePad -lSceUserService -lSceNet -lSceNetCtl -lSceSsl -lSceCommonDialog -lSceImeDialog -lc -lkernel
 HOSTFLAGS := -std=c++17 -DPSGI_HOST -Isrc -Ithird_party/cjson -Ithird_party/stb -Ibuild/generated -Wall -Wextra -Werror -O1 -g -pthread
 HEADERS := $(wildcard src/*.hpp) third_party/cjson/cJSON.h third_party/stb/stb_image.h
 

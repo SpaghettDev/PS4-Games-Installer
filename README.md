@@ -269,7 +269,7 @@ together. An existing new directory takes precedence.
 | Package already queued | Manage the existing task in PS4 Notifications > Downloads |
 | Existing-title conflict | The installed title was preserved; this app does not force removal |
 | Settings cannot save | Check free space and access to the application data directory |
-| URL is saved but Available stays empty | Read the connection result in Settings. Use the companion server's `/games` endpoint; r12 also corrects an HTTP initialization issue seen as `Disable redirects (0x80431001)` |
+| URL is saved but Available stays empty | Read the connection result in Settings and use a direct JSON URL, such as `/games`. For `Disable redirects (0x80431001)`, update to r15 or later, which binds every HTTP operation to one client module. Console retesting is pending. |
 | HTTPS fails | Check server certificates and firmware TLS compatibility; a private LAN HTTP server is supported |
 
 PS5, database repair, system-menu replacement and automatic game removal are outside

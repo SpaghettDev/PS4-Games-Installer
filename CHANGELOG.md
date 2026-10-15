@@ -1,5 +1,16 @@
 # Changelog
 
+## r15 — 2026-10-16
+
+- Use one explicitly resolved HTTP module for initialization, templates, request
+  settings, transfers and cleanup, addressing the recurring pre-request
+  `Disable redirects (0x80431001)` report. Removed the linked HTTP stub dependency.
+- Keep redirect rejection, certificate verification, timeouts and download limits
+  enabled. Errors from request setup still stop the transfer and preserve cache.
+- Native tests now provide HTTP functions only through the module resolver, so
+  accidentally mixing linked HTTP calls into the adapter fails to link. Added
+  missing-module/symbol, null-function and retry coverage.
+
 ## r14 — 2026-10-16
 
 - Fixed the reported `Load game launcher: 0x80020002` failure by resolving LncUtil

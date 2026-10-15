@@ -319,3 +319,38 @@ Launcher references:
 
 - https://github.com/shadps4-emu/shadPS4/blob/main/src/core/libraries/system/systemservice.cpp
 - https://github.com/LightningMods/Itemzflow/blob/main/itemzflow/include/defines.h
+
+## Recurring library-refresh HTTP failure — 2026-10-16
+
+- User again reports `games: Disable redirects (0x80431001)` with the last valid
+  library retained. This occurs during request setup, before sending the URL.
+  The installed revision was not identified in the report. The r12 binding change
+  alone has not established successful hardware refresh.
+- Inspected the configured target's HTTP service read-only over FTP and checked
+  the exported setters' argument layout. Checked r14's native imports: init,
+  template creation and setters have the expected names and library IDs. These
+  checks do not prove which runtime instance the running app selected or establish
+  the exact cause of this console report. No target files were changed.
+- Replaced linked HTTP entry points with a function table resolved from a single
+  system HTTP module handle. Init, settings, transfers and destruction all use
+  that table. Removed `-lSceHttp` so the application cannot mix HTTP stub imports
+  with the resolved client. Failed module loads and symbol lookups remain retryable.
+- Redirect rejection, platform certificate verification, DNS/connect/send/receive
+  timeouts, cancellation and size limits remain enforced. Setup failures are not
+  ignored and existing catalog data remains available after failed refresh.
+- Updated native HTTP tests to supply functions only through the resolver. Any
+  direct HTTP import in the production adapter now fails to link in that test.
+  Added failed module load, missing/null function and retry cases alongside the
+  existing successful fetch, policy failure, redirect, cancellation and size tests.
+- `make test` passed all host suites, including native HTTP binding/retry,
+  native launcher, App persistence, artwork/font ASan/UBSan and fourteen Python
+  integrations. Verified all seventeen requested HTTP exports exist in the
+  configured target's service module.
+- Built `dist/PS4Game_installer-r15.pkg`; `make validate` passed every package hash
+  and signature check. The native HTTP object and linked ELF contain no linked
+  HTTP entry points. The source identity audit still passes; no UI code changed.
+- No package was deployed and the corrected client still needs a PS4 11.00 +
+  GoldHEN refresh/artwork retest.
+
+HTTP lifecycle reference:
+https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/blob/v0.5.4/samples/net_http/net_http/main.c

@@ -1,9 +1,8 @@
 #pragma once
 #include <cstdint>
 
-// These pinned SDK declarations omit their parameters. Bind the verified ABI
-// directly to the same imports used by sceHttpInit/sceSslInit; loading another
-// SPRX just to resolve them can select a separate, uninitialized module instance.
+// Explicit ABI declarations for pinned SDK entries with missing parameters.
+// The HTTP declarations type the functions resolved from one module handle.
 extern "C" {
 int psgiHttpSetAutoRedirect(int id, int enabled) __asm__("sceHttpSetAutoRedirect");
 int psgiHttpSetRecvTimeOut(int id, uint32_t microseconds) __asm__("sceHttpSetRecvTimeOut");

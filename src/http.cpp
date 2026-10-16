@@ -235,15 +235,15 @@ HttpTransferInfo httpTransfer(const std::string& url, const HttpSink& sink, bool
         int type = -1; size_t length = 0;
         check(api.contentLength(r.req, &type, &length), "Package length");
         if (type == ORBIS_HTTP_CONTENTLEN_EXIST) info.length = length;
-        char block[65536];
+        std::vector<char> block(64 * 1024);
         uint64_t nextWake = 0;
         for (;;) {
             if (cancelled && *cancelled) throw std::runtime_error("Download cancelled");
             const uint64_t now = sceKernelGetProcessTime();
             if (now >= nextWake) { sceSystemServicePowerTick(); nextWake = now + 10000000; }
-            const int n = api.read(r.req, block, sizeof(block)); check(n, "Read package");
+            const int n = api.read(r.req, block.data(), block.size()); check(n, "Read package");
             if (!n) break;
-            if (!sink(block, n, info.length)) { api.abort(r.req); break; }
+            if (!sink(block.data(), n, info.length)) { api.abort(r.req); break; }
         }
     } catch (...) { api.abort(r.req); throw; }
     return info;
@@ -270,16 +270,16 @@ std::string httpGet(const std::string& url, size_t limit, const std::atomic<bool
     check(api.getStatus(r.req, &status), "HTTP status");
     if (status != 200) throw std::runtime_error("Catalog HTTP " + std::to_string(status) + "; use a direct URL");
     std::string out;
-    char block[16384];
+    std::vector<char> block(16 * 1024);
     const uint64_t deadline = sceKernelGetProcessTime() + 30000000;
     for (;;) {
         if (cancelled && *cancelled) { api.abort(r.req); throw std::runtime_error("Download cancelled"); }
         if (sceKernelGetProcessTime() > deadline) throw std::runtime_error("Catalog download timed out");
-        int n = api.read(r.req, block, sizeof(block));
+        int n = api.read(r.req, block.data(), block.size());
         check(n, "Read catalog");
         if (!n) break;
         if (static_cast<size_t>(n) > limit - out.size()) throw std::runtime_error("Download exceeds limit");
-        out.append(block, n);
+        out.append(block.data(), n);
     }
     return out;
 }

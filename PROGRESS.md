@@ -1,5 +1,60 @@
 # Implementation progress
 
+## r19 personal library and download investigation — 2026-10-16
+
+- User confirmed r17 game launching, manipulator navigation and all installed
+  titles work on PS4 11.00 + GoldHEN. Launching replaces this foreground app;
+  position must be persisted before entering the native launcher. The working
+  launch parameters and installed-title filtering are retained.
+- Configured FTP target returned No route to host. Requested availability for a
+  read-only log/dump pull; no new console evidence or console writes this turn.
+  The exact download CE-34878-0 fault remains unconfirmed.
+- Disassembled the pinned SDK's statvfs wrapper: it invokes statfs on a temporary
+  buffer and never populates the caller's result. This explains the zeroed
+  capacity display and staging-space failure. Read the stable kernel statfs
+  prefix via `_fstatfs`, with oversized backing storage, checked 64-bit arithmetic
+  and explicit full/unknown/read-only states. Native ABI/cleanup tests pass.
+- Native HTTP used a 64 KiB automatic transfer buffer, consuming the documented
+  small default worker stack before system-library call overhead. Moved transfer
+  and catalog buffers to the heap; gave App and artwork workers explicit 512 KiB
+  stacks. Native stack-attribute/ownership/error tests pass, and compilation now
+  limits HTTP adapter frames to 8 KiB. This repairs a concrete hazard without
+  claiming the unavailable crash dump proves its origin.
+- Added atomic, validated local `player.json` (Title ID ratings/history/launch
+  requests) and `session.json` (both library selections, search and sidebar).
+  Corrupt player files are preserved; failed position saves prevent launch.
+  Catalog refreshes cannot overwrite personal records. History records titles
+  observed installed from this version onward, not unknown pre-existing history.
+- Added a native uninstall boundary with valid-title, self/system protection,
+  registration checks and readable service errors; its native mock tests pass.
+  UI requires a separate confirmation and retains local records afterward.
+- Added star rendering, Was installed badges and persistent current-library
+  footer counts. Restored the exact r17 Canvas bubble implementation as requested.
+- `make test` passes the full host suite and all 15 Python integrations, including
+  native HTTP/BGFT/launcher/uninstall/storage, explicit worker stacks, sanitized
+  native filesystem output, ratings/history isolation, session restore after
+  reordering, failed launch-counter rollback, blocked position writes, corrupt
+  player-file preservation, controller dialogs and uninstall cancellation.
+- Built `dist/PS4Game_installer-r19.pkg`. `make validate` passes every package
+  hash/signature and packed launcher import check. Verified the source fingerprint
+  and package SHA-256 against the revision/manifest records; no failed build
+  consumed a revision.
+- Generated 22 desktop captures and inspected the r19 tile/summary libraries,
+  rating dialog, Installed actions, uninstall confirmation and storage panel.
+  Refreshed the README image. Renderer tests measure 105,741 moving pixels in
+  Tiles and 99,764 in Summary with the restored subtle bubbles; paused frames
+  remain identical and tile artwork is unchanged.
+- FTP retry still returned No route to host. No deployment, console uninstall,
+  live installation or Git push was performed. New console acceptance checks,
+  especially download stability, real capacities and native uninstall, remain
+  explicit in TODO.md. Source identity audit and `git diff --check` pass.
+
+Native ABI/stack references: pinned
+[OpenOrbis v0.5.4](https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/tree/v0.5.4)
+headers and libc disassembly;
+[orbis-compat](https://github.com/orbis-ports/orbis-compat) thread-stack research.
+Reference material and private evidence remain in ignored `build/` only.
+
 ## r18 bubble visibility — 2026-10-16
 
 - Investigated the reported missing dashboard animation. Existing bubbles used

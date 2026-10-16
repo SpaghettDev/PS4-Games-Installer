@@ -7,8 +7,11 @@ OpenOrbis toolchain. Created by **e1z0 — (c) 2026 Vintage2000.org**.
 
 **Confirmed running on real hardware: PS4 11.00 + GoldHEN** (user confirmation,
 2026-10-16). Source URL entry through the PS4 keyboard and settings saving are
-confirmed working, remote artwork downloads are confirmed working, and the
-reported exit crash is fixed. The application builds
+confirmed working, remote artwork downloads work, and the reported exit crash is
+fixed. In r17 the user also confirmed game launching, analog navigation and the
+complete Installed library. Downloading still crashed in that hardware test;
+r19 addresses worker-stack usage and storage-capacity reporting and needs a new
+console download test. The application builds
 on Linux and its package validates; individual feature checks are tracked in
 [TODO.md](TODO.md).
 It requires an active homebrew environment; this app does not install GoldHEN.
@@ -16,9 +19,11 @@ It requires an active homebrew environment; this app does not install GoldHEN.
 ## What it does
 
 - **Installed:** discover registered games and homebrew on the console, show their
-  local icons and metadata, and launch them with X. This works without a server.
+  local icons and metadata, and launch them with X. Triangle includes Uninstall
+  with a separate confirmation. This works without a server.
 - **Available:** browse the complete remote catalog, with installed and queued
-  badges. X opens an installation confirmation. Range-capable servers use the PS4
+  badges, plus **Was installed** for titles recorded on this console previously.
+  X opens an installation confirmation. Range-capable servers use the PS4
   background installer; other servers use a direct-download fallback first.
 - Switch between a cover tile grid and a summary list. The summary background
   follows the selected game's artwork. Group by category, region, first letter,
@@ -27,6 +32,11 @@ It requires an active homebrew environment; this app does not install GoldHEN.
   settings from the app. No FTP configuration is needed for normal setup.
 - View detailed metadata, search the current library, and use an offline catalog
   and bounded artwork cache. The blue background has optional floating bubbles.
+- Rate games from 1 to 5 stars using Triangle > Rate game. Stars appear on tiles
+  and in the summary list. Ratings and history stay local across catalog updates.
+- Resume the selected library and game after launching a game or exiting the app.
+  The bottom-left counter follows the current library and shows packages ready
+  to install on Available.
 
 **Background animation** in Settings controls the flowing bubbles in both Tiles
 and Summary list. It is on by default; switching it off leaves a still background.
@@ -119,7 +129,7 @@ enabled; firmware TLS/certificate support can limit which HTTPS hosts work.
 | L1 / R1 | Switch Installed / Available |
 | X on Installed | Launch the game |
 | X on Available | Install confirmation, or actions for an installed title |
-| Triangle | Game actions, including launch/install, details and artwork refresh |
+| Triangle | Game actions: launch/install, details, artwork, rating and Uninstall for installed games |
 | Square | Game details; Up/Down scroll |
 | Options | Refresh, search, view/group/sort/filter, Settings, About and Exit |
 | O | Close a window or go back |
@@ -134,6 +144,33 @@ before navigating again.
 The loading splash is visible while startup runs, with no artificial delay.
 The PS4 keyboard uses X to select a character or its Done button, and O to cancel.
 
+Launching a game can close PS4 Games Installer as the PS4 switches applications.
+The app saves both libraries' selections, the active library and search before
+handing off to the game. Reopening returns to that selection, even if a refresh
+has reordered the titles. If the title has disappeared, it selects the nearest
+remaining position. A failed position save is shown before launching.
+
+## Local ratings and history
+
+Press **Triangle > Rate game**, choose **1–5 stars**, then press X. Choose
+**Remove rating** to clear only the rating; O cancels. A valid nine-character
+Title ID in the catalog is required. Versions or catalog entries with the same
+Title ID share the rating and history, even if their name or package URL changes.
+
+**Installed** means the title is present now. **Was installed** means the app
+previously observed it installed, but the latest scan does not find it. Tracking
+starts with this version: games removed before it first sees them cannot be
+reconstructed. Details also show the first recorded installation and launch
+request count/time. These are local observations, not playtime measurements.
+
+Records are stored in `/data/PS4-Game-Installer/player.json`, separately from
+the downloaded catalog. Catalog refreshes, artwork cleanup and uninstalling a
+game keep them. Back up this file to preserve ratings and history; back up
+`session.json` for the last saved position and `config.json` for settings.
+If `player.json` is corrupt, the app keeps it unchanged and reports an error
+when a record is edited. Restore a valid backup or repair the file to resume
+recording.
+
 ## Installation storage
 
 Open **Options > Settings > Installation destination**. Use Up/Down to highlight
@@ -147,6 +184,9 @@ are displayed instead of claiming the selection worked.
 Press Triangle to check capacities again after connecting or disconnecting a drive;
 Circle returns to Settings and preserves unsaved URL/display edits. An unavailable
 drive cannot be selected. The app does not format drives.
+If capacity cannot be read, the panel says **Space unavailable**; a successfully
+read, full drive shows **0 B free**. r19 bypasses a broken SDK capacity wrapper
+that returned empty results in r17. Correct console capacities still need retesting.
 
 A plain exFAT/FAT32 USB package source is not a PS4 Extended Storage installation
 destination. See [PlayStation's Extended Storage instructions](https://www.playstation.com/en-ca/support/hardware/ps4-external-hdd-support/)
@@ -182,13 +222,15 @@ once before retrying. r16 discarded their tracking IDs; the app cannot safely
 remove tasks it no longer owns.
 
 Existing-title conflicts are reported without automatically uninstalling a game.
-This version does not offer uninstall, forced replacement, or staging to a plain
-USB package-source drive.
+To remove an installed game, select it in Installed and choose **Triangle >
+Uninstall**, then X to confirm or O to cancel. Its local rating and history are
+kept. Forced replacement and staging to a plain USB package-source drive are
+not offered.
 An installed title may require its external drive or original disc to launch.
 If an earlier revision reports `Resolve game launcher: 0x80020003` or
 `Load game launcher: 0x80020002`, install r17 or later. The launcher now imports
 the packed LncUtil library from SystemService; the generated executable's import
-table is checked during packaging. Launching still needs a console retest.
+table is checked during packaging. The user confirmed r17 launching works.
 
 A failed refresh keeps the last valid library. Installed discovery is independent
 of the network; cached remote metadata and covers remain available offline. Limits:
@@ -304,6 +346,9 @@ together. An existing new directory takes precedence.
 | Installed only shows a few games | Update to r17 and refresh. Patched games use `gp` app metadata, which earlier builds incorrectly excluded. |
 | Installed titles appear without their icons | Install r10 or later, which looks up icons separately from private metadata. Use Options > Refresh library after reconnecting Extended Storage |
 | Launch fails | Close another running game and check the title's storage/disc and displayed service error |
+| App closes when launching a game | Normal PS4 application switching; r19 saves the library selection before launch |
+| Download crashes with CE-34878-0 | Update to r19 for heap transfer buffers and larger worker stacks; console retesting is pending. Preserve `app.log` and the crash dump if it recurs |
+| Installation storage always shows 0 B | Update to r19 for the native capacity query, then Triangle to check again |
 | Package already queued | Manage the existing task in PS4 Notifications > Downloads |
 | Existing-title conflict | The installed title was preserved; this app does not force removal |
 | Settings cannot save | Check free space and access to the application data directory |

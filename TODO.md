@@ -5,8 +5,7 @@
 - [x] Library metadata, installed discovery, settings persistence, and offline cache.
 - [x] Tile/list dashboard, dialogs, controller navigation, splash, and About.
 - [x] Artwork loading, background animation, desktop preview, and screenshots.
-- [x] Make bubble motion visible in Tiles and Summary, above background artwork
-  and behind controls; retain the animation toggle and add full-renderer checks.
+- [x] Restore the user's preferred r17 bubble style; retain animation toggle and motion checks.
 - [x] Console URL keyboard, game launching, and installation monitoring.
 - [x] Host tests, PS4 package build/validation, and consumer documentation.
 - [x] Private `.env` FTP target configuration and `make deploy` with local FTP tests.
@@ -28,6 +27,12 @@
 - [x] Probe PKG URLs and stream a direct-download fallback for servers without
   range support; retain staging until BGFT releases the package.
 - [x] Clean up failed/completed owned BGFT tasks before retrying; preserve active tasks.
+- [x] Save both library selections before game launch and restore by title/URL after restart.
+- [x] Add confirmed Installed > Uninstall through the native application service.
+- [x] Store local Title ID ratings, installation history and launch request statistics separately from catalogs.
+- [x] Show star ratings, Installed / Was installed badges and library-specific footer counts.
+- [x] Replace the SDK's empty statvfs output with a native filesystem-capacity query.
+- [x] Move HTTP transfer buffers to the heap and give native background workers explicit 512 KiB stacks.
 - [x] Remote artwork downloads work (user report for r16, 2026-10-16).
 - [x] Application confirmed working on real PS4 11.00 + GoldHEN (user report, 2026-10-16).
 - [ ] Complete the individual console acceptance checks below.
@@ -56,27 +61,30 @@
 - [ ] Separately verify closing startup/runtime error screens returns to the PS4
   shell without an error report; this path was not specified in the confirmation.
 - [ ] Splash, bubbles, controller repeat and both layouts render smoothly on the PS4.
-- [ ] Retest r18: bubbles are clearly visible and flow upward in Tiles and Summary;
+- [ ] Retest r19: restored r17 bubbles flow upward in Tiles and Summary;
   Settings > Background animation pauses/resumes them without affecting artwork.
-- [ ] Retest r16: left stick and D-pad navigate tiles/list, sidebar, menus, Settings
-  and details; verify drift filtering, repeat and returning from the PS4 keyboard.
+- [x] Manipulator navigation works perfectly (user confirmation for r17, 2026-10-16).
 - [ ] Circle closes each window and Circle twice exits; Options opens its menu.
 - [ ] O cancels PS4 keyboard URL edits without changing the saved source.
 - [x] Companion source loads real metadata (44 packages in r16 log) and remote
   artwork (user confirmation, 2026-10-16).
 - [ ] Internal and connected external titles appear with correct local metadata/sizes.
-- [ ] X launches a registered game; service errors remain readable.
-- [ ] Retest r17: X launches a game without `Resolve game launcher: 0x80020003`,
-  starts the game and permits returning to the app.
-- [ ] Retest r17: Installed includes patched GTA V, Minecraft, DOOM and DIRT 5;
-  host replay of the actual SFO files recovered 17 game/homebrew candidates.
+- [x] X launches games correctly in r17 (user confirmation, 2026-10-16).
+- [x] r17 lists all installed games (user confirmation, 2026-10-16).
+- [ ] Retest r19: reopen after launching a game; same library/title/search restored.
+- [ ] Retest r19: rate 1–5 stars, refresh/restart and confirm ratings remain by Title ID.
+- [ ] Retest r19: cancel/confirm Uninstall, then verify Was installed, rating and history survive restart.
+- [ ] Retest r19: Available footer shows the installable package count when switching libraries.
 - [ ] A package installs through BGFT and its task survives closing the application.
 - [ ] Storage panel detects a PS4 Extended Storage drive and updates after disconnect.
 - [ ] Install to each PS4 system destination and verify the resulting game location.
 - [ ] Retest r17: X in Installation destination changes the selected PS4 default;
   disconnect Extended Storage and verify the unavailable drive cannot be selected.
-- [ ] Retest r17: clear failed r16 downloads once, then install through the direct
-  fallback, observe progress, retry an error, and verify staging cleanup.
+- [ ] Retest r19: download after worker-stack repairs; r17 crashed with CE-34878-0.
+  Fetch logs/dump when configured FTP target is reachable to confirm the exact fault.
+- [ ] Retest r19: internal/external capacities are correct, including disconnect and full/unknown states.
+- [ ] Clear failed r16 downloads once, then install through the direct fallback,
+  observe progress, retry an error, and verify staging cleanup.
 - [ ] Returning/restarting refreshes installed state and reconciles tracked tasks.
 - [ ] Offline startup retains Installed and the cached remote library.
 - [ ] Missing/corrupt artwork, unavailable storage and connection failures recover.

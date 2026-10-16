@@ -11,6 +11,9 @@ class App {
     std::unique_ptr<Worker> worker;
     std::string directory;
     Settings saved;
+    std::optional<ViewState> resume;
+    bool playerWritable = true;
+    std::mutex logMutex;
     bool demo = false, initialScan = true, bootReady = false, startRemote = false;
     bool quitting = false;
     double lastLocalScan = 0, lastPoll = 0;
@@ -18,6 +21,8 @@ class App {
     void refresh(bool remote);
     void log(const std::string& message);
     void saveTasks();
+    void savePosition();
+    void savePlayer(const PlayerData& next);
 public:
     Ui ui;
     ArtworkCache artwork;

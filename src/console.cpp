@@ -1,6 +1,7 @@
 #include "platform.hpp"
 #include "installed.hpp"
 #include "sfo.hpp"
+#include "storage.hpp"
 #include <cstdio>
 #include <stdexcept>
 #include <sys/statvfs.h>
@@ -23,10 +24,11 @@ void require(int result, const char* action) {
     }
 }
 struct AppService {
+    int module = -1;
     int (*exists)(const char*, int*) = nullptr;
     int (*getSize)(const char*, uint64_t*) = nullptr;
     AppService() {
-        int module = sceKernelLoadStartModule("/system/common/lib/libSceAppInstUtil.sprx", 0, nullptr, 0, nullptr, nullptr);
+        module = sceKernelLoadStartModule("/system/common/lib/libSceAppInstUtil.sprx", 0, nullptr, 0, nullptr, nullptr);
         require(module, "Load installed library service");
         int (*initialize)() = nullptr;
         require(sceKernelDlsym(module, "sceAppInstUtilInitialize", reinterpret_cast<void**>(&initialize)), "Resolve installed service init");
@@ -86,8 +88,18 @@ void launchTitle(const std::string& id) {
         throw std::runtime_error(message);
     }
 }
+void uninstallTitle(const std::string& id) {
+    if (!validTitleId(id) || id == "PGIN00001") throw std::runtime_error("This title cannot be uninstalled");
+    auto& service = appService(); int exists = 0;
+    require(service.exists(id.c_str(), &exists), "Check uninstall target");
+    if (!exists) throw std::runtime_error("This game is no longer installed; refresh the library");
+    decltype(&sceAppInstUtilAppUnInstall) remove = nullptr;
+    require(sceKernelDlsym(service.module, "sceAppInstUtilAppUnInstall", reinterpret_cast<void**>(&remove)), "Resolve game uninstall");
+    if (!remove) throw std::runtime_error("Game uninstall service is unavailable");
+    require(remove(id.c_str()), "Uninstall game");
+}
 uint64_t freeSpace(const std::string& path) {
-    struct statvfs info{};
-    return statvfs(path.c_str(), &info) == 0 ? uint64_t(info.f_bavail) * info.f_frsize : 0;
+    const auto space = filesystemSpace(path);
+    return space.sizeKnown ? space.freeBytes : 0;
 }
 }

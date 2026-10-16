@@ -1,13 +1,14 @@
 #pragma once
 #include "library.hpp"
 #include "storage.hpp"
+#include "userdata.hpp"
 #include <deque>
 #include <optional>
 
 namespace psgi {
 enum class Button { Up, Down, Left, Right, Cross, Circle, Square, Triangle, Options, L1, R1 };
-enum class Screen { Splash, Dashboard, Options, Settings, Sources, Storage, Details, Actions, About, ConfirmExit, ConfirmInstall, Discard, Keyboard };
-enum class CommandType { Refresh, Save, Test, Storage, SetStorage, ClearArtwork, RefreshArtwork, Install, Launch, Keyboard, Quit };
+enum class Screen { Splash, Dashboard, Options, Settings, Sources, Storage, Details, Actions, Rating, About, ConfirmExit, ConfirmInstall, ConfirmUninstall, Discard, Keyboard };
+enum class CommandType { Refresh, Save, Test, Storage, SetStorage, ClearArtwork, RefreshArtwork, Install, Uninstall, Rate, Launch, Keyboard, Quit };
 struct Command { CommandType type; Entry entry; size_t source = 0; std::string text; std::optional<Settings> configuration = {}; };
 struct TileRow { std::string group; std::vector<size_t> items; };
 enum class EditKind { SourceUrl, SourceCategory, Search };
@@ -22,12 +23,14 @@ class Ui {
     void quickSave();
 public:
     Settings settings, draft;
+    PlayerData player;
     std::vector<Entry> installed, available;
     std::set<std::string> queued;
     std::vector<VisibleEntry> visible;
     Library library = Library::Installed;
     Screen screen = Screen::Splash, detailReturn = Screen::Dashboard;
     size_t selected[2] = {0, 0}, menuIndex = 0, settingsIndex = 0, sourceIndex = 0, detailScroll = 0;
+    size_t ratingIndex = 0;
     bool sidebar = false, loading = true;
     uint64_t freeBytes = 0;
     InstallStorage storage;
@@ -47,6 +50,9 @@ public:
     std::vector<std::string> details() const;
     void rebuild();
     void setLibraries(std::optional<std::vector<Entry>> local, std::optional<std::vector<Entry>> remote);
+    ViewState captureView() const;
+    void restoreView(const ViewState& state);
+    std::string librarySummary() const;
     void handle(Button button);
     void finishEdit(const std::optional<std::string>& text);
     bool take(Command& command);

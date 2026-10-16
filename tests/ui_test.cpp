@@ -1,4 +1,5 @@
 #include "ui.hpp"
+#include <algorithm>
 #include <cassert>
 #include <cstdio>
 
@@ -102,6 +103,34 @@ int main() {
     ui.selected[1] = 1; ui.handle(Button::Cross); assert(ui.screen == Screen::Dashboard && !ui.take(command));
     ui.available.clear(); ui.rebuild(); ui.handle(Button::Cross); ui.handle(Button::Triangle); ui.handle(Button::Square);
     assert(ui.screen == Screen::Dashboard); ui.handle(Button::Left); assert(ui.sidebar);
+    // Personal actions require explicit confirmation, and ratings remain local commands.
+    ui = fixture();
+    auto choose = [&](const std::string& prefix) {
+        ui.screen = Screen::Dashboard; ui.handle(Button::Triangle);
+        const auto rows = ui.actionRows();
+        const auto found = std::find_if(rows.begin(), rows.end(), [&](const std::string& row) { return row.find(prefix) == 0; });
+        assert(found != rows.end()); ui.menuIndex = found - rows.begin(); ui.handle(Button::Cross);
+    };
+    choose("Uninstall"); assert(ui.screen == Screen::ConfirmUninstall && !ui.take(command));
+    ui.handle(Button::Circle); assert(ui.screen == Screen::Actions && !ui.take(command));
+    choose("Uninstall"); ui.handle(Button::Cross);
+    assert(ui.take(command) && command.type == CommandType::Uninstall && command.entry.titleId == "CUSA00001");
+    assert(ui.screen == Screen::Dashboard && !ui.take(command));
+    ui.installed[0].queued = true;
+    choose("Uninstall"); assert(ui.screen == Screen::Actions && !ui.take(command));
+    ui.installed[0].queued = false;
+    for (unsigned stars = 1; stars <= 5; ++stars) {
+        choose("Rate game"); assert(ui.screen == Screen::Rating);
+        ui.ratingIndex = stars - 1; ui.handle(Button::Cross);
+        assert(ui.screen == Screen::Actions && ui.take(command) && command.type == CommandType::Rate && command.source == stars);
+    }
+    choose("Rate game"); ui.handle(Button::Circle);
+    assert(ui.screen == Screen::Actions && !ui.take(command));
+    choose("Rate game"); ui.ratingIndex = 5; ui.handle(Button::Cross);
+    assert(ui.take(command) && command.type == CommandType::Rate && command.source == 0);
+    ui.handle(Button::Circle); ui.handle(Button::R1); ui.selected[1] = 1;
+    const auto remoteRows = [&] { ui.handle(Button::Triangle); return ui.actionRows(); }();
+    assert(std::find(remoteRows.begin(), remoteRows.end(), "Uninstall") == remoteRows.end());
     // Large-library navigation must retain short last rows and group boundaries.
     ui = Ui(); ui.screen = Screen::Dashboard; ui.library = Library::Available;
     for (int i = 0; i < 50000; ++i) {

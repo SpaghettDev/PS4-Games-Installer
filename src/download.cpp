@@ -29,7 +29,9 @@ void removeStagedPackage(const std::string& directory, const std::string& url) {
     unlink(stagedPackagePath(directory, url).c_str());
 }
 int installPackage(const Entry& entry, int userId, const std::string& directory,
-                   const std::atomic<bool>* cancelled, const DownloadProgress& progress) {
+                   const std::atomic<bool>* cancelled, const DownloadProgress& progress,
+                   const std::function<void(const std::string&)>& note) {
+    if (note) note("Probing package header and HTTP Range support");
     std::string magic;
     const auto probe = httpTransfer(entry.url, [&](const void* data, size_t count, uint64_t) {
         magic.append(static_cast<const char*>(data), std::min(count, size_t(4) - magic.size()));
@@ -37,7 +39,11 @@ int installPackage(const Entry& entry, int userId, const std::string& directory,
     }, true, cancelled);
     if (!packageMagic(magic)) throw std::runtime_error("Package URL did not return a PS4 PKG file");
     if (cancelled && *cancelled) throw std::runtime_error("Download cancelled");
-    if (probe.status == 206 && probe.length == 4) return queueInstall(entry, userId);
+    if (probe.status == 206 && probe.length == 4) {
+        if (note) note("Range supported; registering remote package with BGFT");
+        return queueInstall(entry, userId);
+    }
+    if (note) note("Range unavailable; staging package in internal storage");
     progress(0, probe.length);
 
     const std::string folder = directory + "/downloads";
@@ -53,6 +59,7 @@ int installPackage(const Entry& entry, int userId, const std::string& directory,
             httpTransfer(entry.url, [&](const void* data, size_t count, uint64_t total) {
                 if (!received) {
                     if (!total) throw std::runtime_error("Package server must send Content-Length for a direct download");
+                    if (!available) throw std::runtime_error("Cannot read internal free space for package staging");
                     if (available < reserve || total > available - reserve)
                         throw std::runtime_error("Not enough internal space to stage this package. Enable HTTP Range support on the server to install without staging.");
                     expected = total;
@@ -71,6 +78,7 @@ int installPackage(const Entry& entry, int userId, const std::string& directory,
         } catch (...) { if (file) std::fclose(file); unlink(part.c_str()); throw; }
     }
     if (cancelled && *cancelled) throw std::runtime_error("Download cancelled");
+    if (note) note("Download complete; registering staged package with BGFT");
     return queueLocalInstall(entry, path, userId);
 }
 }

@@ -49,7 +49,7 @@ std::shared_ptr<Image> decodeImage(const std::string& bytes) {
 std::shared_ptr<Image> loadImage(const std::string& path) { return decodeImage(readFile(path)); }
 ArtworkCache::ArtworkCache(std::string path) : directory(std::move(path)) {
     if (mkdir(directory.c_str(), 0700) && errno != EEXIST) throw std::runtime_error("Cannot create artwork cache");
-    worker = std::thread(&ArtworkCache::run, this);
+    worker = TaskThread([this] { run(); });
 }
 ArtworkCache::~ArtworkCache() {
     stopped = true; wake.notify_all(); if (worker.joinable()) worker.join();

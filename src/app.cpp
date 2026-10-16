@@ -4,6 +4,7 @@
 #include "download.hpp"
 #include "cJSON.h"
 #include <chrono>
+#include <ctime>
 #include <cstdio>
 #include <mutex>
 #include <stdexcept>
@@ -12,7 +13,7 @@
 
 namespace psgi {
 namespace {
-enum class ResultKind { Local, Remote, Test, Storage, Install, Poll };
+enum class ResultKind { Local, Remote, Test, Storage, Install, Uninstall, Poll };
 struct Result {
     ResultKind kind = ResultKind::Test;
     std::optional<std::vector<Entry>> local, remote;
@@ -31,9 +32,10 @@ std::string ensureDirectory(const std::string& path) {
 std::string errorCode(int result) {
     char code[20]; std::snprintf(code, sizeof(code), "0x%08X", static_cast<unsigned>(result)); return code;
 }
+uint64_t timestamp() { const auto now = std::time(nullptr); return now > 0 ? uint64_t(now) : 0; }
 }
 struct App::Worker {
-    std::thread thread;
+    TaskThread thread;
     std::mutex mutex;
     bool running = false;
     std::optional<Result> result;
@@ -45,7 +47,7 @@ struct App::Worker {
         if (busy()) return false;
         if (thread.joinable()) thread.join();
         { std::lock_guard<std::mutex> lock(mutex); running = true; update.clear(); }
-        try { thread = std::thread([this, job] {
+        try { thread = TaskThread([this, job] {
             Result out;
             try { out = job(); } catch (const std::exception& e) { out.message = e.what(); }
             std::lock_guard<std::mutex> lock(mutex);
@@ -66,12 +68,19 @@ App::App(const std::string& data, bool preview)
     try { ui.settings = loadSettings(directory); }
     catch (const std::exception& e) { ui.status = std::string("Settings: ") + e.what(); }
     saved = ui.settings; ui.draft = saved;
+    try { ui.player = loadPlayerData(directory); }
+    catch (const std::exception& e) { playerWritable = false; log(std::string("Local records kept unchanged: ") + e.what()); }
+    try { resume = loadViewState(directory); }
+    catch (const std::exception& e) { log(std::string("Saved position: ") + e.what()); }
     if (demo) {
         auto entries = demoLibrary();
         std::vector<Entry> local;
         for (size_t i = 0; i < std::min(size_t(6), entries.size()); ++i) {
             auto e = entries[i]; e.installed = true; e.installedSize = e.size + 1500000000ULL; e.url.clear(); local.push_back(e);
         }
+        ui.player.observeInstalled(local, 1792108800);
+        if (!local.empty()) ui.player.rate(local[0].titleId, 5);
+        if (entries.size() > 8) { ui.player.observeInstalled({entries[8]}, 1792108800); ui.player.rate(entries[8].titleId, 4); }
         ui.setLibraries(local, entries);
         ui.freeBytes = 423000000000ULL;
         ui.storage.internal = {true, ui.freeBytes}; ui.storage.external = {true, 1200000000000ULL};
@@ -97,11 +106,18 @@ App::App(const std::string& data, bool preview)
 }
 App::~App() { worker.reset(); }
 void App::log(const std::string& message) {
+    std::lock_guard<std::mutex> lock(logMutex);
     std::string path = directory + "/app.log";
     struct stat st{};
     bool truncate = stat(path.c_str(), &st) == 0 && st.st_size > 256 * 1024;
     FILE* file = std::fopen(path.c_str(), truncate ? "wb" : "ab");
     if (file) { std::fprintf(file, "%s\n", message.c_str()); std::fclose(file); }
+}
+void App::savePosition() { if (!demo) saveViewState(directory, ui.captureView()); }
+void App::savePlayer(const PlayerData& next) {
+    if (!playerWritable) throw std::runtime_error("Local player.json needs repair; the original file was kept unchanged");
+    if (!demo) savePlayerData(directory, next);
+    ui.player = next; ui.rebuild();
 }
 void App::saveTasks() {
     std::unique_ptr<cJSON, decltype(&cJSON_Delete)> root(cJSON_CreateObject(), cJSON_Delete);
@@ -150,7 +166,16 @@ void App::tick(double elapsed, Video& video) {
         if (initialScan) { initialScan = false; bootReady = true; }
         if (result->local) { lastLocalScan = elapsed; ui.freeBytes = result->freeBytes; }
         if (result->storage) { ui.storage = *result->storage; ui.storageChecked = true; }
+        if (result->local && playerWritable) {
+            auto next = ui.player;
+            if (next.observeInstalled(*result->local, timestamp())) {
+                try { savePlayer(next); }
+                catch (const std::exception& e) { log(std::string("Save installation history: ") + e.what()); ui.status += " (history could not be saved)"; }
+            }
+        }
+        const bool receivedLocal = result->local.has_value();
         if (result->local || result->remote) ui.setLibraries(std::move(result->local), std::move(result->remote));
+        if (resume && (resume->available ? !ui.available.empty() : receivedLocal)) { ui.restoreView(*resume); resume.reset(); }
         if (result->kind == ResultKind::Install && result->task >= 0) {
             tasks[result->entry.url] = result->task; ui.queued.insert(result->entry.url);
             ui.rebuild();
@@ -183,7 +208,9 @@ void App::tick(double elapsed, Video& video) {
     while (ui.take(command)) {
         try {
             switch (command.type) {
-                case CommandType::Quit: quitting = true; worker->cancelled = true; break;
+                case CommandType::Quit:
+                    try { savePosition(); } catch (const std::exception& e) { log(e.what()); }
+                    quitting = true; worker->cancelled = true; break;
                 case CommandType::Keyboard:
                     try { video.startKeyboard(ui); }
                     catch (...) { ui.finishEdit({}); throw; }
@@ -236,13 +263,53 @@ void App::tick(double elapsed, Video& video) {
                 }
                 case CommandType::ClearArtwork: artwork.clear(); ui.status = "Artwork cache cleared"; break;
                 case CommandType::RefreshArtwork: artwork.refresh(command.entry); ui.status = "Artwork will be reloaded"; break;
-                case CommandType::Launch:
+                case CommandType::Rate: {
+                    auto next = ui.player; next.rate(command.entry.titleId, command.source); savePlayer(next);
+                    ui.status = command.source ? "Local rating saved: " + std::to_string(command.source) + "/5" : "Local rating removed";
+                    log(ui.status); break;
+                }
+                case CommandType::Uninstall: {
+                    if (demo) { ui.status = "Desktop preview cannot uninstall PS4 games"; break; }
+                    for (const auto& local : ui.installed) if (local.titleId == command.entry.titleId && local.queued)
+                        throw std::runtime_error("Finish or cancel this title's queued download before uninstalling");
+                    if (worker->busy()) throw std::runtime_error("Wait for the current operation before uninstalling");
+                    savePosition(); auto next = ui.player; next.observeInstalled({command.entry}, timestamp()); savePlayer(next);
+                    const auto entry = command.entry;
+                    worker->start([entry] {
+                        uninstallTitle(entry.titleId);
+                        Result r; r.kind = ResultKind::Uninstall; r.entry = entry;
+                        r.message = "Uninstalled: " + entry.name + ". Local rating and history kept.";
+                        try { r.local = scanInstalled(); r.freeBytes = freeSpace("/user"); r.storage = scanInstallStorage(); }
+                        catch (const std::exception& e) { r.message += " Refresh: " + std::string(e.what()); }
+                        return r;
+                    });
+                    ui.status = "Uninstalling " + entry.name + "..."; ui.loading = true; log(ui.status); break;
+                }
+                case CommandType::Launch: {
                     if (demo) ui.status = "Desktop preview cannot launch PS4 games";
-                    else { launchTitle(command.entry.titleId); ui.status = "Launch requested: " + command.entry.name; lastLocalScan = -30; }
+                    else {
+                        if (ui.loading) throw std::runtime_error("Wait for the current operation before launching");
+                        savePosition(); // The PS4 may terminate us inside the launch call.
+                        const auto previous = ui.player;
+                        bool recorded = false;
+                        if (playerWritable) {
+                            try { auto next = previous; next.noteLaunch(command.entry.titleId, timestamp()); savePlayer(next); recorded = true; }
+                            catch (const std::exception& e) { log(std::string("Save launch record: ") + e.what()); }
+                        }
+                        log("Launch requested: " + command.entry.titleId + "; library position saved");
+                        try { launchTitle(command.entry.titleId); }
+                        catch (...) {
+                            if (recorded) { try { savePlayer(previous); } catch (const std::exception& e) { log(e.what()); } }
+                            throw;
+                        }
+                        ui.status = "Launch requested: " + command.entry.name; lastLocalScan = -30;
+                    }
                     break;
+                }
                 case CommandType::Install: {
                     if (demo) { ui.status = "Desktop preview cannot install PS4 packages"; break; }
                     if (tasks.count(command.entry.url)) throw std::runtime_error("This package is already queued");
+                    savePosition(); log("Install requested: " + command.entry.titleId);
                     Entry entry = command.entry;
                     int user = video.userId;
                     if (!worker->start([this, entry, user] {
@@ -254,7 +321,7 @@ void App::tick(double elapsed, Video& video) {
                                 worker->report("Server has no range support. Direct download: " + std::to_string(percent) + "% — keep this app open.");
                                 lastPercent = percent;
                             }
-                        });
+                        }, [this](const std::string& message) { log(message); worker->report(message); });
                         return r;
                     })) throw std::runtime_error("Wait for the current operation, then retry installation");
                     ui.status = "Checking package URL and server range support..."; ui.loading = true; break;

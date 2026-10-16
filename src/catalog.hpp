@@ -15,6 +15,10 @@ struct Entry {
     std::string coverUrl, localIcon, release, contentId, description;
     uint64_t size = 0, installedSize = 0;
     bool installed = false, queued = false;
+    // Local records are applied by Title ID after catalog parsing/refresh.
+    bool wasInstalled = false;
+    unsigned rating = 0;
+    uint64_t firstSeenInstalled = 0, launches = 0, lastLaunch = 0;
     std::vector<std::pair<std::string, std::string>> metadata;
 };
 

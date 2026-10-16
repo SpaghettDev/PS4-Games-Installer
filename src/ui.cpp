@@ -1,4 +1,5 @@
 #include "ui.hpp"
+#include "sfo.hpp"
 #include <algorithm>
 #include <map>
 
@@ -45,6 +46,7 @@ void Ui::rebuild() {
             if (local.region.empty()) local.region = remote.region;
         }
     }
+    player.apply(installed); player.apply(available); player.apply(pending);
     visible = makeView(entries(), settings, library, query);
     selected[static_cast<int>(library)] = visible.empty() ? 0 : std::min(position(), visible.size() - 1);
     grid.clear(); gridRowByPosition.clear();
@@ -55,14 +57,52 @@ void Ui::rebuild() {
     }
 }
 void Ui::setLibraries(std::optional<std::vector<Entry>> local, std::optional<std::vector<Entry>> remote) {
-    std::string key = selectionKey();
+    auto state = captureView();
     if (local) installed = std::move(*local);
     if (remote) available = std::move(*remote);
-    rebuild();
-    if (!key.empty()) for (size_t i = 0; i < visible.size(); ++i) {
-        const auto& e = entries()[visible[i].index];
-        if ((e.url.empty() ? e.titleId : e.url) == key) selected[static_cast<int>(library)] = i;
+    restoreView(state);
+}
+ViewState Ui::captureView() const {
+    ViewState state; state.available = library == Library::Available; state.query = query; state.sidebar = sidebar;
+    for (size_t i = 0; i < 2; ++i) {
+        const auto which = i ? Library::Available : Library::Installed;
+        const auto& list = i ? available : installed;
+        const auto view = makeView(list, settings, which, query);
+        auto& cursor = state.cursor[i]; cursor.index = selected[i];
+        if (!view.empty()) {
+            const auto& entry = list[view[std::min(selected[i], view.size() - 1)].index];
+            if (validTitleId(entry.titleId)) cursor.titleId = entry.titleId;
+            if (i) cursor.url = entry.url;
+        }
     }
+    return state;
+}
+void Ui::restoreView(const ViewState& state) {
+    library = state.available ? Library::Available : Library::Installed; query = state.query; sidebar = state.sidebar;
+    rebuild();
+    for (size_t i = 0; i < 2; ++i) {
+        const auto& list = i ? available : installed;
+        const auto view = makeView(list, settings, i ? Library::Available : Library::Installed, query);
+        const auto& cursor = state.cursor[i];
+        selected[i] = view.empty() ? 0 : std::min(cursor.index, view.size() - 1);
+        std::optional<size_t> fallback;
+        for (size_t p = 0; p < view.size(); ++p) {
+            const auto& entry = list[view[p].index];
+            const bool title = !cursor.titleId.empty() && entry.titleId == cursor.titleId;
+            const bool url = !cursor.url.empty() && entry.url == cursor.url;
+            if (title && !fallback) fallback = p;
+            if ((title && (!i || cursor.url.empty() || url)) || (cursor.titleId.empty() && url)) { fallback = p; break; }
+        }
+        if (fallback) selected[i] = *fallback;
+    }
+}
+std::string Ui::librarySummary() const {
+    if (library == Library::Installed)
+        return std::to_string(installed.size()) + " installed games" +
+            (visible.size() != installed.size() ? " / " + std::to_string(visible.size()) + " shown" : "");
+    size_t ready = 0;
+    for (const auto& item : visible) if (!available[item.index].installed && !available[item.index].queued) ++ready;
+    return std::to_string(ready) + " available to install / " + std::to_string(available.size()) + " packages";
 }
 std::vector<std::string> Ui::details() const {
     std::vector<std::string> lines;
@@ -120,10 +160,14 @@ std::vector<std::string> Ui::settingRows() const {
         "Test connection", "Clear artwork cache", "Save settings", "Installation destination"};
 }
 std::vector<std::string> Ui::actionRows() const {
+    std::vector<std::string> rows;
     if (library == Library::Installed || pending.installed)
-        return pending.url.empty() ? std::vector<std::string>{"Launch game", "Details", "Refresh artwork"} :
+        rows = pending.url.empty() ? std::vector<std::string>{"Launch game", "Details", "Refresh artwork"} :
             std::vector<std::string>{"Launch game", "Install remote package", "Details", "Refresh artwork"};
-    return {"Install package", "Details", "Refresh artwork"};
+    else rows = {"Install package", "Details", "Refresh artwork"};
+    if (validTitleId(pending.titleId)) rows.push_back("Rate game" + (pending.rating ? " (" + std::to_string(pending.rating) + "/5)" : std::string()));
+    if (pending.installed) rows.push_back("Uninstall");
+    return rows;
 }
 void Ui::quickSave() { rebuild(); emit(CommandType::Save); }
 void Ui::handle(Button b) {
@@ -142,6 +186,21 @@ void Ui::handle(Button b) {
     if (screen == Screen::ConfirmInstall) {
         if (b == Button::Circle) screen = Screen::Dashboard;
         else if (b == Button::Cross) { emit(CommandType::Install, pending); screen = Screen::Dashboard; }
+        return;
+    }
+    if (screen == Screen::ConfirmUninstall) {
+        if (b == Button::Circle) screen = Screen::Actions;
+        else if (b == Button::Cross) { emit(CommandType::Uninstall, pending); screen = Screen::Dashboard; }
+        return;
+    }
+    if (screen == Screen::Rating) {
+        if (b == Button::Circle) { screen = Screen::Actions; return; }
+        if (b == Button::Up && ratingIndex) --ratingIndex;
+        if (b == Button::Down && ratingIndex < 5) ++ratingIndex;
+        if (b == Button::Cross) {
+            commands.push_back({CommandType::Rate, pending, ratingIndex < 5 ? ratingIndex + 1 : 0, ""});
+            screen = Screen::Actions;
+        }
         return;
     }
     if (b == Button::Circle) {
@@ -237,6 +296,11 @@ void Ui::handle(Button b) {
             auto action = actions[menuIndex];
             if (action == "Launch game") { emit(CommandType::Launch, pending); screen = Screen::Dashboard; }
             else if (action.find("Install") == 0) screen = Screen::ConfirmInstall;
+            else if (action == "Uninstall") {
+                if (pending.queued) status = "Finish or cancel this title's queued download before uninstalling";
+                else screen = Screen::ConfirmUninstall;
+            }
+            else if (action.find("Rate game") == 0) { ratingIndex = pending.rating ? pending.rating - 1 : 0; screen = Screen::Rating; }
             else if (action == "Details") { detailReturn = Screen::Actions; detailScroll = 0; screen = Screen::Details; }
             else { emit(CommandType::RefreshArtwork, pending); screen = Screen::Dashboard; }
         }

@@ -47,5 +47,6 @@ bool retireInactiveTask(int) { return false; }
 TaskProgress taskProgress(int) { return {0, 0, 0, false}; }
 std::vector<Entry> scanInstalled() { return {}; }
 void launchTitle(const std::string&) { throw std::runtime_error("PS4 required"); }
+void uninstallTitle(const std::string&) { throw std::runtime_error("PS4 required"); }
 uint64_t freeSpace(const std::string&) { return 0; }
 }

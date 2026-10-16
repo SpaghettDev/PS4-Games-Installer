@@ -1,5 +1,23 @@
 # Changelog
 
+## r19 — 2026-10-16
+
+- Save library, search and both selected games before launching; restore by Title
+  ID/package URL when reopening, including after catalog reordering.
+- Add Installed > Triangle > Uninstall with confirmation; preserve local history.
+- Add local 1–5 star ratings and installation/launch records keyed by Title ID in
+  `player.json`, independent of remote catalogs. Show stars and Was installed.
+- Keep the footer count specific to the active library, including Available's
+  installable package count.
+- Replace the SDK's non-populating statvfs wrapper with a native capacity query;
+  distinguish an unreadable capacity from a full drive.
+- Remove large HTTP stack buffers and provide explicit 512 KiB native worker
+  stacks. Add download-stage logging. These address a stack-overflow hazard in
+  the reported download-crash path; the exact CE-34878-0 dump is not yet available.
+- Restore the softer r17 bubbles requested by the user.
+- User confirmed r17 launching, controller navigation and complete Installed
+  discovery work on PS4 11.00 + GoldHEN. New behavior needs console acceptance.
+
 ## r18 — 2026-10-16
 
 - Make dashboard bubbles visibly brighter, with soft rims, highlights and faster

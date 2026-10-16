@@ -1,5 +1,6 @@
 #pragma once
 #include "catalog.hpp"
+#include "task_thread.hpp"
 #include <atomic>
 #include <condition_variable>
 #include <deque>
@@ -29,7 +30,7 @@ class ArtworkCache {
     std::set<std::string> queued;
     uint64_t age = 0, generation = 0;
     std::atomic<bool> stopped{false};
-    std::thread worker;
+    TaskThread worker;
     void run();
     void pruneDisk();
 public:

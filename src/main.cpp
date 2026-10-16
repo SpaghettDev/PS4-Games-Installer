@@ -45,6 +45,12 @@ void capture(App& app, Renderer& renderer, Canvas& canvas) {
     ui.storage.external = {}; shot("14-storage-unavailable");
     ui.screen = Screen::Keyboard; ui.keyboardText = ui.draft.sources[0].url; shot("07-url-editor");
     ui.screen = Screen::Details; ui.pending = ui.available[0]; shot("08-details");
+    ui.library = Library::Installed; ui.rebuild();
+    for (size_t i = 0; i < ui.visible.size(); ++i) if (ui.installed[ui.visible[i].index].titleId == ui.installed[0].titleId) ui.selected[0] = i;
+    ui.pending = *ui.current(); ui.screen = Screen::Actions; ui.menuIndex = 0; shot("20-installed-actions");
+    ui.screen = Screen::ConfirmUninstall; shot("21-uninstall-confirmation");
+    ui.screen = Screen::Rating; ui.ratingIndex = 3; shot("22-rating");
+    ui.library = Library::Available; ui.rebuild(); ui.pending = *ui.current();
     ui.screen = Screen::ConfirmInstall; shot("15-install-confirmation");
     ui.screen = Screen::About; shot("09-about");
     ui.screen = Screen::ConfirmExit; shot("10-exit");

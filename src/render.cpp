@@ -1,6 +1,7 @@
 #include "render.hpp"
 #include "revision.hpp"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <initializer_list>
 
@@ -75,7 +76,32 @@ std::shared_ptr<Image> softened(const Image& input) {
     }
     return image;
 }
-std::string state(const Entry& e) { return e.queued ? "QUEUED" : e.installed ? "INSTALLED" : ""; }
+std::string state(const Entry& e) { return e.installed ? "Installed" : e.queued ? "Queued" : e.wasInstalled ? "Was installed" : ""; }
+void stars(Canvas& c, unsigned rating, int x, int y, int size) {
+    if (!rating) return;
+    for (unsigned star = 0; star < 5; ++star) {
+        std::array<std::pair<double, double>, 10> points;
+        for (size_t i = 0; i < points.size(); ++i) {
+            const double angle = -1.57079632679 + i * .628318530718;
+            const double radius = size * (i % 2 ? .22 : .49);
+            points[i] = {x + star * (size + 4) + size * .5 + std::cos(angle) * radius,
+                         y + size * .5 + std::sin(angle) * radius};
+        }
+        for (int row = y; row < y + size; ++row) {
+            std::array<double, 10> crossings{}; size_t count = 0;
+            for (size_t i = 0; i < points.size(); ++i) {
+                const auto a = points[i], b = points[(i + 1) % points.size()]; const double scan = row + .5;
+                if ((a.second <= scan && b.second > scan) || (b.second <= scan && a.second > scan))
+                    crossings[count++] = a.first + (scan - a.second) * (b.first - a.first) / (b.second - a.second);
+            }
+            std::sort(crossings.begin(), crossings.begin() + count);
+            for (size_t i = 0; i + 1 < count; i += 2) {
+                const int left = int(std::ceil(crossings[i])), right = int(std::floor(crossings[i + 1]));
+                c.rectangle(left, row, right - left + 1, 1, star < rating ? 0xffd478 : 0x46647e);
+            }
+        }
+    }
+}
 std::string shortSize(uint64_t bytes) {
     auto value = formatSize(bytes);
     size_t p = value.find(".0 ");
@@ -101,11 +127,9 @@ void Renderer::menu(Canvas& c, const std::vector<std::string>& rows, size_t sele
     }
 }
 void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
-    const bool animate = ui.screen == Screen::Settings ? ui.draft.animations : ui.settings.animations;
-    c.backgroundBase();
+    c.background(time, ui.screen == Screen::Settings ? ui.draft.animations : ui.settings.animations);
     const Entry* selected = ui.current();
     if (ui.screen == Screen::Splash) {
-        c.bubbles(time, animate);
         c.image(*placeholder, 904, 330, 112, 112);
         c.centered("Loading PS4 Games Installer", 560, 48, White);
         for (int i = 0; i < 3; ++i) c.rounded(925 + i * 28, 608, 10, 10, 5, Accent,
@@ -128,8 +152,6 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
         if (currentBackground) c.image(*currentBackground, 0, 0, Canvas::Width, Canvas::Height, 90 * alpha / 255, true);
         c.rectangle(0, 0, Canvas::Width, Canvas::Height, 0x061a30, 130);
     }
-    // Keep particles above the summary artwork/dimmer and behind all controls.
-    c.bubbles(time, animate);
     c.image(*placeholder, 54, 52, 58, 58);
     c.text("PS4 Games Installer", 132, 94, 39, White);
     c.text(PSGI_VERSION, 508, 127, 18, Muted);
@@ -174,11 +196,12 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
                 auto image = artwork.request(entry, focus);
                 c.image(*(image ? image : placeholder), x + 43, y + 12, 244, 224);
                 if (!state(entry).empty()) {
-                    c.rounded(x + 13, y + 16, 121, 28, 6, 0x08283c, 235);
-                    c.text(state(entry), x + 22, y + 36, 15, Accent, 107);
+                    c.rounded(x + 13, y + 16, 148, 28, 6, 0x08283c, 235);
+                    c.text(state(entry), x + 22, y + 36, 15, Accent, 132);
                 }
                 c.text(entry.name, x + 17, y + 267, 25, White, 297);
                 c.text(shortSize(ui.library == Library::Installed ? entry.installedSize : entry.size), x + 17, y + 299, 21, Muted, 288);
+                stars(c, entry.rating, x + 190, y + 282, 18);
             }
         }
         c.text("Page " + std::to_string(begin / 2 + 1) + " / " + std::to_string((rows.size() + 1) / 2), 1670, 949, 18, Muted, 180);
@@ -194,8 +217,10 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
             c.image(*(image ? image : placeholder), 374, y - 17, 58, 58);
             c.text(entry.name, 450, y + 7, 27, White, 645);
             std::string meta = entry.titleId + (entry.region.empty() ? "" : "  " + entry.region) + (ui.visible[i].group.empty() ? "" : "  /  " + ui.visible[i].group);
+            if (!state(entry).empty()) meta += "  /  " + state(entry);
             c.text(meta, 451, y + 35, 18, Muted, 660);
             c.text(shortSize(ui.library == Library::Installed ? entry.installedSize : entry.size), 1110, y + 13, 21, Muted, 165);
+            stars(c, entry.rating, 1110, y + 25, 17);
         }
         if (selected) {
             auto image = artwork.request(*selected, true);
@@ -204,10 +229,12 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
             c.text(selected->name, 1372, 732, 30, White, 452);
             c.text(shortSize(ui.library == Library::Installed ? selected->installedSize : selected->size), 1373, 780, 24, Accent, 450);
             c.text(state(*selected), 1373, 831, 20, Muted, 450);
+            stars(c, selected->rating, 1373, 845, 20);
         }
     }
     c.rectangle(54, 964, 1812, 1, 0x638aad, 65);
-    c.text(ui.status, 70, 1000, 23, ui.loading ? Accent : White, 1778);
+    c.text(ui.librarySummary(), 70, 1000, 22, White, 620);
+    c.text(ui.status, 720, 1000, 21, ui.loading ? Accent : Muted, 1130);
     hints(c, 70, 1045, {{Button::Cross, ui.library == Library::Installed ? "Launch" : "Install"},
         {Button::Square, "Details"}, {Button::Triangle, "Actions"}, {Button::Options, "Menu"},
         {Button::Circle, "Back / Exit"}, {Button::L1, "Library"}}, 22);
@@ -246,7 +273,7 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
                 if (ui.storageIndex == index) c.rounded(352, y - 36, 1210, 67, 9, Blue, 190);
                 const bool active = ui.storage.destination == (index ? InstallDestination::External : InstallDestination::Internal);
                 c.text(std::string(active ? "[Selected]  " : "") + name, 370, y, 27, White, 650);
-                c.text(!ui.storageChecked ? "Checking..." : drive.available ?
+                c.text(!ui.storageChecked ? "Checking..." : drive.available && !drive.sizeKnown ? "Space unavailable" : drive.available ?
                        (drive.freeBytes ? shortSize(drive.freeBytes) : "0 B") + " free" : "Unavailable",
                        1030, y, 26, drive.available ? Accent : Muted, 510);
             };
@@ -269,9 +296,27 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
             hints(c, 840, 908, {{Button::Circle, "Back"}}); break;
         }
         case Screen::Actions:
-            panel(c, 495, 275, 930, 510, ui.pending.name);
-            menu(c, ui.actionRows(), ui.menuIndex, 532, 413, 856, 64);
-            hints(c, 548, 747, {{Button::Cross, "Select"}, {Button::Circle, "Back"}}); break;
+            panel(c, 495, 210, 930, 650, ui.pending.name);
+            menu(c, ui.actionRows(), ui.menuIndex, 532, 356, 856, 58);
+            hints(c, 548, 815, {{Button::Cross, "Select"}, {Button::Circle, "Back"}}); break;
+        case Screen::Rating: {
+            panel(c, 560, 190, 800, 680, "Rate game");
+            c.text(ui.pending.name, 600, 328, 28, White, 720);
+            std::vector<std::string> rows;
+            for (unsigned i = 1; i <= 5; ++i) rows.push_back(std::to_string(i) + (i == 1 ? " star" : " stars") + (ui.pending.rating == i ? " (current)" : ""));
+            rows.push_back("Remove rating");
+            menu(c, rows, ui.ratingIndex, 598, 400, 724, 56);
+            for (unsigned i = 1; i <= 5; ++i) stars(c, i, 1110, 382 + (i - 1) * 56, 20);
+            c.text("Saved locally by Title ID. Catalog refreshes keep your rating.", 600, 770, 20, Muted, 720);
+            hints(c, 600, 829, {{Button::Cross, "Save rating"}, {Button::Circle, "Cancel"}}); break;
+        }
+        case Screen::ConfirmUninstall:
+            panel(c, 360, 266, 1200, 548, "Uninstall game?");
+            c.text(ui.pending.name, 410, 413, 33, White, 1100);
+            c.text(ui.pending.titleId, 410, 467, 26, Accent, 1100);
+            c.text("This removes the game's installed files.", 410, 545, 26, Muted, 1100);
+            c.text("Your local rating and installation history will be kept.", 410, 591, 24, Muted, 1100);
+            hints(c, 410, 753, {{Button::Cross, "Uninstall"}, {Button::Circle, "Cancel"}}, 26); break;
         case Screen::ConfirmInstall:
             panel(c, 360, 266, 1200, 548, "Install package?");
             c.text(ui.pending.name, 410, 413, 33, White, 1100);

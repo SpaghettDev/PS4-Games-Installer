@@ -10,6 +10,7 @@ bool retireInactiveTask(int) { return false; }
 TaskProgress taskProgress(int) { return {0, 0, 0, false}; }
 std::vector<Entry> scanInstalled() { return {}; }
 void launchTitle(const std::string&) { throw std::runtime_error("Launching requires a PS4"); }
+void uninstallTitle(const std::string&) { throw std::runtime_error("Uninstalling requires a PS4"); }
 uint64_t freeSpace(const std::string& path) {
     struct statvfs info{};
     return statvfs(path.c_str(), &info) == 0 ? uint64_t(info.f_bavail) * info.f_frsize : 0;

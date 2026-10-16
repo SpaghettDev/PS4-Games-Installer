@@ -1,5 +1,6 @@
 // Exercise the native adapter against SDK declarations; no PS4 service runs here.
 #include "platform.hpp"
+#include "storage.hpp"
 #include <orbis/SystemService.h>
 #include <orbis/Sysmodule.h>
 #include <orbis/UserService.h>
@@ -18,6 +19,7 @@ int loads = 0, initializations = 0, users = 0, launches = 0;
 bool ready = false;
 
 }
+namespace psgi { StorageSpace filesystemSpace(const std::string&) { return {}; } }
 extern "C" int sceLncUtilInitialize() {
     ++initializations;
     if (scenario == "init-failure") return ServiceError;

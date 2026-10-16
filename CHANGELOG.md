@@ -1,5 +1,18 @@
 # Changelog
 
+## Documentation — 2026-10-17
+
+- Reduce README from 793 to 114 lines, keeping program description, setup and
+  everyday consumer instructions.
+- Add EXPERT.md for catalog hosting, configuration, profiles, organization,
+  storage, downloads, data recovery and troubleshooting.
+- Add DEVELOPMENT.md for Linux/Docker builds, deployment, testing, package
+  revisions, PS4 integration and release procedures.
+- Include all 11 supplied PS4 captures from Screenshots/ as linked 30%-width
+  README thumbnails. Preserve the original image files.
+- Validate local links/anchors, JSON examples and gallery markup. Documentation
+  only; the successful application revision remains r33.
+
 ## r33 — 2026-10-17
 
 - Request direct game handoff with the SDK skip-launch-check flag, retaining the

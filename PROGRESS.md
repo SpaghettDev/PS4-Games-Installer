@@ -1,5 +1,27 @@
 # Implementation progress
 
+## Consumer README and separate manuals — 2026-10-17
+
+- User requested a shorter consumer README, separate expert/development manuals,
+  and pictures from Screenshots/ displayed at about 30% width.
+- README is now 114 lines / 746 words, down from 793 lines / 6,882 words. It covers
+  the program, setup, controls, installation/launching, downloads, storage,
+  organization and links to further help without implementation/revision history.
+- Moved detailed consumer/configuration/recovery material into EXPERT.md, with a
+  configuration-field reference and contents links. Moved build/deploy/preview
+  instructions into DEVELOPMENT.md and documented testing, integration, release
+  workflow and console acceptance limits.
+- Inspected all 11 supplied console captures. Added them unchanged to version
+  control and linked each README thumbnail to its full-size original in Screenshots/.
+  Three pictures fit on each full gallery row using width=30% HTML in Markdown.
+- Checked 56 local Markdown links/anchors across the three manuals; all resolve.
+  JSON examples parse and gallery markup references every supplied image exactly
+  once, with alt text, 30% width and matching full-size links.
+- Source fingerprint still matches revision.json and the validated r33 artifact;
+  its manifest/checksum also match. No app rebuild or revision increment is needed
+  for this documentation-only change. Whitespace/identity audits and a local Git
+  commit complete the change; no deployment or push performed.
+
 ## r33 game launch handoff without close confirmation — 2026-10-17
 
 - User reports a PS4 dialog asking to close PS4 Games Installer when launching a

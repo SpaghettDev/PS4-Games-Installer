@@ -1,0 +1,193 @@
+# PS4 Games Installer — Development manual
+
+Build, test and package the native C++17 OpenOrbis application on Linux.
+[README.md](README.md) covers normal use; [EXPERT.md](EXPERT.md) covers catalog
+hosting, advanced settings, storage, data files and troubleshooting.
+
+## Repository layout
+
+| Location | Purpose |
+| --- | --- |
+| [src/](src/) | Native application, UI, renderer, catalog and PS4 service adapters |
+| [assets/](assets/) | Editable icon SVG, packaged PNG, font and notices |
+| [third_party/](third_party/) | Pinned vendored libraries and their licenses |
+| [tests/](tests/) | Host regressions, native service fakes and Python integrations |
+| [scripts/](scripts/) | Packaging, metadata, import validation, deployment and capture helpers |
+| [Makefile](Makefile) / [Dockerfile](Dockerfile) | Build entry point and managed toolchain |
+| [Screenshots/](Screenshots/) | Console captures used by the consumer README |
+| [docs/images/](docs/images/) | Desktop preview images used in the expert manual |
+| `build/`, `dist/` | Ignored generated files and release packages |
+
+## Build on Linux
+
+Install Docker and GNU Make on the host; the compiler, SDK, publishing tools, font
+and image utilities are managed by the Docker build.
+
+```sh
+make image
+make
+make test
+make validate
+```
+
+Output: `dist/PS4Game_installer-rN.pkg`, plus a JSON manifest with revision, input
+fingerprint and SHA-256. The build uses LLVM 18, checksum-verified OpenOrbis 0.5.4,
+pinned libjbc and a pinned LibOrbisPkg publisher built with .NET 8. Unity and Sony's
+SDK are not used.
+
+A successful build with changed inputs increments the revision. No-change builds
+reuse the package. Failed builds do not consume a revision, concurrent builds are
+serialized, and `make clean` retains the committed revision record. Rebuilding a
+clean checkout with identical inputs retains that checkout's recorded revision.
+Commit `revision.json` along with a release's source changes.
+
+To validate your catalog from the build container without installing anything:
+
+```sh
+# Edit config.example.json with your address first.
+make check CONFIG=/work/config.example.json
+```
+
+The Linux check shares parsing with the console but uses libcurl; it cannot validate
+the PS4's TLS support, installed-game services or BGFT behavior.
+
+### Deploy to your PS4
+
+Enable the PS4's FTP server, then configure your target once:
+
+```sh
+cp .env.example .env
+# Edit .env with the PS4 address, FTP credentials and destination directory.
+make deploy
+```
+
+```dotenv
+DEPLOY_HOST=192.168.1.50
+DEPLOY_PORT=2121
+DEPLOY_USER=anonymous
+DEPLOY_PASS=anonymous
+DEPLOY_PATH=/data/pkg
+```
+
+`make deploy` reads the repository's `.env`, builds the current revision using
+Docker, verifies its SHA-256 manifest, and uploads `PS4Game_installer-rN.pkg` by
+passive FTP. Create `DEPLOY_PATH` on the PS4 beforehand. The server must support
+file upload and rename; uploads use a temporary name until the transfer completes.
+The remote size is checked when the server supports `SIZE`. Install the uploaded
+package using your PS4 package installer.
+
+`.env` is ignored by Git and excluded from Docker build contexts. Deployment reads
+it through the container's repository mount; credentials are not passed on command
+lines or printed. Values may be single/double quoted, and comments are supported.
+Shell commands and variable substitutions in `.env` remain literal text. Plain FTP
+is intended for your trusted local network.
+
+### Desktop preview
+
+```sh
+make preview       # Interactive X11 window when DISPLAY is available; otherwise screenshots.
+make screenshots   # Always generate build/screenshots/*.png without a display.
+```
+
+Interactive preview uses the same UI and renderer with a sample library and disables
+PS4 launch/install operations. It forwards your X11 socket and XAUTHORITY when set;
+ensure those environment variables identify your current desktop session.
+Keyboard controls: arrows = D-pad, Enter/X = Cross, Escape/O = Circle, S = Square,
+T = Triangle, Tab = Options, Q/E = L1/R1, Page Up/Page Down = L2/R2.
+Enter accepts text; Escape cancels it.
+An SDL-compatible controller can also navigate the preview.
+
+## Testing changes
+
+Run `make test` for the host and native-adapter suites plus Python integrations.
+Native-adapter tests compile against the pinned SDK and fake PS4 service calls;
+they check parameters and error handling without running services on a console.
+The App tests exercise settings, queue/session persistence, cancellation, launch
+handoff ordering and recovery. HTTP integrations use local fixture servers.
+
+For a targeted C++ test, invoke the container-owned Make target rather than
+requiring its SDK and libraries on the host:
+
+```sh
+docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/work" \
+  -e SDL_VIDEODRIVER=dummy ps4-games-installer:build \
+  make build/host/features-test
+
+docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/work" \
+  -e SDL_VIDEODRIVER=dummy ps4-games-installer:build \
+  ./build/host/features-test
+```
+
+Keep production sources and generated revision headers stable while compilers run.
+If inputs change during a build, rebuild the affected targets before relying on
+its results. Run the relevant tests, then build and validate the native package.
+For UI changes, also generate screenshots and inspect the changed screens.
+
+## PS4 service integration
+
+Installed discovery combines registered Title IDs with local app metadata and
+icons. Keep UI/catalog code separate from the native service adapters. Console
+data belongs under `/data/PS4-Game-Installer/`; see the
+[expert data-file reference](EXPERT.md#data-and-troubleshooting).
+
+The launcher imports `libSceLncUtil` packed inside SystemService. Dynamic lookup
+through the module's default library cannot resolve every packed export.
+`scripts/validate_imports.py` checks the generated executable during packaging.
+Launch parameters use the foreground user, and the App saves the browsing session
+before handing control to the PS4. A failed native call preserves the app and
+rolls back the successful-launch record.
+
+Downloader/native installation behavior is covered by fake-service tests and
+[download recovery notes](EXPERT.md#downloads-and-offline-use). Preserve task
+ownership and staged-package leases when a service cannot confirm release. A
+completed file transfer is separate from installation confirmation. Local Title ID
+records must remain independent of remote catalog changes.
+
+The shell exit path restores the original homebrew credentials and requests exit
+through SystemService. Returning through the ordinary C runtime caused a console
+exit crash in earlier revisions; retain lifecycle regression coverage.
+
+## Hardware verification
+
+The user confirmed the application runs on **PS4 11.00 + GoldHEN**, with working
+source entry/settings saving, artwork, complete installed discovery, analog
+navigation, game launching, installation after r28, uninstall and the exit-crash
+fix. These confirmations do not establish acceptance of every later change.
+
+In particular, r32 verification recovery and r33 suppression of the launch-close
+prompt have separate acceptance checks in [TODO.md](TODO.md). A validated PKG,
+host tests and desktop captures do not establish PS4 service behavior, USB behavior
+or console frame rate. Record the exact revision, firmware and observed result
+when testing on hardware; keep historical failures separate from current evidence.
+
+Use **Options > Export diagnostics to USB** for a shareable report. Raw `app.log`,
+settings and catalogs can contain private URLs or other sensitive information;
+inspect them locally and sanitize evidence before including it in a public issue.
+Never commit `.env`, private console snapshots, logs or downloaded packages.
+
+## Release workflow
+
+1. Run the relevant host tests and compile the PS4 application with `make`.
+2. Run `make validate`; inspect the PKG metadata, import checks and manifest.
+3. For UI changes, run `make screenshots` and inspect the affected captures.
+4. Update [CHANGELOG.md](CHANGELOG.md), [PROGRESS.md](PROGRESS.md) and
+   [TODO.md](TODO.md) with actual results and remaining console acceptance checks.
+5. Commit the successful `revision.json` alongside the corresponding source.
+   Push or deploy only when requested.
+
+Documentation-only edits do not change packaged inputs and do not need a new
+application revision. Validate Markdown links and image references instead of
+rebuilding an unchanged application. README images use linked `<img width="30%">`
+elements in Markdown so the pictures stay compact and open at full size.
+Preserve the supplied console captures in `Screenshots/`; generated desktop
+samples remain under `docs/images/` and must be described as preview images.
+
+Edit `assets/icon.svg` when changing the icon, then regenerate the package PNG
+through Make. Keep dependencies pinned and retain their licenses. The project
+workflow is recorded in [AGENTS.md](AGENTS.md).
+
+## License and credits
+
+Created by **e1z0 — (c) 2026 Vintage2000.org**. Application source is GPLv2;
+see [LICENSE](LICENSE) and [THIRD_PARTY.md](THIRD_PARTY.md). Component versions and
+licenses belong in the credits file rather than the consumer guide.

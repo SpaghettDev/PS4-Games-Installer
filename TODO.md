@@ -1,5 +1,14 @@
 # Work tracker
 
+## Documentation: consumer guide and reference manuals
+
+- [x] Shorten README to program description, setup and everyday consumer usage.
+- [x] Move detailed configuration/recovery guidance to EXPERT.md.
+- [x] Move build/deploy/testing/release guidance to DEVELOPMENT.md.
+- [x] Show all supplied Screenshots/ captures as linked 30%-width thumbnails.
+- [x] Validate links, gallery markup, JSON examples and unchanged package inputs.
+- [x] Update progress/changelog and commit documentation without a package revision.
+
 ## Current implementation: r33 direct game handoff
 
 - [x] Inspect the native launch parameters and pinned SDK/reverse-engineered flags.

@@ -268,6 +268,38 @@ int main() {
     }
     progressMode = 0;
     { std::lock_guard<std::mutex> lock(requestMutex); localGames.clear(); }
+    // Hardware regression: catalog 01.23, installed base 01.00, completed/released task.
+    const auto versionMismatch = directory + "/version-mismatch"; std::filesystem::create_directory(versionMismatch);
+    saveSettings(versionMismatch, historySettings);
+    QueueItem bonfire; bonfire.entry.name = "Bonfire Peaks"; bonfire.entry.titleId = "CUSA28188";
+    bonfire.entry.url = "http://fixture/bonfire.pkg"; bonfire.entry.category = "games"; bonfire.entry.version = "01.23";
+    bonfire.stage = QueueStage::Verifying; bonfire.systemCompleted = true;
+    saveQueue(versionMismatch, {bonfire}); atomicWrite(versionMismatch + "/catalog.json", serializeCatalog({bonfire.entry}));
+    Entry actualBonfire = bonfire.entry; actualBonfire.version = "01.00"; actualBonfire.url.clear(); actualBonfire.installed = true;
+    { std::lock_guard<std::mutex> lock(requestMutex); localGames = {actualBonfire}; }
+    const int beforeSubmissions = submissions, beforeCancellations = cancellations;
+    {
+        App app(versionMismatch); settle(app, video);
+        assert(app.ui.downloads[0].stage == QueueStage::Completed && app.ui.queued.empty());
+        assert(app.ui.installed[0].installed && !app.ui.installed[0].queued);
+        assert(app.ui.available[0].installed && !app.ui.available[0].queued);
+        assert(loadQueue(versionMismatch)[0].stage == QueueStage::Completed);
+    }
+    {
+        App app(versionMismatch); settle(app, video);
+        assert(app.ui.downloads[0].stage == QueueStage::Completed && app.ui.queued.empty());
+        assert(submissions == beforeSubmissions && cancellations == beforeCancellations);
+    }
+    // The same queue entry may have timed out before the fixed build was installed.
+    bonfire.stage = QueueStage::Failed; bonfire.verificationStarted = 100;
+    bonfire.message = "PS4 task finished but installation could not be confirmed. Check Downloads.";
+    saveQueue(versionMismatch, {bonfire});
+    {
+        App app(versionMismatch); settle(app, video);
+        assert(app.ui.downloads[0].stage == QueueStage::Completed && loadQueue(versionMismatch)[0].stage == QueueStage::Completed);
+        assert(!app.ui.installed[0].queued && submissions == beforeSubmissions && cancellations == beforeCancellations);
+    }
+    { std::lock_guard<std::mutex> lock(requestMutex); localGames.clear(); }
     const auto refusal = directory + "/refusal"; std::filesystem::create_directory(refusal);
     Settings offline; offline.refreshOnStart = false; saveSettings(refusal, offline);
     atomicWrite(refusal + "/catalog.json", R"({"DATA":{"http://fixture/game.pkg":{"name":"Rejected package","title_id":"CUSA00001"}}})");

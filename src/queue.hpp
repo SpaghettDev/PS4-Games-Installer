@@ -19,6 +19,7 @@ struct QueueItem {
 };
 std::string queueStageName(QueueStage stage);
 bool queueActive(QueueStage stage);
+bool queueNeedsVerification(const QueueItem& job);
 QueueItem* findJob(std::vector<QueueItem>& queue, const std::string& url);
 void enqueueJob(std::vector<QueueItem>& queue, const Entry& entry, uint64_t now);
 void verifyJob(QueueItem& job, const std::vector<Entry>& installed, uint64_t now);

@@ -39,6 +39,11 @@ std::string queueStageName(QueueStage stage) {
 bool queueActive(QueueStage stage) {
     return stage != QueueStage::Completed && stage != QueueStage::Failed && stage != QueueStage::Cancelled;
 }
+bool queueNeedsVerification(const QueueItem& job) {
+    return job.stage == QueueStage::Verifying ||
+        (job.stage == QueueStage::Failed && job.systemCompleted &&
+         job.message.find("PS4 task finished but installation could not be confirmed.") == 0);
+}
 QueueItem* findJob(std::vector<QueueItem>& queue, const std::string& url) {
     for (auto& job : queue) if (job.entry.url == url) return &job;
     return nullptr;
@@ -60,11 +65,14 @@ void enqueueJob(std::vector<QueueItem>& queue, const Entry& entry, uint64_t now)
     }
 }
 void verifyJob(QueueItem& job, const std::vector<Entry>& installed, uint64_t now) {
-    if (job.stage != QueueStage::Verifying) return;
+    if (!queueNeedsVerification(job)) return;
+    const bool timedOut = job.stage == QueueStage::Failed;
     if (!job.verificationStarted) job.verificationStarted = now;
     const auto found = std::find_if(installed.begin(), installed.end(), [&](const Entry& e) { return !job.entry.titleId.empty() && e.titleId == job.entry.titleId; });
     bool verified = found != installed.end();
-    if (verified && (packageKind(job.entry) == 1 || compareVersions(job.entry.version, job.entry.version))) {
+    // A catalog base-game version can describe a bundled update absent from the PKG.
+    // Require a real installed title; native completion then confirms the base package.
+    if (verified && (packageKind(job.entry) == 1 || (!job.systemCompleted && compareVersions(job.entry.version, job.entry.version)))) {
         const auto version = compareVersions(found->version, job.entry.version);
         verified = version && *version >= 0;
     }
@@ -77,8 +85,14 @@ void verifyJob(QueueItem& job, const std::vector<Entry>& installed, uint64_t now
         // cannot prove that a specific DLC is installed.
         verified = job.systemCompleted;
         if (verified) job.message = "PS4 reports package installation complete. Check add-ons/themes in the system; no separate game tile is expected.";
-    } else if (verified) job.message = "Installed title" + (found->version.empty() ? std::string() : " v" + found->version) + " confirmed by a fresh PS4 library scan.";
+    } else if (verified) {
+        job.message = "Installed title" + (found->version.empty() ? std::string() : " v" + found->version) + " confirmed by a fresh PS4 library scan.";
+        const auto version = compareVersions(found->version, job.entry.version);
+        if (job.systemCompleted && packageKind(job.entry) == 0 && version && *version < 0)
+            job.message += " PS4 reports base package complete; catalog version " + job.entry.version + " differs from the installed version.";
+    }
     if (verified) { job.stage = QueueStage::Completed; job.updated = now; return; }
+    if (timedOut) return; // Keep the original failure until fresh evidence actually confirms it.
     job.message = "Transfer/task finished. Waiting for the installed title/version to appear; installation is not confirmed.";
     if (now >= job.verificationStarted && now - job.verificationStarted >= 120) {
         job.stage = QueueStage::Failed; job.updated = now;

@@ -60,7 +60,11 @@ bool Ui::take(Command& out) {
 void Ui::rebuild() {
     matchInstalled(available, installed, queued);
     std::set<std::string> queuedTitles;
-    for (const auto& e : available) if (e.queued && !e.titleId.empty()) queuedTitles.insert(e.titleId);
+    for (const auto& e : available) if (e.queued && !e.titleId.empty()) {
+        const auto* job = findJob(downloads, e.url);
+        // Verification after task release is bookkeeping, not a running installation.
+        if (!job || job->stage != QueueStage::Verifying || job->task >= 0) queuedTitles.insert(e.titleId);
+    }
     for (auto& e : installed) e.queued = queuedTitles.count(e.titleId) != 0;
     // Index once so large remote catalogs do not multiply installed-library work.
     std::map<std::string, const Entry*> baseTitles;

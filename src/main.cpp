@@ -132,6 +132,8 @@ void capture(App& app, Renderer& renderer, Canvas& canvas) {
     ui.downloads[0].stage = QueueStage::Verifying; ui.downloads[0].systemCompleted = true;
     verifyJob(ui.downloads[0], ui.installed, 1792182400);
     ui.screen = Screen::QueueDetails; ui.queueIndex = 0; ui.detailScroll = 0; shot("79-queue-native-complete");
+    ui.downloads[0].stage = QueueStage::Verifying; ui.downloads[0].entry.version = "01.23";
+    verifyJob(ui.downloads[0], ui.installed, 1792182400); shot("84-base-catalog-version-mismatch");
     ui.downloads[0] = completedSample;
     auto unknownSample = ui.downloads[5];
     ui.downloads[5].stage = QueueStage::Verifying; ui.downloads[5].systemCompleted = false; ui.downloads[5].verificationStarted = 1;

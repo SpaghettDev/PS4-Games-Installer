@@ -84,6 +84,23 @@ void wrapNavigation() {
         cancellation.handle(Button::Triangle); cancellation.handle(Button::Cross);
         assert(cancellation.take(action) && action.type == CommandType::RemoveQueue);
     }
+    // A released task awaiting verification cannot lock a genuinely installed game.
+    auto verifiedLaunch = fixture();
+    QueueItem pendingUpdate; pendingUpdate.entry = verifiedLaunch.available[0];
+    pendingUpdate.entry.category = "updates"; pendingUpdate.entry.version = "01.23";
+    pendingUpdate.stage = QueueStage::Verifying; pendingUpdate.task = -1;
+    verifiedLaunch.available[0] = pendingUpdate.entry;
+    verifiedLaunch.downloads = {pendingUpdate}; verifiedLaunch.queued.insert(pendingUpdate.entry.url);
+    verifiedLaunch.rebuild();
+    assert(verifiedLaunch.available[0].queued && !verifiedLaunch.available[0].installed); // No duplicate update install.
+    assert(!verifiedLaunch.installed[0].queued && packageStatus(verifiedLaunch.installed[0]) == "Installed");
+    verifiedLaunch.handle(Button::Cross);
+    assert(verifiedLaunch.take(action) && action.type == CommandType::Launch);
+    for (const auto& state : std::vector<std::pair<QueueStage,int>>{{QueueStage::Installing,45}, {QueueStage::Verifying,45}, {QueueStage::Failed,45}}) {
+        verifiedLaunch.downloads[0].stage = state.first; verifiedLaunch.downloads[0].task = state.second;
+        verifiedLaunch.rebuild(); assert(verifiedLaunch.installed[0].queued);
+        verifiedLaunch.handle(Button::Cross); assert(!verifiedLaunch.take(action));
+    }
     // Dynamic lists may shrink or become empty while a menu is open.
     ui.screen = Screen::ServerProfiles; ui.profileIndex = 100;
     ui.draft.profiles.resize(1); ui.handle(Button::Up); assert(ui.profileIndex == 0);

@@ -408,7 +408,7 @@ void App::tick(double elapsed, Video& video) {
                 }
             }
             // Only a fresh installed scan may confirm base-game or update presence.
-            if (receivedLocal) for (auto& job : ui.downloads) if (job.stage == QueueStage::Verifying) {
+            if (receivedLocal) for (auto& job : ui.downloads) if (queueNeedsVerification(job)) {
                 const auto before = job.stage; verifyJob(job, ui.installed, timestamp());
                 changed = changed || before != job.stage;
                 ui.status = job.message;
@@ -416,7 +416,7 @@ void App::tick(double elapsed, Video& video) {
             if (changed) { syncQueued(); try { saveTasks(); persistQueue(); } catch (const std::exception& e) { log(e.what()); } }
         } else if (receivedLocal) {
             bool changed = false;
-            for (auto& job : ui.downloads) if (job.stage == QueueStage::Verifying) {
+            for (auto& job : ui.downloads) if (queueNeedsVerification(job)) {
                 const auto before = job.stage; verifyJob(job, ui.installed, timestamp()); changed = changed || before != job.stage;
                 if (before != job.stage) ui.status = job.message;
             }

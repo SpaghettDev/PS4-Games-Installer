@@ -70,8 +70,29 @@ int main() {
     queue[0].stage = QueueStage::Verifying; queue[0].verificationStarted = 100; queue[0].systemCompleted = true;
     verifyJob(queue[0], {}, 101); assert(queue[0].stage == QueueStage::Verifying);
     verifyJob(queue[0], {}, 220); assert(queue[0].stage == QueueStage::Failed && queue[0].message.find("could not be confirmed") != std::string::npos);
+    QueueItem mismatchedBase; mismatchedBase.entry = entries[0]; mismatchedBase.entry.version = "01.23";
+    mismatchedBase.stage = QueueStage::Verifying; mismatchedBase.systemCompleted = true;
+    Entry actualBase = entries[0]; actualBase.version = "01.00";
+    verifyJob(mismatchedBase, {actualBase}, 230);
+    assert(mismatchedBase.stage == QueueStage::Completed && mismatchedBase.message.find("catalog version 01.23") != std::string::npos);
+    mismatchedBase.stage = QueueStage::Verifying; mismatchedBase.systemCompleted = false;
+    verifyJob(mismatchedBase, {actualBase}, 231); assert(mismatchedBase.stage == QueueStage::Verifying);
+    mismatchedBase.systemCompleted = true; actualBase.titleId = "CUSA99999";
+    verifyJob(mismatchedBase, {actualBase}, 232); assert(mismatchedBase.stage == QueueStage::Verifying);
+    QueueItem timeout = mismatchedBase; timeout.stage = QueueStage::Failed;
+    timeout.message = "PS4 task finished but installation could not be confirmed. Check Downloads.";
+    const auto timeoutMessage = timeout.message;
+    verifyJob(timeout, {}, 400); assert(timeout.stage == QueueStage::Failed && timeout.message == timeoutMessage);
+    actualBase.titleId = entries[0].titleId;
+    verifyJob(timeout, {actualBase}, 401); assert(timeout.stage == QueueStage::Completed);
+    timeout.stage = QueueStage::Failed; timeout.message = "Install error 0x80991404";
+    verifyJob(timeout, {actualBase}, 402); assert(timeout.stage == QueueStage::Failed && timeout.message == "Install error 0x80991404");
+    timeout.message = timeoutMessage; timeout.systemCompleted = false;
+    verifyJob(timeout, {actualBase}, 403); assert(timeout.stage == QueueStage::Failed && timeout.message == timeoutMessage);
     enqueueJob(queue, entries[1], 300); auto& update = queue.back(); update.stage = QueueStage::Verifying;
     verifyJob(update, {local}, 301); assert(update.stage == QueueStage::Verifying);
+    update.systemCompleted = true;
+    verifyJob(update, {local}, 301); assert(update.stage == QueueStage::Verifying); // Native completion cannot prove a catalog update version.
     local.version = "1.20"; verifyJob(update, {local}, 302); assert(update.stage == QueueStage::Completed);
     QueueItem vanished; vanished.entry = entries[0]; vanished.previouslyPresent = true; vanished.previousVersion = local.version; vanished.stage = QueueStage::Verifying;
     verifyJob(vanished, {local}, 305); assert(vanished.stage == QueueStage::Verifying); // An old installed copy cannot prove a vanished task succeeded.

@@ -1,5 +1,18 @@
 # Changelog
 
+## r32 — 2026-10-17
+
+- Fix completed base-game installations timing out when the catalog version differs
+  from the actual installed package. Require native completion and a fresh installed
+  Title ID match; keep update-version and missing-title checks.
+- Recheck verification-timeout failures with saved native completion against fresh
+  installed evidence, recovering confirmed installs without another download.
+- Allow Installed games to launch when the package task has been released and only
+  verification remains. Keep active/tracked task and duplicate-install guards.
+- Retain r28 progress labels, r31 cancellation actions and native installer code.
+- Feature/UI/App regression suites, native package validation and screenshot review
+  passed. Updated consumer documentation; console acceptance of r32 remains pending.
+
 ## r31 — 2026-10-17
 
 - Restore r28 queue reporting and verification; preserve historical results instead

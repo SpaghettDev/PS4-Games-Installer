@@ -1,5 +1,18 @@
 # Work tracker
 
+## Current implementation: r32 verification and launch recovery
+
+- [x] Inspect current queue/log evidence and external installed SFO through read-only FTP.
+- [x] Confirm completed base packages with fresh installed Title ID despite catalog version differences.
+- [x] Reconcile proven verification-timeout failures without downloading again.
+- [x] Allow Installed launch while a released task only awaits verification.
+- [x] Complete relevant host regressions, native build/validation and visual review.
+- [x] Update documentation and commit the successful revision.
+- [ ] Retest r32 on PS4: Bonfire Peaks resolves to Completed/Installed on startup
+  or refresh and X launches it; fresh installs and task cancellation still work.
+- [ ] Retest an update whose installed version is below the expected update version;
+  it must not be confirmed just because its base title exists.
+
 ## Current implementation: r28 reporting and queue actions
 
 - [x] Restore r28 completion verification, progress labels and saved-history behavior.

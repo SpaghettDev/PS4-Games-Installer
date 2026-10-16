@@ -1,5 +1,42 @@
 # Implementation progress
 
+## r32 installed base verification and launch recovery — 2026-10-17
+
+- User reported a completed installation stuck in Verifying, blocking launch, then
+  timing out to Failed Data 100%. Read-only FTP captured queue/tasks/log evidence in
+  ignored `build/hardware-verification-20261016T211630Z/`.
+- CUSA28188 Bonfire Peaks: catalog 01.23, native completion true, no owned tasks,
+  all 794,165,248 bytes transferred. External installed SFO confirms title CUSA28188,
+  APP_VER 01.00 and category gd. This is a current catalog/base version mismatch.
+- Base verification now accepts native completion plus an exact Title ID from a
+  fresh installed scan despite a catalog version difference. Missing titles still
+  cannot confirm a base package; updates retain expected-version checks and
+  vanished tasks retain the old-copy/version-advance checks.
+- Recheck only verification-timeout failures with recorded native completion when
+  fresh installed evidence proves success. Preserve actual service errors and
+  unknown outcomes; do not submit another install or blindly relabel history.
+- Released verification-only jobs no longer block Installed launch; packages still
+  awaiting verification remain queued against duplicate installation. Tracked or
+  active installation tasks continue blocking launch through the main button.
+- A second read-only queue snapshot confirms the same record became stage 7
+  (Failed), with native completion true and no task ID. Its exact timeout message
+  matches the recovery predicate; genuine native errors remain separate.
+- Native install/download sources and existing progress labels remain unchanged.
+- Docker feature/UI/App regression suites passed, covering the hardware version
+  pair, startup/restart persistence, existing timeout recovery without submission,
+  missing title/unknown completion/real-error preservation, update-version guards,
+  launch access and owned-task launch blocking. Existing cancellation tests passed.
+- `make all` built `dist/PS4Game_installer-r32.pkg` (6,619,136 bytes).
+  `make validate` passed package hash/signature and packed import checks; source
+  fingerprint, manifest checksum and revision record agree.
+- Generated all 84 desktop captures. Visually inspected mismatched-version
+  completion diagnostics, Installed tiles and pending verification diagnostics.
+  Completion/version explanation and controls fit without clipping. Added the
+  consumer version-mismatch example; README image links resolve.
+- Console acceptance remains pending. No console task/file was modified; no
+  deployment or push was performed. Documentation and the r32 revision are included
+  in the local commit.
+
 ## r31 queue cancellation and reporting rollback — 2026-10-17
 
 - User requested a working Cancel Task action and restoration of r28 reporting.

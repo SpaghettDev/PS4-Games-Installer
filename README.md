@@ -15,8 +15,11 @@ hardware test, but PS4 registration rejected the tested package. r20 corrects
 local registration paths and retry caching. r28 adds exact-content failed-task
 recovery and a single local-registration retry; the user confirmed that installation
 now works after this fix (2026-10-16). A further r28 retest confirmed fresh installs
-work correctly; the reported Failed Data entries were historical. r31 restores r28 queue reporting and fixes the Triangle action: cancel active
-tasks or remove inactive history entries. Console acceptance of this UI fix is pending.
+work correctly; the reported Failed Data entries were historical. r31 restores r28 queue labels and fixes the Triangle action. r32 fixes a confirmed
+base-game version mismatch: Bonfire Peaks installs as 01.00 while the catalog says
+01.23. Native completion plus a fresh installed Title ID now confirms that base
+package, and released verification-only tasks allow launching. r32 console
+acceptance remains pending.
 The application builds
 on Linux and its package validates; individual feature checks are tracked in
 [TODO.md](TODO.md).
@@ -512,18 +515,26 @@ Confirming removes only that queue record; installed games, local game records a
 saved packages are kept. Options on the queue clears finished history while
 keeping active tasks.
 
-Installation reporting follows r28: after the task finishes, a fresh installed
-scan must confirm the expected base-game/update title and version. An existing
-copy alone cannot prove a new installation unless PS4 reported completion or its
-version advanced. DLC/themes use native completion because they do not get their
-own game tile. After two minutes without confirmation, the item shows **Failed**
-with diagnostics. A 100% download alone does not confirm installation.
+Installation keeps the original queue stages and Data percentage labels. After a
+base-game task finishes, native completion plus a fresh installed Title ID confirms
+installation even when the catalog version differs from the package actually
+installed. Diagnostics show both versions if they differ. Native completion alone
+cannot confirm a missing base title. Updates still require the expected installed
+version. An old installed copy alone cannot prove a disappeared task succeeded;
+without native completion its version must advance. DLC/themes use native completion
+because they do not get their own game tile. A 100% download alone does not confirm
+installation. Unconfirmed results time out to Failed after two minutes.
 
-Historical Failed entries retain their saved result; r31 does not automatically
-reclassify them. The temporary r30 **Needs verification** state resumes the original
-verification checks when loaded. Released task IDs use the original **not registered /
-released** label. See PS4 Notifications > Downloads and the Installed library when
-checking a task's actual result.
+A saved verification-timeout failure with native completion is rechecked against
+fresh installed evidence on startup or refresh. A confirmed result becomes Completed
+without another download. Actual task errors and unknown outcomes retain their
+saved failure. Temporary r30 Needs verification entries resume verification. A
+released task ID keeps the original **not registered / released** label.
+
+A released task awaiting verification does not block X launching a game from
+Installed; its package stays queued to prevent another installation while checks
+continue. Active or tracked installation tasks still block the main launch button.
+Check PS4 Notifications > Downloads for system task details.
 
 Queue/history and owned task IDs survive restart. Waiting items resume scheduling
 when the app reopens. Interrupted preflight/direct-transfer items require Retry;
@@ -531,6 +542,8 @@ complete staged packages can be reused, while partial transfers start over. Inva
 queue files are preserved and block new queue writes until repaired.
 
 ![Download queue with sample progress](docs/images/download-queue.png)
+
+![Completed base package with a different catalog version](docs/images/verified-base-version.png)
 
 ![Cancel an active package task](docs/images/cancel-task.png)
 

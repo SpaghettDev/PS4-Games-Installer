@@ -1,5 +1,17 @@
 # Implementation progress
 
+## README requirements and companion server — 2026-10-17
+
+- User requested explicit jailbroken-PS4 wording and a recommendation for the
+  specified companion server that generates the JSON game library.
+- Updated the README introduction and setup section, linking the user's server
+  repository and describing its JSON generation/hosting. Checked that description
+  against the server's published README. The external project reference is
+  intentional and explicitly requested; application identity and sources stay as-is.
+- Checked Markdown/image references and whitespace; package inputs/revision remain
+  r34. Documentation-only local commit; release_notes.md remains untracked and
+  unchanged, with no deployment or push.
+
 ## r34 rollback of launch-prompt bypass — 2026-10-17
 
 - User reports that r33 crashes the PS4 on game launch and explicitly requests

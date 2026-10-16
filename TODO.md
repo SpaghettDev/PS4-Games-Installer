@@ -2,6 +2,7 @@
 
 ## Documentation: consumer guide and reference manuals
 
+- [x] State the jailbroken-PS4 requirement and link the recommended JSON catalog server.
 - [x] Shorten README to program description, setup and everyday consumer usage.
 - [x] Move detailed configuration/recovery guidance to EXPERT.md.
 - [x] Move build/deploy/testing/release guidance to DEVELOPMENT.md.

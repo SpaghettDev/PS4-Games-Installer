@@ -5,7 +5,7 @@ games from one dashboard. Choose tiles or a summary list, view game details,
 track downloads, and organize your collection with local ratings, categories,
 tags and notes.
 
-Requires a homebrew-enabled PS4; tested on **PS4 11.00 + GoldHEN**.
+Works only on a **jailbroken PS4**; tested on **PS4 11.00 + GoldHEN**.
 Created by **e1z0 — (c) 2026 Vintage2000.org**.
 
 [Project](https://github.com/e1z0/PS4-Games-Installer) ·
@@ -39,6 +39,10 @@ PS4 captures. Click a picture to open it at full size.
 </p>
 
 ## Install and set up
+
+Works best with [FPKGi-node-server](https://github.com/e1z0/FPKGi-node-server),
+which generates and hosts the JSON game library. Follow its setup guide, then use
+the generated library URL in the steps below.
 
 1. Enable GoldHEN and install `PS4Game_installer-rN.pkg` using your PS4 package installer.
 2. Open **PS4 Games Installer**, then **Options > Settings**.

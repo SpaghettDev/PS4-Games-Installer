@@ -13,6 +13,8 @@
 
 ## Documentation — 2026-10-17
 
+- State explicitly that the app works only on a jailbroken PS4 and recommend the
+  companion catalog server for generating/hosting the JSON game library.
 - Reduce README from 793 to 114 lines, keeping program description, setup and
   everyday consumer instructions.
 - Add EXPERT.md for catalog hosting, configuration, profiles, organization,

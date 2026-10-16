@@ -1,5 +1,16 @@
 # Work tracker
 
+## Current implementation: menu overflow and installation result reporting
+
+- [x] Identify the false failure from fresh read-only PS4 queue/log evidence.
+- [x] Show paginated-menu overflow with scrollbar thumbs and directional arrows.
+- [x] Move Downloads/Collections access to Options and migrate saved sidebar positions.
+- [x] Honor native installation completion and repair older verification-timeout records.
+- [x] Separate unverified task outcomes from real failures and clarify released task IDs.
+- [x] Complete regressions, native package validation, visual review, docs and commit.
+- [ ] Retest r30: menu overflow above/below, all wrap boundaries, old view migration,
+  successful installation status, old false failures and later verification refresh.
+
 ## Current implementation: wraparound navigation
 
 - [x] Share Up/Down wrapping across all selectable menus and the sidebar.
@@ -132,8 +143,9 @@
   and restart persistence; O returns from the new dialogs correctly.
 - [ ] Retest r27: create/rename/delete/switch profiles, explicit Save/discard,
   offline cache isolation and switching while a catalog request/transfer runs.
-- [ ] Retest r25: sidebar shortcuts and O return to the invoking screen; Updates
-  and selected game survive launch/reopen; filters and both sort directions work.
+- [ ] Retest r30: Downloads/Collections open from Options and O returns there;
+  the three library sidebar entries wrap correctly. Retest Updates and selected
+  game after launch/reopen; filters and both sort directions work.
 - [ ] Retest r25: missing-base update/DLC is blocked; queued base completes and
   verifies before dependents; cancelling/failing the base explains dependent failure.
 - [ ] Retest r25: staging/artwork sizes match the console; cleanup confirmation
@@ -159,7 +171,9 @@
 - [x] r17 lists all installed games (user confirmation, 2026-10-16).
 - [ ] Retest r19: reopen after launching a game; same library/title/search restored.
 - [ ] Retest r19: rate 1–5 stars, refresh/restart and confirm ratings remain by Title ID.
-- [ ] Retest r19: cancel/confirm Uninstall, then verify Was installed, rating and history survive restart.
+- [x] Uninstall removes games successfully (user confirmation and FTP log, 2026-10-16).
+- [ ] Separately verify Uninstall cancellation, Was installed, ratings and history
+  after restart; those outcomes were not specified in the confirmation.
 - [ ] Retest r19: Available footer shows the installable package count when switching libraries.
 - [x] Package installation works after r28 (user confirmation, 2026-10-16).
 - [ ] A submitted installation task survives closing the application.

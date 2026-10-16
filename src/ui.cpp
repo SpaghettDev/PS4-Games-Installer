@@ -127,7 +127,7 @@ ViewState Ui::captureView() const {
 void Ui::restoreView(const ViewState& state) {
     library = state.available ? Library::Available : Library::Installed; query = state.query; sidebar = state.sidebar;
     recentSearches = state.recentSearches;
-    filter = state.filter; updatesOnly = state.updatesOnly; sidebarIndex = state.sidebarIndex;
+    filter = state.filter; updatesOnly = state.updatesOnly; sidebarIndex = state.sidebarIndex < 3 ? state.sidebarIndex : updatesOnly ? 2 : size_t(library);
     rebuild();
     for (size_t i = 0; i < 2; ++i) {
         const auto& list = i ? available : installed;
@@ -251,7 +251,7 @@ std::vector<std::string> Ui::options() const {
         "View: " + layoutName(settings.layout), "Group: " + groupName(settings.grouping),
         "Sort: " + sortName(settings.sort),
         settings.notInstalledOnly ? "Available: Not installed" : "Available: All packages", "Settings", "About", "Exit", "Browse local categories", "Browse local tags",
-        bulkMode ? "Organize selected games" : "Select multiple games", "Download queue", "Saved collections", "USB backup / restore", "Connection setup helper", settings.descending ? "Order: Descending" : "Order: Ascending", "Storage cleanup", "Export diagnostics to USB", "Jump to letter", "Server profiles"};
+        bulkMode ? "Organize selected games" : "Select multiple games", "Downloads", "Collections", "USB backup / restore", "Connection setup helper", settings.descending ? "Order: Descending" : "Order: Ascending", "Storage cleanup", "Export diagnostics to USB", "Jump to letter", "Server profiles"};
 }
 std::vector<std::string> Ui::settingRows() const {
     return {"Games JSON URL", "Other catalog sources", "View: " + layoutName(draft.layout),
@@ -573,14 +573,9 @@ void Ui::handle(Button b) {
         library = library == Library::Installed ? Library::Available : Library::Installed; updatesOnly = false; sidebarIndex = int(library); rebuild(); return;
     }
     if (sidebar) {
-        moveMenuSelection(b, sidebarIndex, 5);
-        if (sidebarIndex < 3) {
-            library = sidebarIndex ? Library::Available : Library::Installed; updatesOnly = sidebarIndex == 2;
-        }
-        if (b == Button::Cross && sidebarIndex >= 3) {
-            featureReturn = Screen::Dashboard; featureNotice.clear();
-            screen = sidebarIndex == 3 ? Screen::Queue : Screen::SavedCollections;
-        } else if (b == Button::Right || b == Button::Cross) sidebar = false;
+        moveMenuSelection(b, sidebarIndex, 3);
+        library = sidebarIndex ? Library::Available : Library::Installed; updatesOnly = sidebarIndex == 2;
+        if (b == Button::Right || b == Button::Cross) sidebar = false;
         rebuild(); return;
     }
     if (auto* e = current()) {

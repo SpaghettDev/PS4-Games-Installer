@@ -53,8 +53,9 @@ std::vector<std::string> Ui::queueDetails() const {
     if (downloads.empty()) return {};
     const auto& job = downloads[std::min(queueIndex, downloads.size() - 1)];
     return {job.entry.name, job.entry.titleId + " / " + packageKindName(job.entry) + " / v" + (job.entry.version.empty() ? "?" : job.entry.version),
-        queueProgress(job), "PS4 task: " + (job.task < 0 ? std::string("not registered / released") : std::to_string(job.task)),
-        job.message, "Transferred bytes only measure download progress. Installation needs PS4 confirmation.",
+        queueProgress(job), "PS4 task: " + (job.task >= 0 ? std::to_string(job.task) : job.systemCompleted ? std::string("completed; tracking released") :
+            job.stage == QueueStage::Unconfirmed || job.stage == QueueStage::Verifying ? std::string("no longer tracked; completion not reported") : std::string("not registered / released")),
+        job.message, "Transferred bytes: " + std::to_string(job.transferred) + " / " + std::to_string(job.total) + ". Download progress is separate from PS4 installation completion.",
         "A failed or cancelled package can be retried with X. Triangle cancels an owned active task.", job.entry.url};
 }
 InstallRequirements Ui::requirements() const {

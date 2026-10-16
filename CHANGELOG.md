@@ -1,5 +1,20 @@
 # Changelog
 
+## r30 — 2026-10-16
+
+- Add scrollbar thumbs and directional overflow arrows to paginated menus,
+  including additional sources and scrollable progress/details dialogs.
+- Keep Downloads and Collections in Options; remove their sidebar shortcuts.
+  Retain Installed, Available and Updates, with migration of old saved positions.
+- Preserve native PS4 installation success as Completed despite catalog/version
+  or library-scan discrepancies. Repair old verification-timeout records on load;
+  distinguish genuinely unverified outcomes from installation failures.
+- Show completed/released task tracking clearly and omit transfer percentages
+  from completed queue rows. Keep real errors and owned-task cleanup checks.
+- User confirmed uninstall works on PS4 11.00 + GoldHEN (2026-10-16).
+- Host/native regressions, package validation and screenshot review passed.
+  New r30 behavior still needs console acceptance; see PROGRESS.md and TODO.md.
+
 ## r29 — 2026-10-16
 
 - Wrap Up/Down selection between the first and last entries in all menus,

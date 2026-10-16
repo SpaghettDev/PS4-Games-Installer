@@ -9,6 +9,23 @@ namespace psgi {
 namespace {
 constexpr uint32_t White = 0xf2f7ff, Muted = 0x9bbdd8, Accent = 0x7ae5e0, Blue = 0x267bb8, Panel = 0x102c49;
 const char* Copyright = "Created by e1z0 (c) 2026 Vintage2000.org";
+void scrollIndicator(Canvas& c, size_t total, size_t start, size_t count, int x, int top, int height) {
+    if (!count || total <= count || height < 60) return;
+    const size_t shown = std::min(count, total - std::min(start, total));
+    const int trackTop = top + 18, trackHeight = height - 36;
+    c.rounded(x + 3, trackTop, 8, trackHeight, 4, 0x34546c);
+    const int thumbHeight = std::max(18, int(double(trackHeight) * shown / total));
+    const int offset = std::min(trackHeight - thumbHeight, int(double(trackHeight) * start / total));
+    c.rounded(x + 2, trackTop + offset, 10, thumbHeight, 5, Accent);
+    const auto up = start ? Accent : Muted, down = start + shown < total ? Accent : Muted;
+    for (int i = 0; i < 6; ++i) {
+        c.rectangle(x + 6 - i, top + 3 + i, 2, 2, up);
+        c.rectangle(x + 6 + i, top + 3 + i, 2, 2, up);
+        c.rectangle(x + i + 1, top + height - 10 + i, 2, 2, down);
+        c.rectangle(x + 11 - i, top + height - 10 + i, 2, 2, down);
+    }
+}
+
 void buttonIcon(Canvas& c, Button button, int x, int baseline, int width) {
     const int top = baseline - 27;
     c.rounded(x, top, width, 36, 8, 0x46647e);
@@ -119,13 +136,18 @@ void Renderer::panel(Canvas& c, int x, int y, int w, int h, const std::string& t
 }
 void Renderer::menu(Canvas& c, const std::vector<std::string>& rows, size_t selected,
                     int x, int y, int w, int rowHeight, size_t count) {
+    if (rows.empty() || !count) return;
+    selected = std::min(selected, rows.size() - 1);
     const size_t start = count == SIZE_MAX ? 0 : selected / count * count;
+    const bool overflow = rows.size() > count;
+    const int contentWidth = w - (overflow ? 28 : 0);
     for (size_t i = start; i < rows.size() && i - start < count; ++i) {
         int top = y + int(i - start) * rowHeight;
-        if (i == selected) c.rounded(x, top - 32, w, rowHeight - 4, 9, Blue, 180);
-        c.text(rows[i], x + 20, top, 27, i == selected ? White : Muted, w - 40);
+        if (i == selected) c.rounded(x, top - 32, contentWidth, rowHeight - 4, 9, Blue, 180);
+        c.text(rows[i], x + 20, top, 27, i == selected ? White : Muted, contentWidth - 40);
         if (i == selected) c.rectangle(x, top - 27, 3, rowHeight - 14, Accent);
     }
+    if (overflow) scrollIndicator(c, rows.size(), start, count, x + w - 16, y - 32, int(count) * rowHeight - 4);
 }
 void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
     c.background(time, ui.screen == Screen::Settings ? ui.draft.animations : ui.settings.animations);
@@ -161,8 +183,8 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
     c.rectangle(54, 151, 1812, 1, 0x638aad, 65);
 
     c.text("LIBRARY", 74, 216, 20, Muted);
-    const char* sidebarNames[] = {"Installed", "Available", "Updates", "Downloads", "Collections"};
-    for (size_t i = 0; i < 5; ++i) {
+    const char* sidebarNames[] = {"Installed", "Available", "Updates"};
+    for (size_t i = 0; i < 3; ++i) {
         bool active = ui.sidebar ? ui.sidebarIndex == i : i == (ui.updatesOnly ? 2 : size_t(ui.library));
         int y = 268 + i * 67;
         if (active) {
@@ -282,10 +304,11 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
             size_t start = ui.sourceIndex > 8 ? ui.sourceIndex - 7 : 1;
             for (size_t i = start; i <= ui.draft.sources.size() && i < start + 8; ++i) {
                 int y = 280 + (i - start) * 68;
-                if (i == ui.sourceIndex) c.rounded(390, y - 34, 1140, 62, 9, Blue, 190);
-                c.text(i == ui.draft.sources.size() ? "+ Add catalog source" : ui.draft.sources[i].category, 414, y - 4, 27, White, 1090);
-                if (i < ui.draft.sources.size()) c.text(ui.draft.sources[i].url.empty() ? "Disabled" : ui.draft.sources[i].url, 414, y + 22, 18, Muted, 1090);
+                if (i == ui.sourceIndex) c.rounded(390, y - 34, ui.draft.sources.size() > 8 ? 1112 : 1140, 62, 9, Blue, 190);
+                c.text(i == ui.draft.sources.size() ? "+ Add catalog source" : ui.draft.sources[i].category, 414, y - 4, 27, White, ui.draft.sources.size() > 8 ? 1062 : 1090);
+                if (i < ui.draft.sources.size()) c.text(ui.draft.sources[i].url.empty() ? "Disabled" : ui.draft.sources[i].url, 414, y + 22, 18, Muted, ui.draft.sources.size() > 8 ? 1062 : 1090);
             }
+            scrollIndicator(c, ui.draft.sources.size(), start - 1, 8, 1514, 246, 540);
             hints(c, 412, 898, {{Button::Cross, "Edit / Add"}, {Button::Square, "Setup helper"}, {Button::Triangle, "Remove"}, {Button::Circle, "Back"}}, 21); break;
         }
         case Screen::Storage: {
@@ -312,6 +335,8 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
             c.image(*(image ? image : placeholder), 270, 240, 260, 260);
             c.text(ui.pending.name, 572, 264, 34, White, 1055);
             auto rows = ui.details();
+            ui.detailScroll = std::min(ui.detailScroll, rows.size() > 12 ? rows.size() - 12 : size_t(0));
+            scrollIndicator(c, rows.size(), ui.detailScroll, 12, 1650, 297, 516);
             for (size_t i = ui.detailScroll; i < std::min(rows.size(), ui.detailScroll + 12); ++i)
                 c.text(rows[i], 574, 322 + (i - ui.detailScroll) * 43, 23, i % 2 ? Muted : White, 1040);
             c.text("Up / Down Scroll", 575, 908, 23, Muted);
@@ -579,17 +604,18 @@ bool Renderer::featureDialog(Canvas& c, Ui& ui) {
             if (ui.downloads.empty()) c.text("Install a package from Available to add it here.", 230, 350, 29, White, 1460);
             else menu(c, ui.queueRows(), ui.queueIndex, 220, 330, 1480, 61, 7);
             c.text(ui.featureNotice.empty() ? "Downloading, installing and verifying are separate stages. Open an item for details." : ui.featureNotice, 230, 810, 21, Muted, 1460);
-            hints(c, 230, 884, {{Button::Cross, "Details"}, {Button::Triangle, "Refresh"}, {Button::Options, "Clear finished"}, {Button::Circle, "Back"}}, 21); return true;
+            hints(c, 230, 884, {{Button::Cross, "Details"}, {Button::Triangle, "Refresh"}, {Button::Options, "Clear inactive"}, {Button::Circle, "Back"}}, 21); return true;
         }
         case Screen::QueueDetails: {
             panel(c, 240, 120, 1440, 840, "Package progress and diagnostics");
             const auto lines = wrap(ui.queueDetails());
             ui.detailScroll = std::min(ui.detailScroll, lines.size() > 11 ? lines.size() - 11 : size_t(0));
+            scrollIndicator(c, lines.size(), ui.detailScroll, 11, 1644, 240, 473);
             for (size_t i = ui.detailScroll; i < std::min(lines.size(), ui.detailScroll + 11); ++i)
                 c.text(lines[i], 290, 265 + (i - ui.detailScroll) * 43, 24, i == 2 ? Accent : White, 1340);
             c.text(ui.featureNotice, 290, 807, 21, Accent, 1340);
             c.text("Up / Down scrolls diagnostics", 290, 849, 20, Muted, 1340);
-            hints(c, 290, 910, {{Button::Cross, "Retry failed"}, {Button::Triangle, "Cancel task"}, {Button::Circle, "Back"}}, 22); return true;
+            hints(c, 290, 910, {{Button::Cross, "Retry failed / unverified"}, {Button::Triangle, "Cancel task"}, {Button::Circle, "Back"}}, 22); return true;
         }
         case Screen::ConfirmCancelQueue:
             panel(c, 350, 250, 1220, 570, "Cancel this package?");

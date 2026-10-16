@@ -82,11 +82,11 @@ void wrapNavigation() {
     ui.handle(Button::Down); ui.handle(Button::Triangle); assert(ui.draft.sources.size() == 1);
     ui.handle(Button::Up); assert(ui.sourceIndex == 1);
     ui = fixture(); ui.sidebar = true; ui.sidebarIndex = 0;
-    ui.handle(Button::Up); assert(ui.sidebarIndex == 4 && ui.sidebar);
-    ui.handle(Button::Down); assert(ui.sidebarIndex == 0 && ui.library == Library::Installed);
-    ui.sidebarIndex = 4; ui.handle(Button::Up); assert(ui.sidebarIndex == 3 && ui.sidebar);
-    ui.handle(Button::Cross); assert(ui.screen == Screen::Queue);
-    ui.handle(Button::Circle); assert(ui.screen == Screen::Dashboard && ui.sidebarIndex == 3);
+    ui.handle(Button::Up); assert(ui.sidebarIndex == 2 && ui.sidebar && ui.updatesOnly);
+    ui.handle(Button::Down); assert(ui.sidebarIndex == 0 && ui.library == Library::Installed && !ui.updatesOnly);
+    ui.handle(Button::Up); ui.handle(Button::Cross); assert(ui.screen == Screen::Dashboard && !ui.sidebar && ui.updatesOnly);
+    ui.handle(Button::Options); ui.menuIndex = 12; ui.handle(Button::Cross); assert(ui.screen == Screen::Queue);
+    ui.handle(Button::Circle); assert(ui.screen == Screen::Options);
     // A ragged final tile row wraps vertically and clamps to its nearest column.
     ui = {}; ui.screen = Screen::Dashboard; ui.library = Library::Available;
     std::vector<Entry> games;

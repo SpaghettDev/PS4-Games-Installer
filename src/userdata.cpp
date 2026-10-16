@@ -297,6 +297,7 @@ ViewState parseViewState(const std::string& text) {
     state.available = boolean(root.get(), "available"); state.sidebar = boolean(root.get(), "sidebar");
     state.updatesOnly = boolean(root.get(), "updates_only");
     state.sidebarIndex = cJSON_GetObjectItemCaseSensitive(root.get(), "sidebar_index") ? number(root.get(), "sidebar_index", 4) : (state.available ? 1 : 0);
+    if (state.sidebarIndex > 2) state.sidebarIndex = state.updatesOnly ? 2 : state.available ? 1 : 0;
     state.query = string(root.get(), "query", 512);
     if (const auto* history=cJSON_GetObjectItemCaseSensitive(root.get(),"recent_searches")) {
         if (!cJSON_IsArray(history)) throw std::runtime_error("Invalid recent searches");

@@ -7,7 +7,8 @@ OpenOrbis toolchain. Created by **e1z0 — (c) 2026 Vintage2000.org**.
 
 **Confirmed running on real hardware: PS4 11.00 + GoldHEN** (user confirmation,
 2026-10-16). Source URL entry through the PS4 keyboard and settings saving are
-confirmed working, remote artwork downloads work, and the reported exit crash is
+confirmed working, remote artwork downloads work, uninstalling games is confirmed
+working, and the reported exit crash is
 fixed. In r17 the user also confirmed game launching, analog navigation and the
 complete Installed library. r19 completed direct downloads in the subsequent
 hardware test, but PS4 registration rejected the tested package. r20 corrects
@@ -51,9 +52,9 @@ It requires an active homebrew environment; this app does not install GoldHEN.
   personal records to USB without copying game files.
 - Track a persistent download queue with retry/cancel, separate installation
   verification, transfer rates and approximate remaining download time.
-- Open **Downloads**, **Collections** and **Updates** directly from the sidebar.
-  Updates shows newer catalog patches for your installed Title IDs, with the
-  installed and available versions on screen.
+- Open **Downloads** and **Collections** from Options. The sidebar contains
+  Installed, Available and Updates; Updates shows newer catalog patches for your
+  installed Title IDs, with installed and available versions on screen.
 - Browse a game's base packages, updates and DLC together, with base-game/version
   requirements checked before installation. Queue dependent packages after a base.
 - Review cache/staging usage, clean released files with confirmation, and export
@@ -195,8 +196,8 @@ URLs live in `config.json`; profile backups and diagnostic exports omit them.
 | --- | --- |
 | Left analog stick / D-pad | Navigate games, sidebar, menus and details; hold to repeat |
 | Left at the first tile/list column | Focus the sidebar |
-| Up / Down on the sidebar | Select Installed, Available, Updates, Downloads or Collections |
-| X on the sidebar | Browse games or open Downloads / Collections |
+| Up / Down on the sidebar | Select Installed, Available or Updates |
+| X on the sidebar | Browse the selected library |
 | Right on the sidebar | Return to games |
 | L1 / R1 | Switch Installed / Available |
 | L2 / R2 while browsing games | Previous / next page |
@@ -214,8 +215,13 @@ last, and Down on the last selects the first. This includes the sidebar, setting
 actions, ratings, category/tag pickers, source/profile lists, downloads and USB
 pickers. Summary game lists wrap first/last; tile grids wrap top/bottom rows,
 keeping the column where possible and choosing the nearest tile in a short row.
+Paginated menus show a scrollbar with a position thumb and Up/Down arrows when
+more entries are outside the visible page. Additional sources and scrollable
+progress/details dialogs also indicate hidden content.
 Left at the first tile column still opens the sidebar. L2/R2 page jumps and
 scrolling game-detail text retain their page/scroll boundaries.
+
+![Options with entries above and below the visible page](docs/images/menu-navigation.png)
 
 Selecting Exit from Options opens the same Circle confirmation. Settings are saved
 only when Save settings is selected; Circle offers to discard unsaved edits.
@@ -226,8 +232,9 @@ Unknown sizes, unrated titles and missing history stay at the end in both direct
 Launch history covers this app's launch requests; first recorded install is when
 this app first observed the title, not its original system installation date.
 Existing `size_sort` settings migrate automatically to the equivalent new sort.
-Sidebar Downloads/Collections return to the dashboard with O; opening them through
-Options returns to Options. Updates and sidebar focus are saved with the session.
+Downloads and Collections open from Options and return there with O. Updates and
+sidebar focus are saved with the session. Old saved Downloads/Collections sidebar
+positions migrate to the active library.
 The stick has a deadzone to filter drift; the D-pad takes priority when both are
 used. After closing the keyboard, release any held buttons and center the stick
 before navigating again.
@@ -377,7 +384,7 @@ none of the changes are applied and the draft remains available for retry.
 
 ### Saved collections
 
-Open **Options > Saved collections**. X opens a collection; Triangle creates one
+Open **Options > Collections**. X opens a collection; Triangle creates one
 from the current library, search and category/tag filters. Edit its name, library,
 search, category, tag, minimum/maximum stars, launch-history rule and installation
 rule. X edits text; Left/Right or X cycles rules. Scroll down to **Save collection**.
@@ -478,7 +485,7 @@ still pending for the new r17 selector on PS4 11.00 + GoldHEN.
 
 ## Downloads and offline use
 
-Open **Downloads** in the sidebar or **Options > Download queue** to manage up to 200 tracked packages. Installing
+Open **Options > Downloads** to manage up to 200 tracked packages. Installing
 adds a persistent waiting item, including when another transfer is running. Package
 preflights/direct downloads run one at a time; accepted PS4 tasks continue in the
 background and have a separate progress monitor.
@@ -489,21 +496,32 @@ earlier releases with unknown transfer mode retain their generic installation st
 
 The queue distinguishes **Queued**, **Checking URL**, **Downloading**, **Registering
 with PS4**, **Installing**, **Verifying installation**, **Completed**, **Failed**,
-**Cancelling** and **Cancelled**. Transfer percentages, bytes, speed and approximate
+**Cancelling**, **Cancelled** and **Needs verification**. Transfer percentages, bytes, speed and approximate
 download time are shown when available. They do not measure installation progress.
-X opens diagnostics; X in diagnostics retries a failed/cancelled item. Triangle
+X opens diagnostics; X in diagnostics retries a failed, cancelled or unverified item. Triangle
 offers cancellation with confirmation. Waiting items are removed from the waiting
 queue; active direct transfers are interrupted; owned PS4 tasks are stopped and
 unregistered. A cancellation error keeps task ownership and its staging file.
-Options on the queue clears finished history while keeping active tasks.
+Options on the queue clears inactive history while keeping active tasks.
 
-Base games and known updates are marked complete only after a fresh installed
-scan confirms the title/requested version. An old installed copy cannot prove a
-disappeared task succeeded. If the title/version is still absent after two minutes,
-the item reports **installation could not be confirmed**, with PS4 Downloads,
-GoldHEN and storage checks. A reported completed DLC/theme task is labeled as a
-system-confirmed package; it does not need its own game tile and does not claim
-individual DLC discovery in the main library.
+A native PS4 installation-complete report marks the item **Completed**. This
+requires the transfer, preparation and local installation copy to finish without
+an error; a 100% download alone is insufficient. Catalog version estimates or
+missing/stale library metadata do not turn that native success into a failure.
+Diagnostics show the native completion and any currently detected installed
+version. DLC/themes do not need their own game tile.
+
+If a task disappears before reporting completion, the app checks a fresh installed
+scan for the expected title/version. An old installed copy cannot prove that a
+new task succeeded. After two minutes without proof, the item says **Needs
+verification**, with refresh and PS4 Downloads checks. A later matching scan can
+resolve it. Actual service/transfer errors still show **Failed**.
+
+On upgrade, the app rechecks old verification-timeout failures, including the
+reported “Failed Data 100%” records. Saved native completion restores **Completed**;
+unknown results remain **Needs verification**. Real task errors are preserved.
+A released task ID is labeled **completed; tracking released** when native
+completion was recorded; it does not mean registration failed.
 
 Queue/history and owned task IDs survive restart. Waiting items resume scheduling
 when the app reopens. Interrupted preflight/direct-transfer items require Retry;

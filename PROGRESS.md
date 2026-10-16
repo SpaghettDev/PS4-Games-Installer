@@ -1,5 +1,45 @@
 # Implementation progress
 
+## r30 menu overflow and installation result reporting — 2026-10-16
+
+- User requested visible menu overflow, corrected successful-install queue status,
+  and Downloads/Collections in Options. User also confirmed uninstall works on the
+  previously confirmed PS4 11.00 + GoldHEN environment.
+- Fresh read-only FTP evidence under ignored `build/hardware-queue-20261016T204119Z/`
+  records completed native tasks for CUSA10606 and CUSA02537 (`system_completed`
+  true, all transfer bytes received), later mislabeled Failed by verification.
+  The log shows the installed count reaching 18, then successful uninstall and
+  returning to 16. Their SFOs are no longer present; exact installed versions at
+  completion cannot be established from this trace. An active direct transfer
+  and a waiting job were also present; no console files/tasks were changed.
+- Native completion now wins over catalog version estimates and stale/missing
+  library metadata. Disappeared tasks without positive native completion retain
+  independent title/version checks and become Needs verification after timeout;
+  fresh scans can resolve them. Data completion alone cannot mark success.
+- Added targeted migration of the old verification-timeout failures without
+  modifying real service errors. Diagnostics distinguish completed/released task
+  tracking, and completed rows omit obsolete transfer percentages.
+- Removed Downloads/Collections sidebar entries, kept Options access and migrated
+  old sidebar positions to the current library. Added shared pagination scrollbar
+  thumbs and directional arrows, including the custom additional-source list.
+- Targeted feature/App/Ui/maintenance suites passed. The final full Docker
+  `make -j4 test` passed all host/native-service suites and 15 Python integrations,
+  including migration persistence, native success with mismatched/missing library
+  data, unverified late discovery, actual-error preservation and legacy sidebar
+  migration. Existing native completion/failed-task recovery checks remain green.
+- `make all` built `dist/PS4Game_installer-r30.pkg` (6,619,136 bytes).
+  `make validate` passed package hashes/signatures and packed imports; source
+  fingerprint, manifest checksum and successful revision record match.
+- Generated all 81 desktop captures at r30. Visually reviewed Options first/middle/
+  last pages, additional sources first/last views, game details, native completion,
+  unverified diagnostics at both scroll ends and the three-entry sidebar. Scrollbar
+  thumbs/arrows and text fit the dialogs; completed/released status is clear.
+- Refreshed all 16 existing consumer images and added the overflow-menu image;
+  README image links resolve. Updated CHANGELOG/TODO and recorded uninstall as
+  confirmed without closing its separate cancellation/history-preservation checks.
+  Whitespace/identity audits pass. No console deployment or push was performed;
+  new r30 behavior still needs console acceptance.
+
 ## r29 wraparound navigation — 2026-10-16
 
 - User requested Up from the first menu entry to select the last, and Down from

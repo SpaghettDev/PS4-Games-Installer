@@ -202,14 +202,29 @@ int main() {
         app.ui.handle(Button::Cross); app.ui.handle(Button::Cross);
         app.tick(15, video); settle(app, video); assert(submissions == 2);
         atomicWrite(staged, "staging fixture"); progressMode = 2;
-        waitForStatus(app, video, 19, "installation is not confirmed");
-        assert(app.ui.downloads[0].stage == QueueStage::Verifying && !std::filesystem::exists(staged));
+        waitForStatus(app, video, 19, "PS4 reports package installation complete");
+        assert(app.ui.downloads[0].stage == QueueStage::Completed && !std::filesystem::exists(staged));
         assert(readFile(directory + "/tasks.json") == "{}");
         { std::lock_guard<std::mutex> lock(requestMutex); Entry installed = app.ui.available[0]; installed.installed = true; localGames = {installed}; }
         app.ui.screen = Screen::Queue; app.ui.handle(Button::Triangle); app.tick(19, video);
-        waitForStatus(app, video, 19, "confirmed by a fresh");
+        settle(app, video);
         assert(app.ui.downloads[0].stage == QueueStage::Completed && app.ui.queued.empty());
         { std::lock_guard<std::mutex> lock(requestMutex); localGames.clear(); }
+    }
+    const auto migration = directory + "/native-completion"; std::filesystem::create_directory(migration);
+    Settings migrationSettings; migrationSettings.refreshOnStart = false; saveSettings(migration, migrationSettings);
+    QueueItem oldCompletion; oldCompletion.entry.url = "http://fixture/installed.pkg"; oldCompletion.entry.name = "Already installed";
+    oldCompletion.entry.titleId = "CUSA02537"; oldCompletion.entry.version = "02.00"; oldCompletion.stage = QueueStage::Failed;
+    oldCompletion.systemCompleted = true; oldCompletion.verificationStarted = 100; oldCompletion.total = oldCompletion.transferred = 200;
+    oldCompletion.message = "PS4 task finished but installation could not be confirmed. Old timeout.";
+    saveQueue(migration, {oldCompletion});
+    const auto beforeMigration = submissions.load();
+    {
+        App app(migration); settle(app, video);
+        assert(app.ui.downloads[0].stage == QueueStage::Completed && app.ui.queued.empty() && submissions == beforeMigration);
+        assert(loadQueue(migration)[0].stage == QueueStage::Completed);
+        assert(app.ui.downloads[0].message.find("PS4 reports package installation complete") != std::string::npos);
+        assert(app.ui.queueDetails()[3] == "PS4 task: completed; tracking released");
     }
     const auto refusal = directory + "/refusal"; std::filesystem::create_directory(refusal);
     Settings offline; offline.refreshOnStart = false; saveSettings(refusal, offline);

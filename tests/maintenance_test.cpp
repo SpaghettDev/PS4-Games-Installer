@@ -47,8 +47,16 @@ int main() {
     ui.handle(Button::Left);ui.handle(Button::Down);ui.handle(Button::Down); assert(ui.updatesOnly && ui.sidebarIndex==2 && ui.visible.size()==1);
     auto state=parseViewState(serializeViewState(ui.captureView())); Ui reopened;reopened.setLibraries(std::vector<Entry>{local},games);reopened.restoreView(state);
     assert(reopened.updatesOnly && reopened.sidebar && reopened.sidebarIndex==2 && reopened.current()->url==games[1].url);
-    ui.handle(Button::Down);ui.handle(Button::Cross);assert(ui.screen==Screen::Queue);ui.handle(Button::Circle);assert(ui.screen==Screen::Dashboard && ui.sidebarIndex==3);
-    ui.handle(Button::Down);ui.handle(Button::Cross);assert(ui.screen==Screen::SavedCollections);ui.handle(Button::Circle);assert(ui.screen==Screen::Dashboard && ui.sidebarIndex==4);
+    ui.handle(Button::Down); assert(ui.sidebarIndex==0 && !ui.updatesOnly && ui.library==Library::Installed);
+    ui.handle(Button::Options);ui.menuIndex=12;ui.handle(Button::Cross);assert(ui.screen==Screen::Queue);ui.handle(Button::Circle);assert(ui.screen==Screen::Options);
+    ui.menuIndex=13;ui.handle(Button::Cross);assert(ui.screen==Screen::SavedCollections);ui.handle(Button::Circle);assert(ui.screen==Screen::Options);
+    for (size_t oldIndex : {size_t(3),size_t(4)}) {
+        auto legacy=state;legacy.sidebarIndex=oldIndex;
+        auto migrated=parseViewState(serializeViewState(legacy));assert(migrated.sidebarIndex==2);
+        reopened.restoreView(legacy);assert(reopened.sidebarIndex==2 && reopened.updatesOnly);
+        legacy.updatesOnly=false;legacy.available=true;reopened.restoreView(legacy);assert(reopened.sidebarIndex==1);
+        assert(parseViewState(serializeViewState(legacy)).sidebarIndex==1);
+    }
     ui.screen=Screen::Packages; ui.packageTitle=games[0].titleId; ui.packageIndex=0; ui.available[0].queued=true; ui.handle(Button::Cross);
     assert(ui.screen==Screen::Queue); ui.handle(Button::Circle); assert(ui.screen==Screen::Packages); ui.available[0].queued=false;
     ui.screen=Screen::Dashboard; ui.handle(Button::L1); assert(!ui.updatesOnly);

@@ -67,6 +67,7 @@ HttpTransferInfo httpTransfer(const std::string&, const HttpSink& sink, bool ran
 TaskProgress taskProgress(int task) {
     assert(task >= 45);
     TaskProgress result{100, 100, progressMode == 1 ? int32_t(0x80991404u) : 0, true};
+    if (progressMode == 3) result.transferred = 50;
     result.completed = progressMode == 2;
     return result;
 }
@@ -401,6 +402,13 @@ int main() {
         blockProbe = false;
         app.ui.handle(Button::Cross); app.tick(0, video); settle(app, video);
         assert(app.ui.downloads[0].stage == QueueStage::Installing && app.ui.downloads[0].task >= 100);
+        assert(app.ui.downloads[0].backgroundTransfer);
+        progressMode = 3;
+        waitForStatus(app, video, 4, "PS4 background download");
+        assert(app.ui.downloads[0].stage == QueueStage::Downloading && loadQueue(managed)[0].backgroundTransfer);
+        progressMode = 0;
+        waitForStatus(app, video, 8, "installation is still running");
+        assert(app.ui.downloads[0].stage == QueueStage::Installing);
         failCancellation = true;
         app.ui.handle(Button::Triangle); app.ui.handle(Button::Cross); app.tick(0, video);
         waitForStatus(app, video, 0, "Cancellation fixture failed");

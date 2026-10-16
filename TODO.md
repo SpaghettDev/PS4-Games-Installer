@@ -9,6 +9,7 @@
 - [x] Base game/update/DLC grouping and installed/available version comparison.
 - [x] Source setup helper with validation, counts and actionable connection/format errors.
 - [x] Regression tests, PS4 package validation, screenshots and consumer docs for r23.
+- [x] Refine/persist background-transfer phases, run full tests, validate r24 and refresh screenshots.
 
 - [x] Remove Unity files and initialize independent repository.
 - [x] Root Makefile, application identity, assets, and revision packaging.
@@ -56,6 +57,7 @@
 
 ## Console acceptance checks
 
+- [ ] Retest r24: a PS4-managed remote transfer changes Downloading → Installing → Verifying → Completed; staged local copying stays Installing.
 - [ ] Retest r23: enqueue several packages, monitor stages, retry failures and restore queue state after closing/reopening.
 - [ ] Retest r23: cancel a waiting transfer, a direct transfer and an owned BGFT task; cancellation failure keeps ownership/staging.
 - [ ] Retest r23: a completed transfer without the title/version stays unconfirmed; actual installation is confirmed by a fresh scan.

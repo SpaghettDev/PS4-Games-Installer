@@ -1,5 +1,20 @@
 # Implementation progress
 
+## r24 background download stage refinement — 2026-10-16
+
+- Recorded whether a PS4 task was registered for a remote background transfer
+  or a staged local package. Background bytes below total now show Downloading;
+  a local copy remains Installing. Phase changes and transfer mode persist.
+- A completed stage cannot regress because a later progress sample lacks its
+  completion fields. Added App checks for Downloading → Installing and saved mode.
+- Full host suite passed, including all 15 Python integrations, native adapter
+  checks and the App Downloading → Installing transition with durable transfer mode.
+- Built `dist/PS4Game_installer-r24.pkg`; package hash/signature and packed-import
+  validation passed. The source fingerprint and package SHA-256 match the manifest.
+- Regenerated all 48 desktop captures, inspected the queue/verification/package
+  screens and refreshed the README images to r24. Identity and whitespace audits
+  pass. Console acceptance remains unchecked in TODO.md; no deployment or push.
+
 ## r23 library and installer improvements — 2026-10-16
 
 - User authorized all seven suggested improvements. Implementing persistent queue

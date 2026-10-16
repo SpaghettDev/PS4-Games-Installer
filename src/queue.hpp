@@ -9,6 +9,7 @@ struct QueueItem {
     int task = -1;
     uint64_t transferred = 0, total = 0, updated = 0, verificationStarted = 0;
     bool systemCompleted = false;
+    bool backgroundTransfer = false;
     bool previouslyPresent = false;
     std::string previousVersion;
     std::string message;

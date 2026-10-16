@@ -66,6 +66,7 @@ int main() {
     std::vector<QueueItem> queue; enqueueJob(queue, entries[0], 100); rejects([&] { enqueueJob(queue, entries[0], 101); });
     queue[0].stage = QueueStage::Downloading; sampleJob(queue[0], 100, 200, 2); assert(queue[0].bytesPerSecond == 50);
     const auto encoded = serializeQueue(queue); assert(parseQueue(encoded)[0].transferred == 100);
+    queue[0].backgroundTransfer = true; assert(parseQueue(serializeQueue(queue))[0].backgroundTransfer);
     queue[0].stage = QueueStage::Verifying; queue[0].verificationStarted = 100; queue[0].systemCompleted = true;
     verifyJob(queue[0], {}, 101); assert(queue[0].stage == QueueStage::Verifying);
     verifyJob(queue[0], {}, 220); assert(queue[0].stage == QueueStage::Failed && queue[0].message.find("could not be confirmed") != std::string::npos);

@@ -25,6 +25,7 @@ struct Result {
     std::string message;
     std::map<std::string, TaskProgress> progress;
     std::optional<SourceReport> sourceReport;
+    bool backgroundTransfer = false;
 };
 struct TransferUpdate { std::string url; QueueStage stage; uint64_t bytes = 0, total = 0; };
 constexpr size_t CacheLimit = 64 * 1024 * 1024;
@@ -194,6 +195,7 @@ void App::startNextDownload(int user) {
         try { r.task = installPackage(entry, user, directory, &worker->cancelled, [&](uint64_t done, uint64_t length) {
             bytes = done; total = length; worker->reportTransfer({entry.url, stage, done, length});
         }, [this](const std::string& message) { log(message); worker->report(message); }, [&](InstallPhase phase) {
+            r.backgroundTransfer = phase == InstallPhase::RegisteringRemote;
             stage = phase == InstallPhase::Checking ? QueueStage::Checking : phase == InstallPhase::Downloading ? QueueStage::Downloading : QueueStage::Registering;
             worker->reportTransfer({entry.url, stage, bytes, total});
         }); } catch (const std::exception& e) { r.message = e.what(); }
@@ -275,6 +277,7 @@ void App::tick(double elapsed, Video& video) {
                 if (result->task >= 0) {
                     reportedTaskErrors.erase(result->task);
                     tasks[result->entry.url] = result->task; job->task = result->task;
+                    job->backgroundTransfer = result->backgroundTransfer;
                     job->stage = pendingCancels.count(result->entry.url) ? QueueStage::Cancelling : QueueStage::Installing;
                     job->message = "Registered with PS4. Waiting for installation, then a fresh library scan.";
                     ui.status = "Installation queued. Manage it here or in PS4 Notifications > Downloads.";
@@ -314,6 +317,7 @@ void App::tick(double elapsed, Video& video) {
                 if (!tasks.count(item.first)) continue; // A newer cancellation result may already have released it.
                 auto* job = findJob(ui.downloads, item.first);
                 if (!job) continue;
+                const auto previousStage = job->stage;
                 const auto& progress = item.second;
                 sampleJob(*job, progress.transferred, progress.total, elapsed);
                 if (progress.error) {
@@ -332,12 +336,15 @@ void App::tick(double elapsed, Video& video) {
                         job->stage = QueueStage::Verifying; job->verificationStarted = timestamp(); changed = true;
                     }
                     job->systemCompleted = job->systemCompleted || progress.completed;
-                } else if (job->stage != QueueStage::Cancelling) {
-                    job->stage = QueueStage::Installing;
-                    job->message = progress.total && progress.transferred >= progress.total ?
-                        "Transfer complete; PS4 installation is still running." : "PS4 background transfer / installation is running.";
+                } else if (job->stage != QueueStage::Cancelling && job->stage != QueueStage::Completed &&
+                           !(job->stage == QueueStage::Verifying && job->systemCompleted)) {
+                    const bool downloading = job->backgroundTransfer && (!progress.total || progress.transferred < progress.total);
+                    job->stage = downloading ? QueueStage::Downloading : QueueStage::Installing;
+                    job->message = downloading ? "PS4 background download is running; installation follows. This transfer continues if you close the app." :
+                        progress.total && progress.transferred >= progress.total ? "Transfer complete; PS4 installation is still running." : "PS4 is preparing or installing the package.";
                     ui.status = job->message;
                 }
+                changed = changed || previousStage != job->stage;
                 if (!progress.found || progress.retired) {
                     removeStagedPackage(directory, item.first);
                     reportedTaskErrors.erase(tasks.at(item.first));

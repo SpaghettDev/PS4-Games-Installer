@@ -130,6 +130,9 @@ std::vector<QueueItem> parseQueue(const std::string& text) {
         const auto* present = cJSON_GetObjectItemCaseSensitive(item, "previously_present");
         if (present && !cJSON_IsBool(present)) throw std::runtime_error("Invalid queue previous-presence flag");
         job.previouslyPresent = cJSON_IsTrue(present); job.previousVersion = string(item, "previous_version", 64);
+        const auto* background = cJSON_GetObjectItemCaseSensitive(item, "background_transfer");
+        if (background && !cJSON_IsBool(background)) throw std::runtime_error("Invalid queue transfer mode");
+        job.backgroundTransfer = cJSON_IsTrue(background);
         queue.push_back(std::move(job));
     }
     return queue;
@@ -149,6 +152,7 @@ std::string serializeQueue(const std::vector<QueueItem>& queue) {
         cJSON_AddBoolToObject(item, "system_completed", job.systemCompleted);
         cJSON_AddBoolToObject(item, "previously_present", job.previouslyPresent);
         cJSON_AddStringToObject(item, "previous_version", job.previousVersion.c_str());
+        cJSON_AddBoolToObject(item, "background_transfer", job.backgroundTransfer);
     }
     std::unique_ptr<char, decltype(&cJSON_free)> text(cJSON_PrintUnformatted(root.get()), cJSON_free);
     if (!text) throw std::runtime_error("Cannot serialize queue");

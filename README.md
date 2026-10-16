@@ -290,6 +290,7 @@ search, category, tag, minimum/maximum stars, launch-history rule and installati
 rule. X edits text; Left/Right or X cycles rules. Scroll down to **Save collection**.
 O cancels the draft. Square edits an existing collection and Options deletes it
 after confirmation. Up to 64 named collections are stored in `player.json`.
+Zero stars means unrated; a range of 4–5 includes only your four- and five-star games.
 
 Built-in shortcuts show no recorded launches, 4–5 star games, previously installed
 games, or all games with filters cleared. Rules are evaluated against current
@@ -365,6 +366,10 @@ Open **Options > Download queue** to manage up to 200 tracked packages. Installi
 adds a persistent waiting item, including when another transfer is running. Package
 preflights/direct downloads run one at a time; accepted PS4 tasks continue in the
 background and have a separate progress monitor.
+
+PS4-managed remote transfers show Downloading until their data transfer finishes,
+then Installing. Staged local package copies stay in Installing. Queue records from
+earlier releases with unknown transfer mode retain their generic installation status.
 
 The queue distinguishes **Queued**, **Checking URL**, **Downloading**, **Registering
 with PS4**, **Installing**, **Verifying installation**, **Completed**, **Failed**,

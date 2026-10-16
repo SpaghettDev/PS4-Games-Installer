@@ -43,7 +43,7 @@ int installPackage(const Entry& entry, int userId, const std::string& directory,
     if (!packageMagic(magic)) throw std::runtime_error("Package URL did not return a PS4 PKG file");
     if (cancelled && *cancelled) throw std::runtime_error("Download cancelled");
     if (probe.status == 206 && probe.length == 4) {
-        if (phase) phase(InstallPhase::Registering);
+        if (phase) phase(InstallPhase::RegisteringRemote);
         if (note) note("Range supported; registering remote package with BGFT");
         return queueInstall(entry, userId);
     }

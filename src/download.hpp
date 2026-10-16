@@ -3,7 +3,7 @@
 
 namespace psgi {
 using DownloadProgress = std::function<void(uint64_t, uint64_t)>;
-enum class InstallPhase { Checking, Downloading, Registering };
+enum class InstallPhase { Checking, Downloading, Registering, RegisteringRemote };
 // Probe the actual package, use BGFT for range-capable servers, otherwise stream
 // to private staging storage and submit the complete local package to BGFT.
 int installPackage(const Entry& entry, int userId, const std::string& dataDirectory,

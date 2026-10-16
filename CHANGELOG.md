@@ -1,5 +1,13 @@
 # Changelog
 
+## r24 — 2026-10-16
+
+- Distinguish PS4-managed background downloads from direct staging and local
+  installation copies. Show Downloading while background bytes are arriving,
+  Installing after transfer, then verification; persist transfer mode and phase.
+- Keep completed/verified stages stable while awaiting system task release.
+  Preserve existing queue files whose transfer mode is unknown.
+
 ## r23 — 2026-10-16
 
 - Add a persistent 200-item download queue with waiting, checking, downloading,

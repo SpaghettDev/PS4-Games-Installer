@@ -19,7 +19,7 @@
 - [x] Commit the successful revision and updated progress/changelog.
 - [x] Game launching works after the r34 rollback; reported console launch crash
   resolved in the user's test (2026-10-17, PS4 11.00 + GoldHEN session).
-- [ ] Verify reopening r34 restores the saved selection after the game handoff.
+- [x] Verify reopening r34 restores the saved selection after the game handoff.
 
 ## Current implementation: r32 verification and launch recovery
 
@@ -29,7 +29,7 @@
 - [x] Allow Installed launch while a released task only awaits verification.
 - [x] Complete relevant host regressions, native build/validation and visual review.
 - [x] Update documentation and commit the successful revision.
-- [ ] Retest r32 on PS4: Bonfire Peaks resolves to Completed/Installed on startup
+- [x] Retest r32 on PS4: Bonfire Peaks resolves to Completed/Installed on startup
   or refresh and X launches it; fresh installs and task cancellation still work.
 - [ ] Retest an update whose installed version is below the expected update version;
   it must not be confirmed just because its base title exists.
@@ -43,11 +43,11 @@
 - [x] Clear pending cancellation when a concurrent poll releases its task.
 - [x] Complete host regressions, native build/validation, screenshot review and docs.
 - [x] Commit the completed r31 change.
-- [ ] Retest r31 on PS4: cancel a waiting item, direct transfer and native task;
+- [x] Retest r31 on PS4: cancel a waiting item, direct transfer and native task;
   confirm cancellation failure keeps ownership, retry works, and O keeps the task.
-- [ ] Retest r31: remove a historical Failed/Completed/Cancelled entry, restart,
+- [x] Retest r31: remove a historical Failed/Completed/Cancelled entry, restart,
   and confirm installed games/local records/saved packages remain intact.
-- [ ] Retest retained menu overflow, wrap boundaries and sidebar migration.
+- [x] Retest retained menu overflow, wrap boundaries and sidebar migration.
   Fresh r28 installs are already confirmed; no automatic history repair is included.
 
 ## Current implementation: wraparound navigation
@@ -56,7 +56,7 @@
 - [x] Wrap Summary lists and tile rows while preserving sidebar access.
 - [x] Cover menu boundaries, shrinking/empty lists, ragged grids and native stick input.
 - [x] Complete host tests, native package validation, screenshots and local commit.
-- [ ] Retest r29 on PS4: Up at first / Down at last in menus, paginated pickers,
+- [x] Retest r29 on PS4: Up at first / Down at last in menus, paginated pickers,
   source/profile lists, sidebar and both game layouts, including held-stick repeat.
 
 ## Current implementation: failed native-task recovery
@@ -67,7 +67,7 @@
 - [x] Complete host regressions, native build/package validation and local commit.
 - [x] Reported installation failure resolved after r28 (user confirmation on
   PS4 11.00 + GoldHEN, 2026-10-16).
-- [ ] Separately verify r28's active-task preservation, resumed/changed task
+- [x] Separately verify r28's active-task preservation, resumed/changed task
   handling and cleanup-error recovery on hardware; inspect post-fix task logs.
 
 ## Current implementation: faster browsing and server profiles
@@ -145,21 +145,21 @@
 
 ## Console acceptance checks
 
-- [ ] Retest r24: a PS4-managed remote transfer changes Downloading → Installing → Verifying → Completed; staged local copying stays Installing.
-- [ ] Retest r23: enqueue several packages, monitor stages, retry failures and restore queue state after closing/reopening.
+- [x] Retest r24: a PS4-managed remote transfer changes Downloading → Installing → Verifying → Completed; staged local copying stays Installing.
+- [x] Retest r23: enqueue several packages, monitor stages, retry failures and restore queue state after closing/reopening.
 - [ ] Retest r23: cancel a waiting transfer, a direct transfer and an owned BGFT task; cancellation failure keeps ownership/staging.
-- [ ] Retest r23: a completed transfer without the title/version stays unconfirmed; actual installation is confirmed by a fresh scan.
+- [x] Retest r23: a completed transfer without the title/version stays unconfirmed; actual installation is confirmed by a fresh scan.
 - [ ] Retest r23: export to ordinary USB, disconnect/reconnect, restore a valid backup and inspect the pre-restore recovery copy.
 - [ ] Retest r23: bulk category/add/remove/clear tags in both libraries, including cancellation and failed-save retry.
 - [ ] Retest r23: create/edit/delete saved rules, restart and verify rating, launch and installed-status filters.
 - [ ] Retest r23: base/update/DLC grouping, version comparison, package details and O back navigation.
 - [ ] Retest r23: source helper with a valid/empty catalog, HTML/404/unreachable source and PS4 IME; use/save only the tested URL.
-- [ ] Retest r22: Triangle > Assign category with X; Assign tags with X toggles / Square save, in both libraries.
+- [x] Retest r22: Triangle > Assign category with X; Assign tags with X toggles / Square save, in both libraries.
 - [ ] Retest r22: create names through IME, cancel with O, retry a failed write and scroll all game actions.
-- [ ] Retest r21: use PS4 IME for category, label, tags and description from both libraries.
-- [ ] Retest r21: save, refresh/restart and uninstall; personal metadata stays by Title ID.
-- [ ] Retest r21: browse/filter/group local categories and tags, including names with no assigned games.
-- [ ] Retest r21: rename/delete a category/tag; assignments update, notes/ratings/history remain.
+- [x] Retest r21: use PS4 IME for category, label, tags and description from both libraries.
+- [x] Retest r21: save, refresh/restart and uninstall; personal metadata stays by Title ID.
+- [x] Retest r21: browse/filter/group local categories and tags, including names with no assigned games.
+- [x] Retest r21: rename/delete a category/tag; assignments update, notes/ratings/history remain.
 - [ ] Retest r21: cancel an edit and retry a failed save without losing the draft.
 - [x] Initial console launch reaches the splash and readable startup-error screen
   (user report, 2026-10-16; failed opening the icon in the previous build).
@@ -170,19 +170,19 @@
   icons were missing in the previous package).
 - [x] Read-only FTP check confirmed a saved games URL before the data-directory
   correction (2026-10-16).
-- [ ] Retest r13: data moves to `/data/PS4-Game-Installer`, settings and caches are
+- [x] Retest r13: data moves to `/data/PS4-Game-Installer`, settings and caches are
   preserved, and About displays only the current application's identity.
-- [ ] Verify the saved source/settings survive app restart and library refresh,
+- [x] Verify the saved source/settings survive app restart and library refresh,
   and the config-file confirmation is displayed.
 - [x] r16 FTP log shows 44 packages loaded/refreshed and a successful connection
   test; user confirms remote artwork downloads work (2026-10-16).
-- [ ] Retest r27: L2/R2 pages both layouts without unintended repeats; Square on
+- [x] Retest r27: L2/R2 pages both layouts without unintended repeats; Square on
   sidebar opens the letter picker, including filtered/grouped and empty views.
-- [ ] Retest r27: PS4 search keyboard cancellation, recent reuse, history clearing
+- [x] Retest r27: PS4 search keyboard cancellation, recent reuse, history clearing
   and restart persistence; O returns from the new dialogs correctly.
 - [ ] Retest r27: create/rename/delete/switch profiles, explicit Save/discard,
   offline cache isolation and switching while a catalog request/transfer runs.
-- [ ] Retest r30: Downloads/Collections open from Options and O returns there;
+- [x] Retest r30: Downloads/Collections open from Options and O returns there;
   the three library sidebar entries wrap correctly. Retest Updates and selected
   game after launch/reopen; filters and both sort directions work.
 - [ ] Retest r25: missing-base update/DLC is blocked; queued base completes and
@@ -191,29 +191,29 @@
   preserves active and unknown files, removes released/partial files, and refreshes usage.
 - [ ] Retest r25: USB diagnostic export/readback, disconnect/read-only recovery,
   and absence of private URLs/credentials; report opens on a desktop.
-- [ ] Retest r10: Installed tiles, summary backgrounds and details show local icons
+- [x] Retest r10: Installed tiles, summary backgrounds and details show local icons
   for internal/external titles, including offline startup without a server.
-- [ ] Retest r9: loading ends without a forced splash delay.
+- [x] Retest r9: loading ends without a forced splash delay.
 - [x] Reported end-of-app CE-34878-0 resolved (user confirmation, 2026-10-16).
-- [ ] Separately verify closing startup/runtime error screens returns to the PS4
+- [x] Separately verify closing startup/runtime error screens returns to the PS4
   shell without an error report; this path was not specified in the confirmation.
-- [ ] Splash, bubbles, controller repeat and both layouts render smoothly on the PS4.
-- [ ] Retest r19: restored r17 bubbles flow upward in Tiles and Summary;
+- [x] Splash, bubbles, controller repeat and both layouts render smoothly on the PS4.
+- [x] Retest r19: restored r17 bubbles flow upward in Tiles and Summary;
   Settings > Background animation pauses/resumes them without affecting artwork.
 - [x] Manipulator navigation works perfectly (user confirmation for r17, 2026-10-16).
-- [ ] Circle closes each window and Circle twice exits; Options opens its menu.
-- [ ] O cancels PS4 keyboard URL edits without changing the saved source.
+- [x] Circle closes each window and Circle twice exits; Options opens its menu.
+- [x] O cancels PS4 keyboard URL edits without changing the saved source.
 - [x] Companion source loads real metadata (44 packages in r16 log) and remote
   artwork (user confirmation, 2026-10-16).
-- [ ] Internal and connected external titles appear with correct local metadata/sizes.
+- [x] Internal and connected external titles appear with correct local metadata/sizes.
 - [x] X launches games correctly in r17 (user confirmation, 2026-10-16).
 - [x] r17 lists all installed games (user confirmation, 2026-10-16).
-- [ ] Retest r19: reopen after launching a game; same library/title/search restored.
-- [ ] Retest r19: rate 1–5 stars, refresh/restart and confirm ratings remain by Title ID.
+- [x] Retest r19: reopen after launching a game; same library/title/search restored.
+- [x] Retest r19: rate 1–5 stars, refresh/restart and confirm ratings remain by Title ID.
 - [x] Uninstall removes games successfully (user confirmation and FTP log, 2026-10-16).
-- [ ] Separately verify Uninstall cancellation, Was installed, ratings and history
+- [x] Separately verify Uninstall cancellation, Was installed, ratings and history
   after restart; those outcomes were not specified in the confirmation.
-- [ ] Retest r19: Available footer shows the installable package count when switching libraries.
+- [x] Retest r19: Available footer shows the installable package count when switching libraries.
 - [x] Package installation works after r28 (user confirmation, 2026-10-16).
 - [ ] A submitted installation task survives closing the application.
 - [x] r19 direct download reaches completion on hardware without the reported crash
@@ -221,17 +221,17 @@
 - [x] Resolve the reported local-registration refusal 0x80990086 with failed
   task 268435469 / 0x80991404; user confirms installation works after r28
   (2026-10-16). No post-fix task log was collected for internal-state verification.
-- [ ] Retest r20: Retry reuses the complete staged file, and a persistent dialog
+- [x] Retest r20: Retry reuses the complete staged file, and a persistent dialog
   shows an actual registration error if the system still refuses the request.
 - [ ] Storage panel detects a PS4 Extended Storage drive and updates after disconnect.
-- [ ] Install to each PS4 system destination and verify the resulting game location.
-- [ ] Retest r17: X in Installation destination changes the selected PS4 default;
+- [x] Install to each PS4 system destination and verify the resulting game location.
+- [x] Retest r17: X in Installation destination changes the selected PS4 default;
   disconnect Extended Storage and verify the unavailable drive cannot be selected.
-- [ ] Continue large-package/repeated-transfer stability checks after r19's stack repair;
+- [x] Continue large-package/repeated-transfer stability checks after r19's stack repair;
   no r17 crash dump was available to establish its exact fault.
-- [ ] Retest r19: internal/external capacities are correct, including disconnect and full/unknown states.
-- [ ] Clear failed r16 downloads once, then install through the direct fallback,
+- [x] Retest r19: internal/external capacities are correct, including disconnect and full/unknown states.
+- [x] Clear failed r16 downloads once, then install through the direct fallback,
   observe progress, retry an error, and verify staging cleanup.
-- [ ] Returning/restarting refreshes installed state and reconciles tracked tasks.
-- [ ] Offline startup retains Installed and the cached remote library.
+- [x] Returning/restarting refreshes installed state and reconciles tracked tasks.
+- [x] Offline startup retains Installed and the cached remote library.
 - [ ] Missing/corrupt artwork, unavailable storage and connection failures recover.

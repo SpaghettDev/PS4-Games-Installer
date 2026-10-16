@@ -1,5 +1,28 @@
 # Implementation progress
 
+## r22 quick category/tag assignment — 2026-10-16
+
+- Added direct Assign category and Assign tags game actions in both libraries,
+  reusing the local Title ID profile, name registries and PS4 keyboard.
+- Category selection saves with X; tags toggle with X and save together with
+  Square. O cancels the quick draft. Successful persistence returns to Actions;
+  failed persistence leaves the picker and draft available for retry.
+- Pickers focus the existing assignment or newly entered name. Added game name
+  and Title ID context, explicit control hints, visible save errors and game
+  action pagination so extra actions cannot overlap the controls.
+- Full `make test` passes, including all 15 Python integrations and native adapter
+  tests. New UI/App checks exercise both libraries, existing/new names, current
+  selection focus, cancellation, category clearing, tag toggling, atomic-write
+  failures/retries and preservation of notes, labels, ratings and launch history.
+- Built `dist/PS4Game_installer-r22.pkg`; `make validate` passed package hashes,
+  signatures and packed launcher imports. Package SHA-256, source fingerprint
+  and revision 22 agree with the release manifest.
+- Generated 32 desktop captures and visually inspected both quick pickers and
+  both game action pages. Controls and menu rows fit their panels. Added the
+  quick tag picker to the consumer README alongside the documented controls.
+- Source identity and whitespace checks pass. New controls still require console
+  acceptance; no deployment or Git push has been performed.
+
 ## r21 local game organization — 2026-10-16
 
 - Added personal category, label, description and tags to the existing Title ID

@@ -1,5 +1,14 @@
 # Changelog
 
+## r22 — 2026-10-16
+
+- Add Triangle > Assign category and Assign tags in both libraries. Reuse an
+  existing name or enter a new one directly, without the full local-info editor.
+- X saves a category; X toggles tags and Square saves them together. O cancels.
+  Failed saves retain the picker and draft for retry, with a visible error.
+- Focus the current assignment on entry and newly entered names after typing.
+  Paginate game actions so every action, including Uninstall, remains reachable.
+
 ## r21 — 2026-10-16
 
 - Add local category, label, description and up to 16 tags per Title ID through

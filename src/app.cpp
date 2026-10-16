@@ -291,6 +291,7 @@ void App::tick(double elapsed, Video& video) {
                         auto position = ui.captureView(); savePlayer(next); ui.restoreView(position);
                         ui.localDraft = ui.player.games.at(command.entry.titleId).info;
                         ui.localNotice = ui.status = "Local info saved on this PS4";
+                        if (command.returnToActions) { ui.quickAssignment = false; ui.screen = Screen::Actions; }
                     } catch (const std::exception& e) { ui.localNotice = std::string("Save failed: ") + e.what(); throw; }
                     break;
                 }

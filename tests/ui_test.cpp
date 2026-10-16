@@ -175,6 +175,46 @@ int main() {
     ui.handle(Button::Cross); drain(ui);
     assert(ui.screen == Screen::Dashboard && ui.filter.category == "Adventure" && ui.settings.grouping == Grouping::LocalCategory);
     assert(keyboardMaximum(EditKind::GameDescription) == MaxLocalDescription);
+    // Direct assignments reuse local names and never open the full metadata editor.
+    ui = fixture();
+    LocalInfo info{"Action", "Favorite", "Keep these notes", {"Weekend"}};
+    ui.player.setInfo("CUSA00001", info); ui.player.createTerm(false, "Adventure");
+    ui.player.createTerm(true, "Co-op"); ui.player.rate("CUSA00001", 5); ui.rebuild();
+    choose("Assign category");
+    assert(ui.screen == Screen::PickCategory && ui.quickAssignment && ui.pickerIndex == 1);
+    ui.handle(Button::Down); ui.handle(Button::Cross);
+    assert(ui.take(command) && command.type == CommandType::SaveLocalInfo && command.returnToActions);
+    assert(command.entry.titleId == "CUSA00001" && command.personal->category == "Adventure");
+    assert(command.personal->label == "Favorite" && command.personal->description == "Keep these notes" && command.personal->tags == info.tags);
+    assert(ui.screen == Screen::PickCategory); // Only persistence acknowledges success.
+    ui.handle(Button::Circle);
+    assert(ui.screen == Screen::Actions && !ui.quickAssignment && sameInfo(ui.localDraft, info) && !ui.take(command));
+    choose("Assign category"); ui.handle(Button::Triangle); drain(ui); ui.finishEdit("New category");
+    assert(ui.screen == Screen::PickCategory && ui.localDraft.category == "New category" && ui.pickerIndex == 3);
+    assert(!ui.take(command)); ui.handle(Button::Cross);
+    assert(ui.take(command) && command.personal->category == "New category" && command.returnToActions);
+    ui.handle(Button::Circle); // Cancel a draft-only name without creating a registry entry.
+    assert(ui.player.categories.size() == 2);
+    choose("Assign tags");
+    assert(ui.screen == Screen::PickTags && ui.pickerIndex == 2);
+    ui.handle(Button::Cross); assert(ui.localDraft.tags.empty() && !ui.take(command));
+    ui.handle(Button::Triangle); drain(ui); ui.finishEdit("New tag");
+    assert(ui.pickerIndex == 3 && ui.localDraft.tags == std::vector<std::string>{"New tag"});
+    ui.handle(Button::Square);
+    assert(ui.take(command) && command.type == CommandType::SaveLocalInfo && command.returnToActions);
+    assert(command.personal->tags == std::vector<std::string>{"New tag"} && command.personal->category == "Action");
+    ui.handle(Button::Circle);
+    assert(ui.screen == Screen::Actions && sameInfo(ui.localDraft, info) && !ui.take(command));
+    choose("Assign tags"); ui.pickerIndex = 0; ui.handle(Button::Cross); ui.handle(Button::Square);
+    assert(ui.take(command) && command.personal->tags.empty()); ui.handle(Button::Circle);
+    assert(ui.player.games.at("CUSA00001").rating == 5 && sameInfo(ui.player.games.at("CUSA00001").info, info));
+    ui.handle(Button::Circle); ui.handle(Button::R1); ui.selected[1] = 1;
+    choose("Assign category"); assert(ui.pending.titleId == "CUSA00002" && ui.localDraft.category.empty());
+    ui.handle(Button::Cross);
+    assert(ui.take(command) && command.entry.titleId == "CUSA00002" && command.personal->category == "Action");
+    ui = fixture(); ui.installed[0].titleId.clear(); ui.handle(Button::Triangle);
+    const auto noId = ui.actionRows();
+    assert(std::none_of(noId.begin(), noId.end(), [](const std::string& row) { return row.find("Assign ") == 0; }));
     // Large-library navigation must retain short last rows and group boundaries.
     ui = Ui(); ui.screen = Screen::Dashboard; ui.library = Library::Available;
     for (int i = 0; i < 50000; ++i) {

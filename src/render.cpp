@@ -309,10 +309,13 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
             c.text("Up / Down Scroll", 575, 908, 23, Muted);
             hints(c, 840, 908, {{Button::Circle, "Back"}}); break;
         }
-        case Screen::Actions:
+        case Screen::Actions: {
+            const auto rows = ui.actionRows();
             panel(c, 495, 210, 930, 650, ui.pending.name);
-            menu(c, ui.actionRows(), ui.menuIndex, 532, 356, 856, 58);
+            menu(c, rows, ui.menuIndex, 532, 356, 856, 58, 7);
+            c.text("Up / Down  |  Page " + std::to_string(ui.menuIndex / 7 + 1) + " / " + std::to_string((rows.size() + 6) / 7), 548, 778, 20, Muted, 830);
             hints(c, 548, 815, {{Button::Cross, "Select"}, {Button::Circle, "Back"}}); break;
+        }
         case Screen::Rating: {
             panel(c, 560, 190, 800, 680, "Rate game");
             c.text(ui.pending.name, 600, 328, 28, White, 720);
@@ -333,15 +336,20 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
         case Screen::PickCategory:
         case Screen::PickTags: {
             const bool tags = ui.screen == Screen::PickTags;
-            panel(c, 470, 160, 980, 760, tags ? "Choose local tags" : "Choose local category");
+            panel(c, 470, 160, 980, 760, ui.quickAssignment ? (tags ? "Assign tags" : "Assign category") : (tags ? "Choose local tags" : "Choose local category"));
+            c.text(ui.pending.name + "  /  " + ui.pending.titleId, 510, 281, 22, Accent, 900);
             std::vector<std::string> rows{tags ? "Clear all game tags" : "Uncategorized"};
             for (const auto& term : ui.termChoices(tags, true)) {
                 const bool active = tags ? std::any_of(ui.localDraft.tags.begin(), ui.localDraft.tags.end(), [&](const std::string& tag) { return lower(tag) == lower(term); }) : lower(term) == lower(ui.localDraft.category);
                 rows.push_back(std::string(active ? "[Selected]  " : "") + term);
             }
             menu(c, rows, ui.pickerIndex, 510, 320, 900, 56, 8);
-            c.text(tags ? "X toggles a tag. O returns to the draft." : "Choose a category, or press Triangle to create one.", 510, 788, 21, Muted, 900);
-            hints(c, 510, 863, {{Button::Cross, "Select"}, {Button::Triangle, "New"}, {Button::Circle, "Back"}}); break;
+            const auto help = ui.quickAssignment ? (tags ? "Toggle tags, then press Square to save. O cancels your changes." : "Choose a category to save it. Triangle enters a new name.") : (tags ? "X toggles a tag. O returns to the draft." : "Choose a category, or press Triangle to create one.");
+            c.text(ui.localNotice.empty() ? help : ui.localNotice, 510, 788, 21, Muted, 900);
+            if (ui.quickAssignment && tags)
+                hints(c, 510, 863, {{Button::Cross, "Toggle"}, {Button::Square, "Save"}, {Button::Triangle, "New"}, {Button::Circle, "Cancel"}}, 22);
+            else hints(c, 510, 863, {{Button::Cross, ui.quickAssignment ? "Assign" : "Select"}, {Button::Triangle, "New"}, {Button::Circle, ui.quickAssignment ? "Cancel" : "Back"}});
+            break;
         }
         case Screen::Collections: {
             panel(c, 380, 140, 1160, 790, ui.collectionTags ? "Browse local tags" : "Browse local categories");

@@ -134,7 +134,7 @@ enabled; firmware TLS/certificate support can limit which HTTPS hosts work.
 | L1 / R1 | Switch Installed / Available |
 | X on Installed | Launch the game |
 | X on Available | Install confirmation, or actions for an installed title |
-| Triangle | Game actions: launch/install, details, artwork, rating, Edit local info and Uninstall for installed games |
+| Triangle | Game actions: launch/install, details, artwork, Assign category, Assign tags, rating, Edit local info and Uninstall for installed games; Up/Down scrolls all actions |
 | Square | Game details; Up/Down scroll |
 | Options | Refresh, search, view/group/sort/filter, Settings, About and Exit |
 | O | Close a window or go back |
@@ -178,10 +178,24 @@ recording.
 
 ## Your categories, labels, notes and tags
 
-Select a game in **Installed** or **Available**, then choose **Triangle > Edit
-local info**. You can assign one category, a short label, a description and up to
-16 tags. The same Title ID shares these fields across both libraries and every
-remote package variant, even if its name or URL changes.
+Select a game in **Installed** or **Available**, then press **Triangle**:
+
+- **Assign category:** choose an existing category and press **X** to save it
+  immediately. **Triangle** enters a new name, then **X** assigns it. Choose
+  Uncategorized to remove the assignment.
+- **Assign tags:** **X** toggles each tag, **Triangle** enters a new tag, and
+  **Square** saves the selection together. Clear all game tags removes all of
+  this title's assignments when saved.
+- **O** cancels a quick assignment and returns to game actions. A failed save
+  keeps the picker and your changes open for retry. Up/Down scrolls names and
+  the game actions menu, including actions on its next page.
+
+![Quick tag assignment with sample data](docs/images/assign-tags.png)
+
+One category and up to 16 tags are stored locally per Title ID. Both libraries
+and every remote package variant share them, even if the name or URL changes.
+You can also add a short label and personal notes through **Triangle > Edit
+local info**, which edits all four fields together:
 
 - **Category:** X opens the picker. Select an existing category or Triangle to
   enter a new one. Choose Uncategorized to clear the assignment.

@@ -178,7 +178,14 @@ void Ui::finishEdit(const std::optional<std::string>& text) {
                 command.source = editKind == EditKind::CreateTag || editKind == EditKind::RenameTag;
                 command.text = name; command.previous = collectionOriginal; commands.push_back(std::move(command));
             }
-            localNotice = "Draft updated. Select Save local info to keep it.";
+            localNotice = quickAssignment ? "" : "Draft updated. Select Save local info to keep it.";
+            if (quickAssignment && (editKind == EditKind::GameCategory || editKind == EditKind::GameTag)) {
+                const bool tags = editKind == EditKind::GameTag;
+                const auto choices = termChoices(tags, true);
+                const auto name = localName(*text);
+                const auto found = std::find_if(choices.begin(), choices.end(), [&](const std::string& term) { return lower(term) == lower(name); });
+                pickerIndex = found == choices.end() ? 0 : 1 + (found - choices.begin());
+            }
         } catch (const std::exception& e) { localNotice = collectionNotice = status = e.what(); }
         return;
     }
@@ -218,8 +225,12 @@ std::vector<std::string> Ui::actionRows() const {
         rows = pending.url.empty() ? std::vector<std::string>{"Launch game", "Details", "Refresh artwork"} :
             std::vector<std::string>{"Launch game", "Install remote package", "Details", "Refresh artwork"};
     else rows = {"Install package", "Details", "Refresh artwork"};
-    if (validTitleId(pending.titleId)) rows.push_back("Rate game" + (pending.rating ? " (" + std::to_string(pending.rating) + "/5)" : std::string()));
-    if (validTitleId(pending.titleId)) rows.push_back("Edit local info");
+    if (validTitleId(pending.titleId)) {
+        rows.push_back("Assign category");
+        rows.push_back("Assign tags");
+        rows.push_back("Rate game" + (pending.rating ? " (" + std::to_string(pending.rating) + "/5)" : std::string()));
+        rows.push_back("Edit local info");
+    }
     if (pending.installed) rows.push_back("Uninstall");
     return rows;
 }
@@ -260,6 +271,11 @@ std::vector<std::string> Ui::collectionRows() const {
     return rows;
 }
 void Ui::quickSave() { rebuild(); emit(CommandType::Save); }
+void Ui::saveLocalDraft() {
+    Command command{}; command.type = CommandType::SaveLocalInfo;
+    command.entry = pending; command.personal = localDraft; command.returnToActions = quickAssignment;
+    commands.push_back(std::move(command));
+}
 void Ui::handle(Button b) {
     // Circle and dialogs are handled before dashboard shortcuts.
     if (screen == Screen::Keyboard) return;
@@ -285,7 +301,7 @@ void Ui::handle(Button b) {
             case 1: beginEdit(EditKind::GameLabel, 0, localDraft.label); break;
             case 2: pickerIndex = 0; screen = Screen::PickTags; break;
             case 3: beginEdit(EditKind::GameDescription, 0, localDraft.description); break;
-            case 4: { Command command{}; command.type = CommandType::SaveLocalInfo; command.entry = pending; command.personal = localDraft; commands.push_back(std::move(command)); break; }
+            case 4: saveLocalDraft(); break;
         }
         return;
     }
@@ -293,11 +309,17 @@ void Ui::handle(Button b) {
         const bool tags = screen == Screen::PickTags;
         const auto choices = termChoices(tags, true);
         pickerIndex = std::min(pickerIndex, choices.size());
-        if (b == Button::Circle) { screen = Screen::LocalInfo; return; }
+        if (b == Button::Circle) {
+            if (quickAssignment) { localDraft = pending.info; quickAssignment = false; screen = Screen::Actions; }
+            else screen = Screen::LocalInfo;
+            return;
+        }
+        if (quickAssignment && tags && b == Button::Square) { saveLocalDraft(); return; }
         if (b == Button::Triangle) { beginEdit(tags ? EditKind::GameTag : EditKind::GameCategory, 0, ""); return; }
         if (b == Button::Up && pickerIndex) --pickerIndex;
         if (b == Button::Down && pickerIndex < choices.size()) ++pickerIndex;
         if (b == Button::Cross) {
+            localNotice.clear();
             if (!pickerIndex) { if (tags) localDraft.tags.clear(); else localDraft.category.clear(); }
             else {
                 const auto& value = choices.at(pickerIndex - 1);
@@ -310,7 +332,7 @@ void Ui::handle(Button b) {
                 }
             }
             pickerIndex = std::min(pickerIndex, termChoices(tags, true).size());
-            if (!tags) screen = Screen::LocalInfo;
+            if (!tags) { if (quickAssignment) saveLocalDraft(); else screen = Screen::LocalInfo; }
         }
         return;
     }
@@ -470,7 +492,16 @@ void Ui::handle(Button b) {
                 else screen = Screen::ConfirmUninstall;
             }
             else if (action.find("Rate game") == 0) { ratingIndex = pending.rating ? pending.rating - 1 : 0; screen = Screen::Rating; }
-            else if (action == "Edit local info") { localDraft = pending.info; localIndex = 0; localNotice.clear(); screen = Screen::LocalInfo; }
+            else if (action == "Assign category" || action == "Assign tags") {
+                const bool tags = action == "Assign tags";
+                localDraft = pending.info; quickAssignment = true; localNotice.clear();
+                const auto choices = termChoices(tags, true);
+                const auto active = tags ? (localDraft.tags.empty() ? std::string() : localDraft.tags.front()) : localDraft.category;
+                const auto found = std::find_if(choices.begin(), choices.end(), [&](const std::string& term) { return lower(term) == lower(active); });
+                pickerIndex = found == choices.end() ? (choices.empty() ? 0 : 1) : 1 + (found - choices.begin());
+                screen = tags ? Screen::PickTags : Screen::PickCategory;
+            }
+            else if (action == "Edit local info") { localDraft = pending.info; quickAssignment = false; localIndex = 0; localNotice.clear(); screen = Screen::LocalInfo; }
             else if (action == "Details") { detailReturn = Screen::Actions; detailScroll = 0; screen = Screen::Details; }
             else { emit(CommandType::RefreshArtwork, pending); screen = Screen::Dashboard; }
         }

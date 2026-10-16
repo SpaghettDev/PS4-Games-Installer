@@ -39,12 +39,15 @@
 - [x] Add local Title ID categories, labels, descriptions and tags, with drafts and explicit save results.
 - [x] Create/rename/delete local categories/tags and browse/filter/group by them.
 - [x] Show category/label on both layouts and selected local description previews.
+- [x] Direct category/tag assignment from game actions, with existing-name pickers and new-name entry.
 - [x] Remote artwork downloads work (user report for r16, 2026-10-16).
 - [x] Application confirmed working on real PS4 11.00 + GoldHEN (user report, 2026-10-16).
 - [ ] Complete the individual console acceptance checks below.
 
 ## Console acceptance checks
 
+- [ ] Retest r22: Triangle > Assign category with X; Assign tags with X toggles / Square save, in both libraries.
+- [ ] Retest r22: create names through IME, cancel with O, retry a failed write and scroll all game actions.
 - [ ] Retest r21: use PS4 IME for category, label, tags and description from both libraries.
 - [ ] Retest r21: save, refresh/restart and uninstall; personal metadata stays by Title ID.
 - [ ] Retest r21: browse/filter/group local categories and tags, including names with no assigned games.

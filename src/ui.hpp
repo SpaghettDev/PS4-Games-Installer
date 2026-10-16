@@ -9,7 +9,7 @@ namespace psgi {
 enum class Button { Up, Down, Left, Right, Cross, Circle, Square, Triangle, Options, L1, R1 };
 enum class Screen { Splash, Dashboard, Options, Settings, Sources, Storage, Details, Actions, Rating, LocalInfo, PickCategory, PickTags, DiscardLocal, Collections, ConfirmDeleteCollection, About, ConfirmExit, ConfirmInstall, InstallError, ConfirmUninstall, Discard, Keyboard };
 enum class CommandType { Refresh, Save, Test, Storage, SetStorage, ClearArtwork, RefreshArtwork, Install, Uninstall, Rate, SaveLocalInfo, CreateCollection, RenameCollection, DeleteCollection, Launch, Keyboard, Quit };
-struct Command { CommandType type; Entry entry; size_t source = 0; std::string text; std::optional<Settings> configuration = {}; std::optional<LocalInfo> personal = {}; std::string previous = {}; };
+struct Command { CommandType type; Entry entry; size_t source = 0; std::string text; std::optional<Settings> configuration = {}; std::optional<LocalInfo> personal = {}; std::string previous = {}; bool returnToActions = false; };
 struct TileRow { std::string group; std::vector<size_t> items; };
 enum class EditKind { SourceUrl, SourceCategory, Search, GameCategory, GameLabel, GameTag, GameDescription, CreateCategory, CreateTag, RenameCategory, RenameTag };
 size_t keyboardMaximum(EditKind kind);
@@ -23,6 +23,7 @@ class Ui {
     void emit(CommandType type, const Entry& entry = {});
     void beginEdit(EditKind kind, size_t index, const std::string& text);
     void quickSave();
+    void saveLocalDraft();
     size_t uniqueShown = 0, installable = 0;
 public:
     Settings settings, draft;
@@ -44,6 +45,7 @@ public:
     LocalInfo localDraft;
     size_t localIndex = 0, pickerIndex = 0, collectionIndex = 0;
     bool collectionTags = false;
+    bool quickAssignment = false;
     std::string localNotice, collectionNotice, collectionOriginal;
     LocalFilter filter;
     std::string installError;

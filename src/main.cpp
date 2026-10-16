@@ -52,6 +52,9 @@ void capture(App& app, Renderer& renderer, Canvas& canvas) {
     ui.screen = Screen::Rating; ui.ratingIndex = 3; shot("22-rating");
     ui.localDraft = ui.pending.info; ui.localIndex = 3; ui.screen = Screen::LocalInfo; shot("24-local-info");
     ui.pickerIndex = 1; ui.screen = Screen::PickTags; shot("25-game-tags");
+    ui.screen = Screen::Actions; ui.menuIndex = ui.actionRows().size() - 1; shot("30-actions-last-page");
+    ui.quickAssignment = true; ui.screen = Screen::PickCategory; ui.pickerIndex = 1; shot("31-assign-category");
+    ui.screen = Screen::PickTags; shot("32-assign-tags"); ui.quickAssignment = false;
     ui.library = Library::Available; ui.rebuild(); ui.pending = *ui.current();
     ui.screen = Screen::ConfirmInstall; shot("15-install-confirmation");
     ui.failedInstall = ui.pending;

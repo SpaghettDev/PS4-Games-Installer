@@ -17,7 +17,8 @@ Json parse(const std::string& text, unsigned maxSchema = 1) {
     Json root(cJSON_ParseWithLengthOpts(text.c_str(), text.size() + 1, nullptr, true), cJSON_Delete);
     if (!root || !cJSON_IsObject(root.get())) throw std::runtime_error("Invalid local data JSON");
     auto* schema = cJSON_GetObjectItemCaseSensitive(root.get(), "schema");
-    if (!cJSON_IsNumber(schema) || (schema->valuedouble != 1 && !(maxSchema >= 2 && schema->valuedouble == 2))) throw std::runtime_error("Unsupported local data schema");
+    if (!cJSON_IsNumber(schema) || schema->valuedouble < 1 || schema->valuedouble > maxSchema ||
+        std::floor(schema->valuedouble) != schema->valuedouble) throw std::runtime_error("Unsupported local data schema");
     return root;
 }
 uint64_t number(const cJSON* object, const char* key, uint64_t limit = 9007199254740991ULL) {
@@ -76,6 +77,25 @@ std::vector<std::string> terms(const cJSON* object, const char* key, size_t maxi
 void array(cJSON* object, const char* key, const std::vector<std::string>& values) {
     auto* field = cJSON_AddArrayToObject(object, key);
     for (const auto& value : values) cJSON_AddItemToArray(field, cJSON_CreateString(value.c_str()));
+}
+LocalFilter readFilter(const cJSON* object) {
+    if (!cJSON_IsObject(object)) throw std::runtime_error("Invalid local view filter");
+    LocalFilter f;
+    f.category = localName(string(object, "category", MaxLocalName)); f.tag = localName(string(object, "tag", MaxLocalName));
+    f.uncategorized = boolean(object, "uncategorized"); f.untagged = boolean(object, "untagged");
+    f.minRating = number(object, "min_rating", 5);
+    f.maxRating = cJSON_GetObjectItemCaseSensitive(object, "max_rating") ? number(object, "max_rating", 5) : 5;
+    f.launchState = number(object, "launch_state", 2); f.installState = number(object, "install_state", 3);
+    if (f.minRating > f.maxRating || (f.uncategorized && !f.category.empty()) || (f.untagged && !f.tag.empty()))
+        throw std::runtime_error("Collection filters conflict");
+    return f;
+}
+void writeFilter(cJSON* object, const LocalFilter& f) {
+    cJSON_AddStringToObject(object, "category", f.category.c_str()); cJSON_AddStringToObject(object, "tag", f.tag.c_str());
+    cJSON_AddBoolToObject(object, "uncategorized", f.uncategorized); cJSON_AddBoolToObject(object, "untagged", f.untagged);
+    cJSON_AddNumberToObject(object, "min_rating", f.minRating); cJSON_AddNumberToObject(object, "max_rating", f.maxRating);
+    cJSON_AddNumberToObject(object, "launch_state", f.launchState); cJSON_AddNumberToObject(object, "install_state", f.installState);
+    readFilter(object);
 }
 }
 std::string localName(const std::string& text) {
@@ -150,6 +170,10 @@ void PlayerData::renameTerm(bool tag, const std::string& previous, const std::st
         else if (lower(info.category) == lower(previous)) info.category = value;
     }
     *found = value;
+    for (auto& collection : collections) {
+        auto& term = tag ? collection.filter.tag : collection.filter.category;
+        if (lower(term) == lower(previous)) term = value;
+    }
     std::sort(list.begin(), list.end(), [](const std::string& a, const std::string& b) { return lower(a) < lower(b); });
 }
 void PlayerData::deleteTerm(bool tag, const std::string& name) {
@@ -160,6 +184,46 @@ void PlayerData::deleteTerm(bool tag, const std::string& name) {
         if (tag) info.tags.erase(std::remove_if(info.tags.begin(), info.tags.end(), [&](const std::string& term) { return lower(term) == lower(name); }), info.tags.end());
         else if (lower(info.category) == lower(name)) info.category.clear();
     }
+    // Keep a deleted-name filter so an existing saved collection does not
+    // unexpectedly expand to every game. It remains editable in its rule editor.
+}
+void PlayerData::saveCollection(SavedCollection collection, const std::string& previous) {
+    collection.name = localName(collection.name);
+    if (collection.name.empty()) throw std::runtime_error("Enter a collection name");
+    if (collection.query.size() > 128 || collection.query.find('\0') != std::string::npos) throw std::runtime_error("Collection search is too long");
+    Json filter(cJSON_CreateObject(), cJSON_Delete); writeFilter(filter.get(), collection.filter);
+    size_t index = collections.size();
+    for (size_t i = 0; i < collections.size(); ++i) {
+        if (lower(collections[i].name) == lower(previous)) index = i;
+        if (lower(collections[i].name) == lower(collection.name) && lower(collections[i].name) != lower(previous))
+            throw std::runtime_error("That saved collection name already exists");
+    }
+    if (!previous.empty() && index == collections.size()) throw std::runtime_error("Saved collection no longer exists");
+    if (index == collections.size()) {
+        if (collections.size() >= 64) throw std::runtime_error("Maximum 64 saved collections");
+        collections.push_back(std::move(collection));
+    } else collections[index] = std::move(collection);
+}
+void PlayerData::deleteCollection(const std::string& name) {
+    collections.erase(std::remove_if(collections.begin(), collections.end(), [&](const SavedCollection& c) { return lower(c.name) == lower(name); }), collections.end());
+}
+void PlayerData::assignMany(const std::set<std::string>& ids, const LocalInfo& change, unsigned operation) {
+    if (ids.empty()) throw std::runtime_error("Select at least one game");
+    if (operation > 3) throw std::runtime_error("Invalid bulk operation");
+    // Validate every update on a copy: one invalid Title ID or full tag list
+    // must not leave a half-applied batch in memory or on disk.
+    auto next = *this;
+    for (const auto& id : ids) {
+        requireId(id); auto info = next.games[id].info;
+        if (operation == 0) info.category = change.category;
+        else if (operation == 1) info.tags.insert(info.tags.end(), change.tags.begin(), change.tags.end());
+        else if (operation == 2) info.tags.erase(std::remove_if(info.tags.begin(), info.tags.end(), [&](const std::string& tag) {
+            return std::any_of(change.tags.begin(), change.tags.end(), [&](const std::string& remove) { return lower(tag) == lower(remove); });
+        }), info.tags.end());
+        else info.tags.clear();
+        next.setInfo(id, std::move(info));
+    }
+    *this = std::move(next);
 }
 void PlayerData::apply(Entry& entry) const {
     auto found = games.find(entry.titleId);
@@ -171,7 +235,7 @@ void PlayerData::apply(Entry& entry) const {
 }
 void PlayerData::apply(std::vector<Entry>& entries) const { for (auto& entry : entries) apply(entry); }
 PlayerData parsePlayerData(const std::string& text) {
-    auto root = parse(text, 2); auto* games = cJSON_GetObjectItemCaseSensitive(root.get(), "games");
+    auto root = parse(text, 3); auto* games = cJSON_GetObjectItemCaseSensitive(root.get(), "games");
     if (!cJSON_IsObject(games)) throw std::runtime_error("Local game records are missing");
     PlayerData data;
     data.categories = terms(root.get(), "categories", MaxLocalTerms); data.tags = terms(root.get(), "tags", MaxLocalTerms);
@@ -184,14 +248,28 @@ PlayerData parsePlayerData(const std::string& text) {
             string(item, "description", MaxLocalDescription), terms(item, "tags", MaxGameTags)};
         data.setInfo(id, std::move(info));
     }
+    if (auto* list = cJSON_GetObjectItemCaseSensitive(root.get(), "collections")) {
+        if (!cJSON_IsArray(list)) throw std::runtime_error("Invalid saved collections");
+        for (auto* item = list->child; item; item = item->next) {
+            if (!cJSON_IsObject(item)) throw std::runtime_error("Invalid saved collection");
+            SavedCollection c; c.name = string(item, "name", MaxLocalName); c.query = string(item, "query", 128);
+            c.available = boolean(item, "available"); c.filter = readFilter(cJSON_GetObjectItemCaseSensitive(item, "filter"));
+            data.saveCollection(std::move(c));
+        }
+    }
     return data;
 }
 std::string serializePlayerData(const PlayerData& data) {
-    // Older releases reject schema 2 and preserve the file instead of silently
-    // dropping the new personal fields when saving ratings or history.
-    Json root(cJSON_CreateObject(), cJSON_Delete); cJSON_AddNumberToObject(root.get(), "schema", 2);
+    // Older releases reject schema 3 rather than erase saved collections.
+    Json root(cJSON_CreateObject(), cJSON_Delete); cJSON_AddNumberToObject(root.get(), "schema", 3);
     auto* games = cJSON_AddObjectToObject(root.get(), "games");
     array(root.get(), "categories", data.categories); array(root.get(), "tags", data.tags);
+    auto* collections = cJSON_AddArrayToObject(root.get(), "collections");
+    for (const auto& c : data.collections) {
+        auto* item = cJSON_CreateObject(); cJSON_AddItemToArray(collections, item);
+        cJSON_AddStringToObject(item, "name", c.name.c_str()); cJSON_AddStringToObject(item, "query", c.query.c_str());
+        cJSON_AddBoolToObject(item, "available", c.available); writeFilter(cJSON_AddObjectToObject(item, "filter"), c.filter);
+    }
     for (const auto& game : data.games) {
         auto* record = cJSON_AddObjectToObject(games, game.first.c_str());
         cJSON_AddBoolToObject(record, "was_installed", game.second.wasInstalled);
@@ -218,10 +296,7 @@ ViewState parseViewState(const std::string& text) {
     state.available = boolean(root.get(), "available"); state.sidebar = boolean(root.get(), "sidebar");
     state.query = string(root.get(), "query", 512);
     if (auto* filter = cJSON_GetObjectItemCaseSensitive(root.get(), "local_filter")) {
-        if (!cJSON_IsObject(filter)) throw std::runtime_error("Invalid local view filter");
-        state.filter.category = localName(string(filter, "category", MaxLocalName));
-        state.filter.tag = localName(string(filter, "tag", MaxLocalName));
-        state.filter.uncategorized = boolean(filter, "uncategorized"); state.filter.untagged = boolean(filter, "untagged");
+        state.filter = readFilter(filter);
     }
     for (size_t i = 0; i < 2; ++i) {
         auto* item = cJSON_GetObjectItemCaseSensitive(root.get(), i ? "remote" : "installed");
@@ -239,8 +314,7 @@ std::string serializeViewState(const ViewState& state) {
     cJSON_AddBoolToObject(root.get(), "available", state.available); cJSON_AddBoolToObject(root.get(), "sidebar", state.sidebar);
     cJSON_AddStringToObject(root.get(), "query", state.query.c_str());
     auto* filter = cJSON_AddObjectToObject(root.get(), "local_filter");
-    cJSON_AddStringToObject(filter, "category", state.filter.category.c_str()); cJSON_AddStringToObject(filter, "tag", state.filter.tag.c_str());
-    cJSON_AddBoolToObject(filter, "uncategorized", state.filter.uncategorized); cJSON_AddBoolToObject(filter, "untagged", state.filter.untagged);
+    writeFilter(filter, state.filter);
     for (size_t i = 0; i < 2; ++i) {
         auto* item = cJSON_AddObjectToObject(root.get(), i ? "remote" : "installed");
         const auto& cursor = state.cursor[i];

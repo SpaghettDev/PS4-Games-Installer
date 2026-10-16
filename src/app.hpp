@@ -9,21 +9,28 @@ class Video;
 class App {
     struct Worker;
     std::unique_ptr<Worker> worker;
+    std::unique_ptr<Worker> monitor;
     std::string directory;
     Settings saved;
     std::optional<ViewState> resume;
     bool playerWritable = true;
+    bool queueWritable = true;
     std::mutex logMutex;
     bool demo = false, initialScan = true, bootReady = false, startRemote = false;
     bool quitting = false;
     double lastLocalScan = 0, lastPoll = 0;
     std::map<std::string, int> tasks;
     std::map<int, int> reportedTaskErrors;
+    std::set<std::string> pendingCancels;
+    std::string activeDownloadUrl;
     void refresh(bool remote);
     void log(const std::string& message);
     void saveTasks();
     void savePosition();
     void savePlayer(const PlayerData& next);
+    void persistQueue();
+    void syncQueued();
+    void startNextDownload(int userId);
 public:
     Ui ui;
     ArtworkCache artwork;

@@ -27,6 +27,7 @@ struct Progress {
 };
 std::string mode, expectedUrl, expectedIcon;
 int registrations = 0, starts = 0, removals = 0;
+int stops = 0;
 bool local = false;
 bool update = false;
 std::string expectedContent;
@@ -47,6 +48,7 @@ int initApp() { return 0; }
 int getSlot(const char* id, unsigned* slot) { assert(std::strcmp(id, "CUSA00001") == 0); *slot = 3; return 0; }
 int start(int task) { assert(task == 45); ++starts; return mode == "start-error" ? -3 : 0; }
 int unregisterTask(int task) { assert(task == 45); ++removals; return mode == "remove-error" ? -4 : 0; }
+int stop(int task) { assert(task == 45); ++stops; return mode == "stop-error" ? -6 : 0; }
 int progress(int task, Progress* p) {
     assert(task == 45); *p = {};
     if (mode == "missing") return static_cast<int32_t>(0x80990019u);
@@ -91,6 +93,7 @@ int32_t sceKernelDlsym(int32_t module, const char* name, void** out) {
     BIND("sceBgftServiceIntDebugDownloadRegisterPkg", registerPkg)
     BIND("sceBgftServiceIntDownloadRegisterTaskByStorageEx", registerLocal)
     BIND("sceBgftServiceDownloadStartTask", start)
+    BIND("sceBgftServiceDownloadStopTask", stop)
     BIND("sceBgftServiceIntDownloadUnregisterTask", unregisterTask)
     BIND("sceBgftServiceDownloadGetProgress", progress)
     BIND("sceBgftServiceDownloadFindTaskByContentId", findTask)
@@ -138,5 +141,12 @@ int main() {
     mode = "local-complete"; assert(taskProgress(45).completed && taskProgress(45).total == 100 && retireInactiveTask(45) && removals == 5);
     mode = "missing"; assert(!taskProgress(45).found && !retireInactiveTask(45));
     mode = "progress-error"; rejects([] { taskProgress(45); }, "Read installation progress"); assert(!retireInactiveTask(45));
+    rejects([] { cancelInstallTask(-1); }, "Invalid owned");
+    rejects([] { cancelInstallTask(45); }, "Check task before cancellation");
+    const int before = removals;
+    mode = "active"; cancelInstallTask(45); assert(stops == 1 && removals == before + 1);
+    mode = "stop-error"; rejects([] { cancelInstallTask(45); }, "Stop owned"); assert(stops == 2 && removals == before + 1);
+    mode = "remove-error"; rejects([] { cancelInstallTask(45); }, "Release inactive"); assert(removals == before + 2);
+    mode = "missing"; cancelInstallTask(45); assert(removals == before + 2);
     std::puts("BGFT remote/local registration, URL preservation, conflicts, retry cleanup and completion checks passed");
 }

@@ -28,7 +28,7 @@ It requires an active homebrew environment; this app does not install GoldHEN.
   background installer; other servers use a direct-download fallback first.
 - Switch between a cover tile grid and a summary list. The summary background
   follows the selected game's artwork. Group by category, region, first letter,
-  local category or tag, or none; sort by name or size and optionally hide
+  local category, tag or game/Title ID, or none; sort by name or size and optionally hide
   installed remote titles.
 - Edit catalog URLs with the PS4 on-screen keyboard, test connectivity, and save
   settings from the app. No FTP configuration is needed for normal setup.
@@ -42,6 +42,12 @@ It requires an active homebrew environment; this app does not install GoldHEN.
 - Resume the selected library and game after launching a game or exiting the app.
   The bottom-left counter follows the current library and shows packages ready
   to install on Available.
+- Organize several games together, save reusable collection rules, and back up
+  personal records to USB without copying game files.
+- Track a persistent download queue with retry/cancel, separate installation
+  verification, transfer rates and approximate remaining download time.
+- Browse a game's base packages, updates and DLC together, with installed and
+  available versions where the catalog supplies them.
 
 **Background animation** in Settings controls the flowing bubbles in both Tiles
 and Summary list. It is on by default; switching it off leaves a still background.
@@ -124,6 +130,21 @@ without an extra staging copy. Servers that ignore ranges use the direct-downloa
 fallback described below. TLS verification remains
 enabled; firmware TLS/certificate support can limit which HTTPS hosts work.
 
+### Connection setup helper
+
+Open **Options > Connection setup helper**, or use its row in Settings. For an
+additional source, highlight it in **Other catalog sources** and press Square.
+Triangle edits the URL; accepting the keyboard starts a test. Square tests again.
+The helper shows the valid package count, game/update/DLC counts and missing
+Title ID warnings. It distinguishes a JSON catalog from an HTML home page and
+retains connection, HTTP and format errors with the source category and next checks.
+
+After a successful test, choose **Use tested source in settings**, then **Save
+settings**. O leaves the helper without applying its candidate URL. Tests read
+the catalog only; each package URL is checked separately when installing. A valid
+empty catalog is accepted and explicitly reported as empty. Settings also retains
+the ordinary URL editor and Test connection for offline/manual configuration.
+
 ## Controls
 
 | Button | Action |
@@ -162,7 +183,9 @@ Press **Triangle > Rate game**, choose **1–5 stars**, then press X. Choose
 Title ID in the catalog is required. Versions or catalog entries with the same
 Title ID share the rating and history, even if their name or package URL changes.
 
-**Installed** means the title is present now. **Was installed** means the app
+**Installed** means a base title is present, or the installed version meets a
+known update version. DLC presence cannot be inferred from the base game alone;
+its status remains unknown. **Was installed** means the app
 previously observed it installed, but the latest scan does not find it. Tracking
 starts with this version: games removed before it first sees them cannot be
 reconstructed. Details also show the first recorded installation and launch
@@ -236,9 +259,83 @@ from your personal categories.
 
 All of this stays in `player.json` on the PS4, survives refreshes/restarts and
 remains after uninstalling a game. Existing ratings/history are preserved when
-upgrading. The app writes player schema 2; older releases preserve that file
+upgrading. The app reads player schemas 1–3 and writes schema 3; older releases preserve that file
 without editing it. Limits are 256 local categories, 256 tags, 64 UTF-8 bytes per
 name/label and 2047 UTF-8 bytes per description.
+
+### Organizing several games
+
+Choose **Options > Select multiple games**. In either library, X marks/unmarks a
+game; its other package variants share the selection by Title ID. Switch libraries
+with L1/R1 if needed. Triangle opens the bulk actions:
+
+- Assign one category to the selection; X saves the chosen category.
+- Add tags while keeping each game's other tags, or remove only chosen tags.
+  X toggles names, Triangle enters a name, and Square saves the batch.
+- Clear all tags requires a confirmation. Categories, labels, notes, ratings and
+  history stay intact.
+- Select all visible games, clear the selection, or finish selecting.
+
+O backs out of an edit; O on the dashboard ends selection mode. A batch is
+validated and saved together. If one title exceeds the tag limit or writing fails,
+none of the changes are applied and the draft remains available for retry.
+
+![Bulk organization with sample data](docs/images/bulk-organize.png)
+
+### Saved collections
+
+Open **Options > Saved collections**. X opens a collection; Triangle creates one
+from the current library, search and category/tag filters. Edit its name, library,
+search, category, tag, minimum/maximum stars, launch-history rule and installation
+rule. X edits text; Left/Right or X cycles rules. Scroll down to **Save collection**.
+O cancels the draft. Square edits an existing collection and Options deletes it
+after confirmation. Up to 64 named collections are stored in `player.json`.
+
+Built-in shortcuts show no recorded launches, 4–5 star games, previously installed
+games, or all games with filters cleared. Rules are evaluated against current
+metadata each time the library changes. “No launches recorded” covers only launch
+requests made through this app; it does not establish whether you played a game
+elsewhere. A removed category/tag stays in a saved rule until edited, keeping that
+collection empty rather than silently broadening it to every game. Renaming a
+category/tag updates saved rules that use it.
+
+### USB backup and restore
+
+Connect a writable FAT/exFAT USB drive and open **Options > USB backup / restore**.
+Triangle refreshes `/mnt/usb0` through `/mnt/usb7`. X exports a new, uniquely named
+`PS4-Games-Installer-player-<timestamp>-<sequence>.json` file to the selected drive.
+Existing backups are kept and the new file is read back for verification.
+
+Square lists that drive's backups. Select one with X, review the replacement
+confirmation, then X restores it or O cancels. The complete backup is validated
+before replacement. The existing `player.json` is first preserved as
+`player-before-restore-<timestamp>-<sequence>.json` in application storage, including
+when the original profile is corrupt. If that recovery copy cannot be saved, the
+restore stops. The selected backup replaces the profile rather than merging it.
+
+Backups include ratings, categories, tags, labels, descriptions, installation/launch
+history and saved collections. They exclude game files, sources, network settings,
+artwork, queue state and session position. USB backup drives are separate from
+PS4 Extended Storage installation destinations. Actual USB behavior needs console
+acceptance; the desktop preview displays sample devices and disables writes.
+
+### Base games, updates and DLC
+
+Use **Triangle > Game packages** on a game in either library to list all remote
+packages sharing its Title ID, even those hidden by the dashboard's current filters.
+Base packages appear first, then updates with newest known versions first, then
+DLC. X opens install confirmation or the queue for an active package; Square shows
+details and Triangle opens that package's actions. **Group: Game / Title ID** also
+groups the main dashboard this way.
+
+Details show the installed version and the latest catalog update where available.
+Version comparison uses numeric dotted versions, so `1.10` is newer than `1.2`.
+Malformed or missing versions remain unconfirmed. A base game's presence never
+marks all DLC installed. Each source's configured catalog category identifies its
+package type; configure updates and DLC as their own sources when supplied by
+separate endpoints. Correct Title IDs and version metadata improve these views.
+
+![Related packages with sample data](docs/images/game-packages.png)
 
 ## Installation storage
 
@@ -264,6 +361,36 @@ still pending for the new r17 selector on PS4 11.00 + GoldHEN.
 
 ## Downloads and offline use
 
+Open **Options > Download queue** to manage up to 200 tracked packages. Installing
+adds a persistent waiting item, including when another transfer is running. Package
+preflights/direct downloads run one at a time; accepted PS4 tasks continue in the
+background and have a separate progress monitor.
+
+The queue distinguishes **Queued**, **Checking URL**, **Downloading**, **Registering
+with PS4**, **Installing**, **Verifying installation**, **Completed**, **Failed**,
+**Cancelling** and **Cancelled**. Transfer percentages, bytes, speed and approximate
+download time are shown when available. They do not measure installation progress.
+X opens diagnostics; X in diagnostics retries a failed/cancelled item. Triangle
+offers cancellation with confirmation. Waiting items are removed from the waiting
+queue; active direct transfers are interrupted; owned PS4 tasks are stopped and
+unregistered. A cancellation error keeps task ownership and its staging file.
+Options on the queue clears finished history while keeping active tasks.
+
+Base games and known updates are marked complete only after a fresh installed
+scan confirms the title/requested version. An old installed copy cannot prove a
+disappeared task succeeded. If the title/version is still absent after two minutes,
+the item reports **installation could not be confirmed**, with PS4 Downloads,
+GoldHEN and storage checks. A reported completed DLC/theme task is labeled as a
+system-confirmed package; it does not need its own game tile and does not claim
+individual DLC discovery in the main library.
+
+Queue/history and owned task IDs survive restart. Waiting items resume scheduling
+when the app reopens. Interrupted preflight/direct-transfer items require Retry;
+complete staged packages can be reused, while partial transfers start over. Invalid
+queue files are preserved and block new queue writes until repaired.
+
+![Download queue with sample progress](docs/images/download-queue.png)
+
 The app checks the actual PKG URL with a small GET range request before submitting
 it. A 404, HTML response or invalid package signature is reported before creating
 a PS4 task. A server that responds with HTTP 206 uses BGFT directly.
@@ -288,8 +415,8 @@ fully restart the PS4, enable GoldHEN and retry. The app does not remove unrelat
 downloads to resolve a conflict.
 
 Once a task is submitted to BGFT, closing this application does not cancel it.
-Use **PS4 Notifications > Downloads** for authoritative task status,
-completion and cancellation. The app retains task IDs between launches and polls
+Use this app's queue or **PS4 Notifications > Downloads** for task details and
+cancellation. The app retains task IDs between launches and polls
 progress while running. A completed transfer may still be installing. Failed owned
 tasks are unregistered before allowing a retry. A staging copy is retained until
 its task is removed or BGFT confirms installation/copy completion and unregisters
@@ -402,7 +529,11 @@ The console stores its files under `/data/PS4-Game-Installer/`:
 
 - `config.json`: saved sources and display preferences; see config.example.json.
 - `catalog.json`: last successful remote catalog snapshot.
-- `tasks.json`: submitted task IDs; task cancellation remains in the PS4 system UI.
+- `player.json`: personal Title ID records and saved collection rules (schema 3).
+- `session.json`: library selections, search and active filter rules.
+- `queue.json`: waiting/active/finished queue items, progress snapshots and task ownership.
+- `tasks.json`: compatibility copy of submitted task IDs from earlier releases.
+- `player-before-restore-*.json`: recovery copies made before USB restores.
 - `artwork/`: disposable cover cache.
 - `downloads/`: private package staging; do not remove files used by active PS4 tasks.
 - `app.log`: recent operation results and service errors.

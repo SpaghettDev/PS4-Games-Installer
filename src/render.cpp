@@ -76,7 +76,7 @@ std::shared_ptr<Image> softened(const Image& input) {
     }
     return image;
 }
-std::string state(const Entry& e) { return e.installed ? "Installed" : e.queued ? "Queued" : e.wasInstalled ? "Was installed" : ""; }
+std::string state(const Entry& e) { const auto text = packageStatus(e); return text == "Available" ? "" : text; }
 void stars(Canvas& c, unsigned rating, int x, int y, int size) {
     if (!rating) return;
     for (unsigned star = 0; star < 5; ++star) {
@@ -175,6 +175,7 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
     c.text(ui.library == Library::Installed ? "Installed games" : "Available games", 368, 206, 32, White);
     c.text(ui.filterDescription(), 750, 205, 20, Accent, 850);
     c.text(std::to_string(ui.shownGames()) + (ui.shownGames() == 1 ? " title" : " titles"), 1640, 204, 23, Muted, 220);
+    if (ui.bulkMode) c.text("SELECTING: " + std::to_string(ui.markedTitles.size()) + " games", 75, 445, 21, Accent, 250);
 
     if (ui.visible.empty()) {
         c.image(*placeholder, 1020, 365, 140, 140, 180);
@@ -206,6 +207,9 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
                 c.text(entry.info.label.empty() ? "Unlabeled" : entry.info.label, x + 174, y + 270, 17, Muted, 140);
                 c.text(shortSize(ui.library == Library::Installed ? entry.installedSize : entry.size), x + 17, y + 299, 21, Muted, 288);
                 stars(c, entry.rating, x + 190, y + 282, 18);
+                if (ui.bulkMode && ui.markedTitles.count(entry.titleId)) {
+                    c.rounded(x + 220, y + 16, 95, 30, 5, Blue); c.text("Selected", x + 228, y + 38, 17, White, 82);
+                }
             }
         }
         c.text("Page " + std::to_string(begin / 2 + 1) + " / " + std::to_string((rows.size() + 1) / 2), 1670, 949, 18, Muted, 180);
@@ -227,6 +231,7 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
             c.text(meta, 451, y + 46, 15, Muted, 640);
             c.text(shortSize(ui.library == Library::Installed ? entry.installedSize : entry.size), 1110, y + 13, 21, Muted, 165);
             stars(c, entry.rating, 1110, y + 25, 17);
+            if (ui.bulkMode && ui.markedTitles.count(entry.titleId)) c.text("[Selected]", 1008, y + 45, 15, Accent, 95);
         }
         if (selected) {
             auto image = artwork.request(*selected, true);
@@ -248,10 +253,11 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
     c.rectangle(54, 964, 1812, 1, 0x638aad, 65);
     c.text(ui.librarySummary(), 70, 1000, 22, White, 620);
     c.text(ui.status, 720, 1000, 21, ui.loading ? Accent : Muted, 1130);
-    hints(c, 70, 1045, {{Button::Cross, ui.library == Library::Installed ? "Launch" : "Install"},
+    hints(c, 70, 1045, {{Button::Cross, ui.bulkMode ? "Mark game" : ui.library == Library::Installed ? "Launch" : "Install"},
         {Button::Square, "Details"}, {Button::Triangle, "Actions"}, {Button::Options, "Menu"},
-        {Button::Circle, "Back / Exit"}, {Button::L1, "Library"}}, 22);
+        {Button::Circle, ui.bulkMode ? "End selection" : "Back / Exit"}, {Button::L1, "Library"}}, 22);
 
+    if (featureDialog(c, ui)) return;
     switch (ui.screen) {
         case Screen::Options:
             panel(c, 520, 168, 880, 728, "Options");
@@ -260,7 +266,7 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
             hints(c, 570, 862, {{Button::Cross, "Select"}, {Button::Circle, "Back"}}); break;
         case Screen::Settings: {
             panel(c, 352, 115, 1216, 840, "Settings");
-            menu(c, ui.settingRows(), ui.settingsIndex, 390, 251, 1140, 48);
+            menu(c, ui.settingRows(), ui.settingsIndex, 390, 251, 1140, 42);
             c.text(ui.status, 412, 812, 20, Muted, 1090);
             std::string url = ui.draft.sources[0].url;
             c.text(url.empty() ? "Games URL is not configured" : url, 412, 844, 21, Muted, 1090);
@@ -278,7 +284,7 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
                 c.text(i == ui.draft.sources.size() ? "+ Add catalog source" : ui.draft.sources[i].category, 414, y - 4, 27, White, 1090);
                 if (i < ui.draft.sources.size()) c.text(ui.draft.sources[i].url.empty() ? "Disabled" : ui.draft.sources[i].url, 414, y + 22, 18, Muted, 1090);
             }
-            hints(c, 412, 898, {{Button::Cross, "Edit / Add"}, {Button::Triangle, "Remove"}, {Button::Circle, "Back"}}); break;
+            hints(c, 412, 898, {{Button::Cross, "Edit / Add"}, {Button::Square, "Setup helper"}, {Button::Triangle, "Remove"}, {Button::Circle, "Back"}}, 21); break;
         }
         case Screen::Storage: {
             panel(c, 320, 170, 1280, 740, "Installation storage");
@@ -336,15 +342,15 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
         case Screen::PickCategory:
         case Screen::PickTags: {
             const bool tags = ui.screen == Screen::PickTags;
-            panel(c, 470, 160, 980, 760, ui.quickAssignment ? (tags ? "Assign tags" : "Assign category") : (tags ? "Choose local tags" : "Choose local category"));
-            c.text(ui.pending.name + "  /  " + ui.pending.titleId, 510, 281, 22, Accent, 900);
-            std::vector<std::string> rows{tags ? "Clear all game tags" : "Uncategorized"};
+            panel(c, 470, 160, 980, 760, ui.bulkEditing ? (tags ? (ui.bulkOperation == 1 ? "Add tags to selected games" : "Remove tags from selected games") : "Assign category to selected games") : ui.quickAssignment ? (tags ? "Assign tags" : "Assign category") : (tags ? "Choose local tags" : "Choose local category"));
+            c.text(ui.pending.name + (ui.pending.titleId.empty() ? "" : "  /  " + ui.pending.titleId), 510, 281, 22, Accent, 900);
+            std::vector<std::string> rows{tags ? (ui.bulkEditing ? "Clear tag selection" : "Clear all game tags") : "Uncategorized"};
             for (const auto& term : ui.termChoices(tags, true)) {
                 const bool active = tags ? std::any_of(ui.localDraft.tags.begin(), ui.localDraft.tags.end(), [&](const std::string& tag) { return lower(tag) == lower(term); }) : lower(term) == lower(ui.localDraft.category);
                 rows.push_back(std::string(active ? "[Selected]  " : "") + term);
             }
             menu(c, rows, ui.pickerIndex, 510, 320, 900, 56, 8);
-            const auto help = ui.quickAssignment ? (tags ? "Toggle tags, then press Square to save. O cancels your changes." : "Choose a category to save it. Triangle enters a new name.") : (tags ? "X toggles a tag. O returns to the draft." : "Choose a category, or press Triangle to create one.");
+            const auto help = ui.bulkEditing && tags ? "Select tags to add/remove, then Square saves the whole batch." : ui.quickAssignment ? (tags ? "Toggle tags, then press Square to save. O cancels your changes." : "Choose a category to save it. Triangle enters a new name.") : (tags ? "X toggles a tag. O returns to the draft." : "Choose a category, or press Triangle to create one.");
             c.text(ui.localNotice.empty() ? help : ui.localNotice, 510, 788, 21, Muted, 900);
             if (ui.quickAssignment && tags)
                 hints(c, 510, 863, {{Button::Cross, "Toggle"}, {Button::Square, "Save"}, {Button::Triangle, "New"}, {Button::Circle, "Cancel"}}, 22);
@@ -439,4 +445,123 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
         default: break;
     }
 }
+bool Renderer::featureDialog(Canvas& c, Ui& ui) {
+    auto notice = [&](int y = 807) { c.text(ui.featureNotice, 380, y, 21, Accent, 1160); };
+    auto wrap = [](const std::vector<std::string>& source) {
+        std::vector<std::string> lines;
+        for (auto line : source) {
+            for (auto& ch : line) if (ch == '\n' || ch == '\r' || ch == '\t') ch = ' ';
+            while (line.size() > 86) {
+                size_t cut = line.rfind(' ', 86); if (cut == std::string::npos || cut < 20) cut = 86;
+                while (cut && (static_cast<unsigned char>(line[cut]) & 0xc0) == 0x80) --cut;
+                if (!cut) cut = 86;
+                lines.push_back(line.substr(0, cut)); line.erase(0, cut); if (!line.empty() && line[0] == ' ') line.erase(0, 1);
+            }
+            lines.push_back(line);
+        }
+        return lines;
+    };
+    switch (ui.screen) {
+        case Screen::BulkMenu:
+            panel(c, 330, 130, 1260, 800, "Organize selected games");
+            c.text(std::to_string(ui.markedTitles.size()) + " unique Title IDs selected across both libraries", 380, 275, 25, Accent, 1160);
+            menu(c, ui.bulkRows(), ui.bulkIndex, 370, 350, 1180, 58);
+            notice(); hints(c, 380, 882, {{Button::Cross, "Select"}, {Button::Circle, "Back to selection"}}); return true;
+        case Screen::ConfirmBulkClear:
+            panel(c, 350, 260, 1220, 550, "Clear tags on selected games?");
+            c.text(std::to_string(ui.markedTitles.size()) + " games will have all local tag assignments removed.", 400, 425, 28, White, 1120);
+            c.text("Categories, notes, labels, ratings and history will be kept.", 400, 493, 24, Muted, 1120);
+            c.text(ui.featureNotice, 400, 620, 22, Accent, 1120);
+            hints(c, 400, 752, {{Button::Cross, "Clear tags"}, {Button::Circle, "Cancel"}}); return true;
+        case Screen::SavedCollections:
+            panel(c, 330, 120, 1260, 820, "Saved collections");
+            c.text("Rules update automatically as your library and local records change.", 380, 260, 23, Muted, 1160);
+            menu(c, ui.savedRows(), ui.savedIndex, 370, 330, 1180, 58, 7);
+            notice(); hints(c, 380, 862, {{Button::Cross, "Browse"}, {Button::Triangle, "New"}, {Button::Square, "Edit"}, {Button::Options, "Delete"}}, 21);
+            hints(c, 380, 906, {{Button::Circle, "Back"}}, 21); return true;
+        case Screen::EditSaved:
+            panel(c, 300, 100, 1320, 880, ui.savedOriginal.empty() ? "Create saved collection" : "Edit saved collection");
+            menu(c, ui.savedEditRows(), ui.savedEditIndex, 340, 247, 1240, 56, 8);
+            c.text("Launch history only covers launches requested through this app.", 350, 765, 21, Muted, 1220);
+            c.text("Left / Right changes rules. Up / Down scrolls to Save collection.", 350, 806, 21, Muted, 1220);
+            c.text(ui.featureNotice, 350, 851, 21, Accent, 1220);
+            hints(c, 350, 928, {{Button::Cross, "Change / Save"}, {Button::Circle, "Cancel changes"}}); return true;
+        case Screen::ConfirmDeleteSaved:
+            panel(c, 380, 270, 1160, 540, "Delete saved collection?");
+            c.text(ui.savedOriginal, 430, 425, 31, White, 1060);
+            c.text("Only these saved rules will be removed. Your games and records stay.", 430, 500, 24, Muted, 1060);
+            c.text(ui.featureNotice, 430, 620, 21, Accent, 1060);
+            hints(c, 430, 752, {{Button::Cross, "Delete collection"}, {Button::Circle, "Cancel"}}); return true;
+        case Screen::Queue: {
+            panel(c, 180, 120, 1560, 820, "Download queue");
+            size_t active = 0; for (const auto& job : ui.downloads) if (queueActive(job.stage)) ++active;
+            c.text(std::to_string(active) + " active / " + std::to_string(ui.downloads.size()) + " tracked packages", 230, 260, 24, Accent, 1460);
+            if (ui.downloads.empty()) c.text("Install a package from Available to add it here.", 230, 350, 29, White, 1460);
+            else menu(c, ui.queueRows(), ui.queueIndex, 220, 330, 1480, 61, 7);
+            c.text(ui.featureNotice.empty() ? "Downloading, installing and verifying are separate stages. Open an item for details." : ui.featureNotice, 230, 810, 21, Muted, 1460);
+            hints(c, 230, 884, {{Button::Cross, "Details"}, {Button::Triangle, "Refresh"}, {Button::Options, "Clear finished"}, {Button::Circle, "Back"}}, 21); return true;
+        }
+        case Screen::QueueDetails: {
+            panel(c, 240, 120, 1440, 840, "Package progress and diagnostics");
+            const auto lines = wrap(ui.queueDetails());
+            ui.detailScroll = std::min(ui.detailScroll, lines.size() > 11 ? lines.size() - 11 : size_t(0));
+            for (size_t i = ui.detailScroll; i < std::min(lines.size(), ui.detailScroll + 11); ++i)
+                c.text(lines[i], 290, 265 + (i - ui.detailScroll) * 43, 24, i == 2 ? Accent : White, 1340);
+            c.text(ui.featureNotice, 290, 807, 21, Accent, 1340);
+            c.text("Up / Down scrolls diagnostics", 290, 849, 20, Muted, 1340);
+            hints(c, 290, 910, {{Button::Cross, "Retry failed"}, {Button::Triangle, "Cancel task"}, {Button::Circle, "Back"}}, 22); return true;
+        }
+        case Screen::ConfirmCancelQueue:
+            panel(c, 350, 250, 1220, 570, "Cancel this package?");
+            if (!ui.downloads.empty()) c.text(ui.downloads[std::min(ui.queueIndex, ui.downloads.size() - 1)].entry.name, 400, 420, 31, White, 1120);
+            c.text("This stops this app's owned download/installation task.", 400, 493, 24, Muted, 1120);
+            c.text("Installed games and unrelated PS4 downloads are kept.", 400, 543, 24, Muted, 1120);
+            hints(c, 400, 762, {{Button::Cross, "Cancel package"}, {Button::Circle, "Keep task"}}); return true;
+        case Screen::Backups:
+        case Screen::BackupFiles: {
+            const bool files = ui.screen == Screen::BackupFiles;
+            panel(c, 240, 110, 1440, 850, files ? "Restore personal records from USB" : "USB backup / restore");
+            c.text("Ratings, tags, categories, notes, history and saved collections. Game files stay on PS4.", 290, 250, 23, Muted, 1340);
+            std::vector<std::string> rows;
+            if (files && !ui.backupDevices.empty()) rows = ui.backupDevices[std::min(ui.backupIndex, ui.backupDevices.size() - 1)].files;
+            else for (const auto& device : ui.backupDevices) rows.push_back(device.path + " / " + std::to_string(device.files.size()) + (device.files.size() == 1 ? " backup" : " backups"));
+            if (rows.empty()) c.text(files ? "No personal-record backups found on this drive." : "Connect a FAT/exFAT USB drive and press Triangle.", 290, 350, 28, White, 1340);
+            else menu(c, rows, files ? ui.backupFileIndex : ui.backupIndex, 280, 330, 1360, 58, 7);
+            c.text(ui.featureNotice, 290, 810, 21, Accent, 1340);
+            if (files) hints(c, 290, 904, {{Button::Cross, "Choose backup"}, {Button::Triangle, "Refresh"}, {Button::Circle, "Back"}}, 22);
+            else hints(c, 290, 904, {{Button::Cross, "Export new backup"}, {Button::Square, "Restore"}, {Button::Triangle, "Refresh"}, {Button::Circle, "Back"}}, 22);
+            return true;
+        }
+        case Screen::ConfirmRestore:
+            panel(c, 270, 200, 1380, 700, "Replace personal records with this backup?");
+            c.text(ui.restoreFilename, 320, 350, 26, White, 1280); c.text(ui.restoreDevice, 320, 401, 23, Accent, 1280);
+            c.text("This replaces local ratings, organization, history and saved collections.", 320, 491, 25, White, 1280);
+            c.text("The current profile is saved as a recovery copy before replacement.", 320, 548, 24, Muted, 1280);
+            c.text("The backup must be valid. Games, sources and downloaded packages are kept.", 320, 601, 24, Muted, 1280);
+            c.text(ui.featureNotice, 320, 730, 21, Accent, 1280);
+            hints(c, 320, 843, {{Button::Cross, "Restore records"}, {Button::Circle, "Cancel"}}); return true;
+        case Screen::SourceSetup: {
+            panel(c, 250, 100, 1420, 880, "Connection setup helper");
+            c.text("Source: " + ui.setupSource.category, 300, 235, 24, Accent, 1320);
+            menu(c, {"URL: " + (ui.setupSource.url.empty() ? "Enter a games JSON URL" : ui.setupSource.url), ui.sourceTesting ? "Testing..." : "Test this source", "Use tested source in settings"}, ui.setupIndex, 290, 315, 1340, 64);
+            std::vector<std::string> info;
+            if (ui.sourceReport.success) info.push_back(std::to_string(ui.sourceReport.packages) + " packages: " + std::to_string(ui.sourceReport.games) + " games / " + std::to_string(ui.sourceReport.updates) + " updates / " + std::to_string(ui.sourceReport.dlc) + " DLC");
+            info.push_back(ui.featureNotice.empty() ? ui.sourceReport.message : ui.featureNotice);
+            info.push_back("Enter the full URL that returns a JSON catalog with a DATA object.");
+            info.push_back("Testing checks the catalog format and entries; package URLs are checked when installing.");
+            const auto lines = wrap(info);
+            for (size_t i = 0; i < std::min(size_t(7), lines.size()); ++i) c.text(lines[i], 300, 565 + i * 36, 23, i == 0 ? Accent : Muted, 1320);
+            hints(c, 300, 921, {{Button::Cross, "Select"}, {Button::Triangle, "Edit URL"}, {Button::Square, "Test"}, {Button::Circle, "Back"}}, 22); return true;
+        }
+        case Screen::Packages:
+            panel(c, 180, 120, 1560, 820, "Base game, updates and DLC");
+            c.text(ui.packageTitle + " / Installed and catalog versions are compared when available.", 230, 260, 23, Accent, 1460);
+            if (ui.packageRows().empty()) c.text("No remote packages for this Title ID.", 230, 350, 28, White, 1460);
+            else menu(c, ui.packageRows(), ui.packageIndex, 220, 335, 1480, 62, 7);
+            c.text("DLC shares the base Title ID; base-game presence does not confirm individual DLC ownership.", 230, 812, 21, Muted, 1460);
+            hints(c, 230, 884, {{Button::Cross, "Install / Queue"}, {Button::Square, "Details"}, {Button::Triangle, "Actions"}, {Button::Circle, "Back"}}, 22); return true;
+        default: return false;
+    }
+}
+
 }

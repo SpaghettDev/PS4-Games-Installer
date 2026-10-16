@@ -10,6 +10,7 @@ class Renderer {
     void panel(Canvas& canvas, int x, int y, int w, int h, const std::string& title);
     void menu(Canvas& canvas, const std::vector<std::string>& rows, size_t selected,
               int x, int y, int w, int rowHeight = 54, size_t count = SIZE_MAX);
+    bool featureDialog(Canvas& canvas, Ui& ui);
 public:
     explicit Renderer(const std::string& assetDirectory);
     void draw(Canvas& canvas, Ui& ui, ArtworkCache& artwork, double time);

@@ -20,6 +20,8 @@ int queueInstall(const Entry& entry, int userId);
 int queueLocalInstall(const Entry& entry, const std::string& path, int userId);
 // Only call for failed/completed tasks owned/tracked by this application.
 bool retireInactiveTask(int taskId);
+// Explicit user cancellation, only for a task ID recorded as owned by this app.
+void cancelInstallTask(int taskId);
 struct TaskProgress {
     uint64_t transferred = 0, total = 0;
     int error = 0;

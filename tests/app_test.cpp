@@ -17,6 +17,9 @@ std::string lastUrl;
 std::atomic<bool> allowInstalls{false}, allowRetirement{false};
 std::atomic<bool> rejectInstall{false};
 std::atomic<int> submissions{0}, progressMode{0};
+std::atomic<bool> blockProbe{false}, uniqueTasks{false}, failCancellation{false};
+std::atomic<int> cancellations{0};
+std::string sourceResponse;
 std::vector<psgi::Entry> localGames;
 std::string launchDirectory;
 bool allowLaunch = false, failLaunch = false, allowUninstall = false;
@@ -51,22 +54,26 @@ void uninstallTitle(const std::string& id) {
 int queueInstall(const Entry&, int) {
     if (!allowInstalls) throw std::runtime_error("PS4 required");
     if (rejectInstall) throw std::runtime_error("PS4 refused installation (0x80990086). No matching task could be confirmed. Downloaded package kept.");
-    ++submissions; return 45;
+    const int count = ++submissions; return uniqueTasks ? 100 + count : 45;
 }
 int queueLocalInstall(const Entry&, const std::string&, int) { throw std::runtime_error("PS4 required"); }
-bool retireInactiveTask(int task) { assert(task == 45); return allowRetirement; }
-HttpTransferInfo httpTransfer(const std::string&, const HttpSink& sink, bool range, const std::atomic<bool>*) {
+bool retireInactiveTask(int task) { assert(task >= 45); return allowRetirement; }
+void cancelInstallTask(int task) { assert(task >= 45); ++cancellations; if (failCancellation) throw std::runtime_error("Cancellation fixture failed; task retained"); }
+HttpTransferInfo httpTransfer(const std::string&, const HttpSink& sink, bool range, const std::atomic<bool>* cancelled) {
+    while (blockProbe && !(cancelled && *cancelled)) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    if (cancelled && *cancelled) throw std::runtime_error("Download cancelled");
     assert(allowInstalls && range); sink("\x7f" "CNT", 4, 4); return {206, 4};
 }
 TaskProgress taskProgress(int task) {
-    assert(task == 45);
+    assert(task >= 45);
     TaskProgress result{100, 100, progressMode == 1 ? int32_t(0x80991404u) : 0, true};
     result.completed = progressMode == 2;
     return result;
 }
 std::string httpGet(const std::string& url, size_t, const std::atomic<bool>*) {
     std::lock_guard<std::mutex> lock(requestMutex); lastUrl = url;
-    return R"({"DATA":{"http://fixture/game.pkg":{"name":"Saved source game"}}})";
+    if (!sourceResponse.empty()) return sourceResponse;
+    return R"({"DATA":{"http://fixture/game.pkg":{"name":"Saved source game","title_id":"CUSA00001"}}})";
 }
 }
 
@@ -160,7 +167,7 @@ int main() {
         const auto staged = stagedPackagePath(directory, packageUrl); atomicWrite(staged, "staging fixture");
 
         // 100% transferred alone must not release a package still being installed.
-        waitForStatus(app, video, 4, "may still be installing");
+        waitForStatus(app, video, 4, "installation is still running");
         assert(app.ui.queued.size() == 1 && std::filesystem::exists(staged));
         progressMode = 1; allowRetirement = false;
         waitForStatus(app, video, 8, "cancel the failed task");
@@ -182,9 +189,14 @@ int main() {
         app.ui.handle(Button::Cross); app.ui.handle(Button::Cross);
         app.tick(15, video); settle(app, video); assert(submissions == 2);
         atomicWrite(staged, "staging fixture"); progressMode = 2;
-        waitForStatus(app, video, 19, "installation complete");
-        assert(app.ui.queued.empty() && !std::filesystem::exists(staged));
+        waitForStatus(app, video, 19, "installation is not confirmed");
+        assert(app.ui.downloads[0].stage == QueueStage::Verifying && !std::filesystem::exists(staged));
         assert(readFile(directory + "/tasks.json") == "{}");
+        { std::lock_guard<std::mutex> lock(requestMutex); Entry installed = app.ui.available[0]; installed.installed = true; localGames = {installed}; }
+        app.ui.screen = Screen::Queue; app.ui.handle(Button::Triangle); app.tick(19, video);
+        waitForStatus(app, video, 19, "confirmed by a fresh");
+        assert(app.ui.downloads[0].stage == QueueStage::Completed && app.ui.queued.empty());
+        { std::lock_guard<std::mutex> lock(requestMutex); localGames.clear(); }
     }
     const auto refusal = directory + "/refusal"; std::filesystem::create_directory(refusal);
     Settings offline; offline.refreshOnStart = false; saveSettings(refusal, offline);
@@ -323,8 +335,91 @@ int main() {
         assert(app.ui.status.find("original file was kept") != std::string::npos);
         assert(readFile(corrupt + "/player.json") == "broken personal records");
     }
+    const auto extras = directory + "/extras"; std::filesystem::create_directory(extras);
+    saveSettings(extras, personalSettings); atomicWrite(extras + "/catalog.json", serializeCatalog(games));
+    PlayerData seed; seed.setInfo("CUSA00001", {"Old category", "Favorite", "Persistent note", {"Solo"}}); seed.rate("CUSA00001", 5);
+    savePlayerData(extras, seed);
+    { std::lock_guard<std::mutex> lock(requestMutex); localGames = games; for (auto& e : localGames) { e.installed = true; e.version = "1.00"; } }
+    {
+        App app(extras); settle(app, video);
+        auto& ui = app.ui;
+        ui.handle(Button::Options); ui.menuIndex = 11; ui.handle(Button::Cross);
+        ui.handle(Button::Cross); ui.handle(Button::Right); ui.handle(Button::Cross); ui.handle(Button::Triangle);
+        ui.bulkIndex = 0; ui.handle(Button::Cross); ui.handle(Button::Triangle); app.tick(0, video); ui.finishEdit("Bulk category");
+        std::filesystem::create_directory(extras + "/player.json.tmp"); ui.handle(Button::Cross); app.tick(0, video);
+        assert(ui.screen == Screen::PickCategory && ui.bulkEditing && ui.localNotice.find("Save failed") == 0);
+        assert(loadPlayerData(extras).games.at("CUSA00001").info.category == "Old category");
+        std::filesystem::remove(extras + "/player.json.tmp"); ui.handle(Button::Cross); app.tick(0, video);
+        assert(ui.screen == Screen::BulkMenu && loadPlayerData(extras).games.at("CUSA00002").info.category == "Bulk category");
+        assert(loadPlayerData(extras).games.at("CUSA00001").rating == 5 && loadPlayerData(extras).games.at("CUSA00001").info.description == "Persistent note");
+        ui.bulkIndex = 3; ui.handle(Button::Cross); ui.handle(Button::Circle); app.tick(0, video);
+        assert(!loadPlayerData(extras).games.at("CUSA00001").info.tags.empty());
+        ui.handle(Button::Cross); ui.handle(Button::Cross); app.tick(0, video);
+        assert(ui.screen == Screen::BulkMenu && loadPlayerData(extras).games.at("CUSA00001").info.tags.empty());
+        ui.handle(Button::Circle); ui.handle(Button::Circle); assert(!ui.bulkMode);
+        ui.handle(Button::Options); ui.menuIndex = 13; ui.handle(Button::Cross); ui.handle(Button::Triangle);
+        ui.handle(Button::Cross); app.tick(0, video); ui.finishEdit("Five-star collection");
+        ui.savedEditIndex = 5; ui.handle(Button::Left); ui.savedEditIndex = 9;
+        std::filesystem::create_directory(extras + "/player.json.tmp"); ui.handle(Button::Cross); app.tick(0, video);
+        assert(ui.screen == Screen::EditSaved && loadPlayerData(extras).collections.empty());
+        std::filesystem::remove(extras + "/player.json.tmp"); ui.handle(Button::Cross); app.tick(0, video);
+        assert(ui.screen == Screen::SavedCollections && loadPlayerData(extras).collections[0].filter.minRating == 5);
+        ui.savedIndex = 4; ui.handle(Button::Cross); app.tick(0, video);
+        assert(ui.visible.size() == 1 && ui.current()->titleId == "CUSA00001");
+        ui.handle(Button::Options); ui.menuIndex = 15; ui.handle(Button::Cross);
+        ui.handle(Button::Triangle); app.tick(0, video); ui.finishEdit("http://new-server/games"); app.tick(0, video); settle(app, video);
+        assert(ui.sourceReport.success && ui.sourceReport.packages == 1 && loadSettings(extras).sources[0].url.empty());
+        ui.setupIndex = 2; ui.handle(Button::Cross); assert(ui.screen == Screen::Settings && ui.draft.sources[0].url == "http://new-server/games");
+        ui.handle(Button::Cross); app.tick(0, video); settle(app, video);
+        assert(loadSettings(extras).sources[0].url == "http://new-server/games");
+        ui.settingsIndex = 12; ui.handle(Button::Cross);
+        { std::lock_guard<std::mutex> lock(requestMutex); sourceResponse = "<html>Wrong endpoint</html>"; }
+        ui.handle(Button::Square); app.tick(0, video); settle(app, video);
+        assert(!ui.sourceReport.success && ui.sourceReport.message.find("web page") != std::string::npos);
+        ui.setupIndex = 2; ui.handle(Button::Cross); assert(ui.screen == Screen::SourceSetup);
+        { std::lock_guard<std::mutex> lock(requestMutex); sourceResponse.clear(); }
+        ui.backupDevices = {{"/mnt/usb7/disconnected-fixture", {}}}; ui.backupIndex = 0; ui.screen = Screen::Backups;
+        ui.handle(Button::Cross); app.tick(0, video);
+        assert(ui.featureNotice.find("disconnected") != std::string::npos);
+    }
+    { App app(extras); settle(app, video); assert(app.ui.player.collections[0].name == "Five-star collection"); }
+
+    const auto managed = directory + "/managed"; std::filesystem::create_directory(managed); saveSettings(managed, offline);
+    atomicWrite(managed + "/catalog.json", serializeCatalog(games));
+    { std::lock_guard<std::mutex> lock(requestMutex); localGames.clear(); }
+    uniqueTasks = true; blockProbe = true; progressMode = 0; allowRetirement = false;
+    {
+        App app(managed); settle(app, video);
+        auto enqueue = [&](const Entry& entry) { app.ui.pending = entry; app.ui.screen = Screen::ConfirmInstall; app.ui.handle(Button::Cross); app.tick(0, video); };
+        enqueue(games[0]); enqueue(games[1]);
+        assert(app.ui.downloads.size() == 2 && app.ui.downloads[1].stage == QueueStage::Waiting && app.ui.queued.size() == 2);
+        const int beforeCancel = cancellations;
+        app.ui.screen = Screen::QueueDetails; app.ui.queueIndex = 1; app.ui.handle(Button::Triangle); app.ui.handle(Button::Cross); app.tick(0, video);
+        assert(app.ui.downloads[1].stage == QueueStage::Cancelled && cancellations == beforeCancel);
+        app.ui.queueIndex = 0; app.ui.handle(Button::Triangle); app.ui.handle(Button::Cross); app.tick(0, video); settle(app, video);
+        assert(app.ui.downloads[0].stage == QueueStage::Cancelled && cancellations == beforeCancel && app.ui.queued.empty());
+        blockProbe = false;
+        app.ui.handle(Button::Cross); app.tick(0, video); settle(app, video);
+        assert(app.ui.downloads[0].stage == QueueStage::Installing && app.ui.downloads[0].task >= 100);
+        failCancellation = true;
+        app.ui.handle(Button::Triangle); app.ui.handle(Button::Cross); app.tick(0, video);
+        waitForStatus(app, video, 0, "Cancellation fixture failed");
+        assert(app.ui.downloads[0].task >= 100 && app.ui.queued.size() == 1);
+        failCancellation = false;
+        app.ui.handle(Button::Triangle); app.ui.handle(Button::Cross); app.tick(0, video);
+        waitForStatus(app, video, 0, "Owned task cancelled");
+        assert(app.ui.downloads[0].stage == QueueStage::Cancelled && app.ui.downloads[0].task < 0 && app.ui.queued.empty());
+    }
+    atomicWrite(managed + "/tasks.json", "{\"http://fixture/a.pkg\":199}"); // Stale compatibility write must not resurrect a cancelled task.
+    {
+        App app(managed); settle(app, video);
+        assert(app.ui.downloads.size() == 2 && app.ui.downloads[0].stage == QueueStage::Cancelled && app.ui.queued.empty());
+        app.ui.screen = Screen::Queue; app.ui.handle(Button::Options); app.tick(0, video); assert(app.ui.downloads.empty());
+    }
+    uniqueTasks = false;
     std::filesystem::remove_all(directory);
     std::puts("Settings persistence and tracked installation progress, failed-task recovery, retry and staging cleanup passed");
     std::puts("Launch handoff/session restart, rating persistence, uninstall confirmation/history and corrupt-record protection passed");
     std::puts("Registration refusal, persistent error/retry, IME deferral and acknowledged-task-error suppression passed");
+    std::puts("Bulk rollback/retry, saved collection restart, source setup, managed queue cancellation/retry and durable history passed");
 }

@@ -1,5 +1,50 @@
 # Implementation progress
 
+## r23 library and installer improvements — 2026-10-16
+
+- User authorized all seven suggested improvements. Implementing persistent queue
+  and installation verification, bulk local organization, USB profile backups,
+  saved collections, related package/version views and a source setup helper.
+- Retaining the existing native installer and Title ID records; console end-to-end
+  installation acceptance will remain unchecked until actual hardware evidence.
+- Added `queue.json` with 200 bounded active/history items, restart recovery,
+  transfer samples, retry/cancel and explicit stage diagnostics. The transfer and
+  BGFT monitor use separate managed workers; native BGFT calls share a mutex.
+  Cancellation stops/unregisters only recorded tasks, retains ownership/staging
+  on service errors and never treats a failed service query as file release.
+- Added fresh-scan installation verification and a two-minute unconfirmed failure.
+  Existing installed copies cannot establish success for vanished tasks. Known
+  updates require the requested version; DLC completion remains a system report,
+  separate from individual add-on discovery and game tiles.
+- Added bulk category/add/remove/clear-tag editing with unique Title ID selection,
+  atomic all-or-nothing profile updates and retained drafts on failed writes.
+- Added up to 64 named rule collections and built-in shortcuts. Personal profile
+  schemas 1/2 still load; writes use schema 3. Saved filters retain removed names
+  instead of silently broadening, and renames update their rules.
+- Added ordinary USB profile export/readback and validated replacement restore,
+  with a unique recovery copy of the original raw profile, including corrupt data.
+  Game files, source settings, task ownership and queue state are excluded.
+- Added base/update/DLC related-package views and Title ID grouping, numeric
+  dotted-version comparison, installed/latest-version details and honest unknown
+  DLC status. Catalog category remains the installer routing field.
+- Added staged source setup with URL/format testing, type counts, missing ID
+  warnings, empty-catalog reporting, HTML detection and source-specific errors.
+- Full host suite passed, including all 15 Python integrations, native adapters,
+  rollback/retry, queue verification/cancellation/restart, source validation,
+  old-profile loading, saved rules and USB recovery tests. Native compilation and
+  packed launcher import checks passed before final packaging.
+- Full host suite also passed after the final USB-connection and stale-legacy-task
+  checks. Generated 48 desktop captures; inspected bulk selection/editing, both
+  saved-rule pages, queue diagnostics, USB restore confirmation, source results,
+  package grouping and expanded Settings/Options. Added three README captures.
+- Built `dist/PS4Game_installer-r23.pkg`; `make validate` passes hashes, signatures
+  and packed launcher imports. Source fingerprint, manifest SHA-256 and revision
+  match. Source identity and whitespace checks pass. No deployment or push.
+- Further queue phase labeling refinement is tracked in the next revision.
+
+BGFT cancellation reference:
+https://github.com/flatz/ps4_remote_pkg_installer/blob/master/installer.c
+
 ## r22 quick category/tag assignment — 2026-10-16
 
 - Added direct Assign category and Assign tags game actions in both libraries,

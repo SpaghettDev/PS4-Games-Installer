@@ -1,5 +1,27 @@
 # Changelog
 
+## r23 — 2026-10-16
+
+- Add a persistent 200-item download queue with waiting, checking, downloading,
+  registration, installation, verification, completion, failure and cancellation
+  stages. Show transfer bytes/rate/estimated time, diagnostics, retry, confirmed
+  cancellation of owned tasks and finished-history cleanup.
+- Verify base-title/update presence through fresh installed scans. Report an
+  unconfirmed installation after two minutes instead of treating transfer 100%
+  or a vanished task as success. Keep DLC/system completion distinct from tiles.
+- Add bulk category assignment and add/remove/clear tags with Title ID selection,
+  all-or-nothing writes, cancel and failed-save retry.
+- Add 64 named saved collections combining search, category/tag, star ranges,
+  launch history and installation rules. Read old profiles and write schema 3.
+- Add USB profile export/readback and confirmed validated restore, retaining a
+  pre-restore recovery copy. Include personal records and saved collections.
+- Add related base/update/DLC views, Title ID grouping and numeric version
+  comparison. Base-game presence no longer marks its DLC installed.
+- Add a source setup helper with staged URLs, catalog validation, counts, missing
+  ID warnings, HTML/HTTP/format diagnostics and explicit use/save.
+- Native compilation and host validation do not establish PS4 hardware acceptance
+  for the new queue, installation verification, task cancellation or USB flows.
+
 ## r22 — 2026-10-16
 
 - Add Triangle > Assign category and Assign tags in both libraries. Reuse an

@@ -61,6 +61,7 @@ Settings parseSettings(const std::string& text) {
     else if (grouping == "letter") s.grouping = Grouping::Letter;
     else if (grouping == "local_category") s.grouping = Grouping::LocalCategory;
     else if (grouping == "tag") s.grouping = Grouping::Tag;
+    else if (grouping == "title") s.grouping = Grouping::Title;
     else if (!grouping.empty() && grouping != "none") throw std::runtime_error("Invalid grouping");
     s.sizeSort = boolean(root.get(), "size_sort", false);
     s.notInstalledOnly = boolean(root.get(), "not_installed_only", false);
@@ -75,7 +76,7 @@ std::string serializeSettings(const Settings& s) {
     auto* urls = cJSON_AddObjectToObject(root.get(), "content_urls");
     for (const auto& source : s.sources) cJSON_AddStringToObject(urls, source.category.c_str(), source.url.c_str());
     cJSON_AddStringToObject(root.get(), "layout", s.layout == Layout::Tiles ? "tiles" : "summary");
-    const char* groups[] = {"none", "category", "region", "letter", "local_category", "tag"};
+    const char* groups[] = {"none", "category", "region", "letter", "local_category", "tag", "title"};
     cJSON_AddStringToObject(root.get(), "grouping", groups[static_cast<int>(s.grouping)]);
     cJSON_AddBoolToObject(root.get(), "size_sort", s.sizeSort);
     cJSON_AddBoolToObject(root.get(), "not_installed_only", s.notInstalledOnly);

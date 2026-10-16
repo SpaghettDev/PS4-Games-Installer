@@ -7,6 +7,7 @@ int finishApplication(int status) { return status; }
 int queueInstall(const Entry&, int) { throw std::runtime_error("Installation requires a PS4"); }
 int queueLocalInstall(const Entry&, const std::string&, int) { throw std::runtime_error("Installation requires a PS4"); }
 bool retireInactiveTask(int) { return false; }
+void cancelInstallTask(int) { throw std::runtime_error("Cancellation requires a PS4"); }
 TaskProgress taskProgress(int) { return {0, 0, 0, false}; }
 std::vector<Entry> scanInstalled() { return {}; }
 void launchTitle(const std::string&) { throw std::runtime_error("Launching requires a PS4"); }

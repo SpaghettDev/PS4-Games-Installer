@@ -17,12 +17,19 @@ struct LocalInfo {
 struct LocalFilter {
     std::string category, tag;
     bool uncategorized = false, untagged = false;
+    unsigned minRating = 0, maxRating = 5;
+    // 0 any, 1 no launches recorded in this app, 2 launched through this app.
+    unsigned launchState = 0;
+    // 0 any, 1 installed, 2 not installed, 3 previously installed but absent.
+    unsigned installState = 0;
 };
 struct Entry {
     std::string url, name, titleId, region, version, minFirmware, category;
     std::string coverUrl, localIcon, release, contentId, description;
+    std::string installedVersion, latestVersion;
     uint64_t size = 0, installedSize = 0;
     bool installed = false, queued = false;
+    bool baseInstalled = false;
     // Local records are applied by Title ID after catalog parsing/refresh.
     bool wasInstalled = false;
     unsigned rating = 0;

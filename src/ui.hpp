@@ -2,16 +2,28 @@
 #include "library.hpp"
 #include "storage.hpp"
 #include "userdata.hpp"
+#include "queue.hpp"
+#include "backup.hpp"
+#include "source.hpp"
 #include <deque>
 #include <optional>
 
 namespace psgi {
 enum class Button { Up, Down, Left, Right, Cross, Circle, Square, Triangle, Options, L1, R1 };
-enum class Screen { Splash, Dashboard, Options, Settings, Sources, Storage, Details, Actions, Rating, LocalInfo, PickCategory, PickTags, DiscardLocal, Collections, ConfirmDeleteCollection, About, ConfirmExit, ConfirmInstall, InstallError, ConfirmUninstall, Discard, Keyboard };
-enum class CommandType { Refresh, Save, Test, Storage, SetStorage, ClearArtwork, RefreshArtwork, Install, Uninstall, Rate, SaveLocalInfo, CreateCollection, RenameCollection, DeleteCollection, Launch, Keyboard, Quit };
-struct Command { CommandType type; Entry entry; size_t source = 0; std::string text; std::optional<Settings> configuration = {}; std::optional<LocalInfo> personal = {}; std::string previous = {}; bool returnToActions = false; };
+enum class Screen { Splash, Dashboard, Options, Settings, Sources, Storage, Details, Actions, Rating, LocalInfo, PickCategory, PickTags, DiscardLocal, Collections, ConfirmDeleteCollection, About, ConfirmExit, ConfirmInstall, InstallError, ConfirmUninstall, Discard, Keyboard,
+    BulkMenu, ConfirmBulkClear, SavedCollections, EditSaved, ConfirmDeleteSaved, Queue, QueueDetails, ConfirmCancelQueue, Backups, BackupFiles, ConfirmRestore, SourceSetup, Packages };
+enum class CommandType { Refresh, Save, Test, Storage, SetStorage, ClearArtwork, RefreshArtwork, Install, Uninstall, Rate, SaveLocalInfo, CreateCollection, RenameCollection, DeleteCollection, Launch, Keyboard, Quit,
+    BulkAssign, SaveSavedCollection, DeleteSavedCollection, ScanBackups, ExportBackup, RestoreBackup, TestSource, RetryQueue, CancelQueue, ClearQueue, RefreshQueue };
+struct Command {
+    CommandType type; Entry entry; size_t source = 0; std::string text;
+    std::optional<Settings> configuration = {}; std::optional<LocalInfo> personal = {}; std::string previous = {};
+    bool returnToActions = false;
+    std::set<std::string> titles = {};
+    std::optional<SavedCollection> collection = {};
+    std::optional<Source> candidate = {};
+};
 struct TileRow { std::string group; std::vector<size_t> items; };
-enum class EditKind { SourceUrl, SourceCategory, Search, GameCategory, GameLabel, GameTag, GameDescription, CreateCategory, CreateTag, RenameCategory, RenameTag };
+enum class EditKind { SourceUrl, SourceCategory, Search, GameCategory, GameLabel, GameTag, GameDescription, CreateCategory, CreateTag, RenameCategory, RenameTag, SavedName, SavedQuery, SetupUrl };
 size_t keyboardMaximum(EditKind kind);
 std::string keyboardTitle(EditKind kind);
 
@@ -24,6 +36,9 @@ class Ui {
     void beginEdit(EditKind kind, size_t index, const std::string& text);
     void quickSave();
     void saveLocalDraft();
+    bool handleFeatures(Button button);
+    void beginAssignment(bool tags, bool bulk = false);
+    void testSetupSource();
     size_t uniqueShown = 0, installable = 0;
 public:
     Settings settings, draft;
@@ -46,6 +61,20 @@ public:
     size_t localIndex = 0, pickerIndex = 0, collectionIndex = 0;
     bool collectionTags = false;
     bool quickAssignment = false;
+    bool bulkMode = false, bulkEditing = false;
+    unsigned bulkOperation = 0;
+    std::set<std::string> markedTitles;
+    size_t bulkIndex = 0, savedIndex = 0, savedEditIndex = 0, queueIndex = 0, backupIndex = 0, backupFileIndex = 0, setupIndex = 0, packageIndex = 0;
+    SavedCollection savedDraft;
+    std::string savedOriginal, featureNotice, packageTitle, restoreFilename, restoreDevice;
+    Screen actionReturn = Screen::Dashboard, setupReturn = Screen::Settings;
+    Screen installReturn = Screen::Dashboard;
+    std::vector<QueueItem> downloads;
+    std::vector<BackupDevice> backupDevices;
+    Source setupSource;
+    size_t setupSourceIndex = 0;
+    SourceReport sourceReport;
+    bool sourceTesting = false;
     std::string localNotice, collectionNotice, collectionOriginal;
     LocalFilter filter;
     std::string installError;
@@ -76,6 +105,12 @@ public:
     std::vector<std::string> collectionRows() const;
     std::vector<std::string> localRows() const;
     std::string filterDescription() const;
+    std::vector<std::string> bulkRows() const;
+    std::vector<std::string> savedRows() const;
+    std::vector<std::string> savedEditRows() const;
+    std::vector<std::string> packageRows() const;
+    std::vector<std::string> queueRows() const;
+    std::vector<std::string> queueDetails() const;
     bool localDirty() const { return !sameInfo(localDraft, pending.info); }
 };
 std::string layoutName(Layout layout);

@@ -7,19 +7,22 @@
 namespace psgi {
 std::string layoutName(Layout layout) { return layout == Layout::Tiles ? "Tiles" : "Summary list"; }
 std::string groupName(Grouping group) {
-    const char* names[] = {"None", "Catalog category", "Region", "First letter", "Local category", "Local tag"};
+    const char* names[] = {"None", "Catalog category", "Region", "First letter", "Local category", "Local tag", "Game / Title ID"};
     return names[static_cast<int>(group)];
 }
 size_t keyboardMaximum(EditKind kind) {
-    if (kind == EditKind::SourceUrl) return 2047;
+    if (kind == EditKind::SourceUrl || kind == EditKind::SetupUrl) return 2047;
     if (kind == EditKind::SourceCategory) return 32;
-    if (kind == EditKind::Search) return 128;
+    if (kind == EditKind::Search || kind == EditKind::SavedQuery) return 128;
     if (kind == EditKind::GameDescription) return MaxLocalDescription;
     return MaxLocalName;
 }
 std::string keyboardTitle(EditKind kind) {
     switch (kind) {
         case EditKind::SourceUrl: return "Games JSON URL";
+        case EditKind::SetupUrl: return "Test a games JSON URL";
+        case EditKind::SavedName: return "Saved collection name";
+        case EditKind::SavedQuery: return "Collection search words";
         case EditKind::SourceCategory: return "Catalog source category";
         case EditKind::Search: return "Search library";
         case EditKind::GameLabel: return "Local game label";
@@ -52,11 +55,17 @@ void Ui::rebuild() {
     for (auto& e : installed) e.queued = queuedTitles.count(e.titleId) != 0;
     // Index once so large remote catalogs do not multiply installed-library work.
     std::map<std::string, const Entry*> baseTitles;
+    std::map<std::string, std::string> latestUpdates;
+    for (const auto& e : available) if (packageKind(e) == 1 && compareVersions(e.version, e.version)) {
+        auto& latest = latestUpdates[e.titleId]; const auto newer = compareVersions(e.version, latest);
+        if (latest.empty() || (newer && *newer > 0)) latest = e.version;
+    }
     for (const auto& e : available) if (!e.titleId.empty() && e.category != "updates" && e.category != "dlc" && e.category != "themes") {
         auto found = baseTitles.find(e.titleId);
         if (found == baseTitles.end() || e.category == "games") baseTitles[e.titleId] = &e;
     }
     for (auto& local : installed) {
+        local.installedVersion = local.version; local.baseInstalled = true; local.latestVersion = latestUpdates[local.titleId];
         auto found = baseTitles.find(local.titleId);
         if (found != baseTitles.end()) {
             const auto& remote = *found->second;
@@ -165,6 +174,18 @@ void Ui::beginEdit(EditKind kind, size_t index, const std::string& text) {
 void Ui::finishEdit(const std::optional<std::string>& text) {
     screen = keyboardReturn;
     if (!text) return;
+    if (editKind == EditKind::SavedName || editKind == EditKind::SavedQuery || editKind == EditKind::SetupUrl) {
+        try {
+            if (editKind == EditKind::SavedName) savedDraft.name = localName(*text);
+            else if (editKind == EditKind::SavedQuery) savedDraft.query = text->substr(0, 128);
+            else {
+                if (!isHttpUrl(*text)) throw std::runtime_error("Use a full http:// or https:// games JSON URL");
+                setupSource.url = *text; setupIndex = 1; testSetupSource();
+            }
+            featureNotice.clear();
+        } catch (const std::exception& e) { featureNotice = e.what(); }
+        return;
+    }
     if (editKind >= EditKind::GameCategory) {
         try {
             if (editKind == EditKind::GameDescription) { auto next = localDraft; next.description = *text; localDraft = normalizeInfo(next); }
@@ -209,7 +230,8 @@ std::vector<std::string> Ui::options() const {
     return {"Refresh library", "Search" + (query.empty() ? std::string() : ": " + query),
         "View: " + layoutName(settings.layout), "Group: " + groupName(settings.grouping),
         settings.sizeSort ? "Sort: Largest first" : "Sort: Name A-Z",
-        settings.notInstalledOnly ? "Available: Not installed" : "Available: All packages", "Settings", "About", "Exit", "Browse local categories", "Browse local tags"};
+        settings.notInstalledOnly ? "Available: Not installed" : "Available: All packages", "Settings", "About", "Exit", "Browse local categories", "Browse local tags",
+        bulkMode ? "Organize selected games" : "Select multiple games", "Download queue", "Saved collections", "USB backup / restore", "Connection setup helper"};
 }
 std::vector<std::string> Ui::settingRows() const {
     return {"Games JSON URL", "Other catalog sources", "View: " + layoutName(draft.layout),
@@ -217,7 +239,7 @@ std::vector<std::string> Ui::settingRows() const {
         draft.notInstalledOnly ? "Available: Not installed" : "Available: All packages",
         draft.animations ? "Background animation: On" : "Background animation: Off",
         draft.refreshOnStart ? "Refresh on startup: On" : "Refresh on startup: Off",
-        "Test connection", "Clear artwork cache", "Save settings", "Installation destination"};
+        "Test connection", "Clear artwork cache", "Save settings", "Installation destination", "Connection setup helper"};
 }
 std::vector<std::string> Ui::actionRows() const {
     std::vector<std::string> rows;
@@ -232,6 +254,7 @@ std::vector<std::string> Ui::actionRows() const {
         rows.push_back("Edit local info");
     }
     if (pending.installed) rows.push_back("Uninstall");
+    if (validTitleId(pending.titleId) && !relatedPackages(available, pending.titleId).empty()) rows.push_back("Game packages");
     return rows;
 }
 std::vector<std::string> Ui::termChoices(bool tags, bool draft) const {
@@ -252,6 +275,10 @@ std::string Ui::filterDescription() const {
     std::string value;
     if (!filter.category.empty() || filter.uncategorized) value = "Category: " + (filter.uncategorized ? std::string("Uncategorized") : filter.category);
     if (!filter.tag.empty() || filter.untagged) { if (!value.empty()) value += " / "; value += "Tag: " + (filter.untagged ? std::string("Untagged") : filter.tag); }
+    auto add = [&](const std::string& text) { if (!value.empty()) value += " / "; value += text; };
+    if (filter.minRating || filter.maxRating != 5) add(std::to_string(filter.minRating) + "-" + std::to_string(filter.maxRating) + " stars");
+    if (filter.launchState) add(filter.launchState == 1 ? "No recorded launches" : "Launched here");
+    if (filter.installState) { const char* names[] = {"", "Installed", "Not installed", "Was installed"}; add(names[filter.installState]); }
     return value;
 }
 std::vector<std::string> Ui::collectionRows() const {
@@ -272,13 +299,15 @@ std::vector<std::string> Ui::collectionRows() const {
 }
 void Ui::quickSave() { rebuild(); emit(CommandType::Save); }
 void Ui::saveLocalDraft() {
-    Command command{}; command.type = CommandType::SaveLocalInfo;
+    Command command{}; command.type = bulkEditing ? CommandType::BulkAssign : CommandType::SaveLocalInfo;
+    if (bulkEditing) { command.titles = markedTitles; command.source = bulkOperation; }
     command.entry = pending; command.personal = localDraft; command.returnToActions = quickAssignment;
     commands.push_back(std::move(command));
 }
 void Ui::handle(Button b) {
     // Circle and dialogs are handled before dashboard shortcuts.
     if (screen == Screen::Keyboard) return;
+    if (handleFeatures(b)) return;
     if (screen == Screen::DiscardLocal) {
         if (b == Button::Circle) { localDraft = pending.info; screen = Screen::Actions; }
         else if (b == Button::Cross) screen = Screen::LocalInfo;
@@ -310,7 +339,7 @@ void Ui::handle(Button b) {
         const auto choices = termChoices(tags, true);
         pickerIndex = std::min(pickerIndex, choices.size());
         if (b == Button::Circle) {
-            if (quickAssignment) { localDraft = pending.info; quickAssignment = false; screen = Screen::Actions; }
+            if (quickAssignment) { localDraft = pending.info; quickAssignment = false; screen = bulkEditing ? Screen::BulkMenu : Screen::Actions; bulkEditing = false; }
             else screen = Screen::LocalInfo;
             return;
         }
@@ -369,13 +398,13 @@ void Ui::handle(Button b) {
         return;
     }
     if (screen == Screen::ConfirmInstall) {
-        if (b == Button::Circle) screen = Screen::Dashboard;
-        else if (b == Button::Cross) { emit(CommandType::Install, pending); screen = Screen::Dashboard; }
+        if (b == Button::Circle) screen = installReturn;
+        else if (b == Button::Cross) { emit(CommandType::Install, pending); screen = installReturn; }
         return;
     }
     if (screen == Screen::InstallError) {
         if (b == Button::Circle) { installError.clear(); screen = Screen::Dashboard; }
-        else if (b == Button::Cross) { pending = failedInstall; installError.clear(); screen = Screen::ConfirmInstall; }
+        else if (b == Button::Cross) { pending = failedInstall; installError.clear(); installReturn = Screen::Dashboard; screen = Screen::ConfirmInstall; }
         return;
     }
     if (screen == Screen::ConfirmUninstall) {
@@ -400,6 +429,7 @@ void Ui::handle(Button b) {
         else if (screen == Screen::Storage) screen = Screen::Settings;
         else if (screen == Screen::Details) screen = detailReturn;
         else if (screen == Screen::About) screen = Screen::Options;
+        else if (screen == Screen::Actions) screen = actionReturn;
         else screen = Screen::Dashboard;
         return;
     }
@@ -433,13 +463,18 @@ void Ui::handle(Button b) {
             case 0: emit(CommandType::Refresh); screen = Screen::Dashboard; break;
             case 1: beginEdit(EditKind::Search, 0, query); break;
             case 2: settings.layout = settings.layout == Layout::Tiles ? Layout::Summary : Layout::Tiles; quickSave(); break;
-            case 3: settings.grouping = static_cast<Grouping>((static_cast<int>(settings.grouping) + 1) % 6); quickSave(); break;
+            case 3: settings.grouping = static_cast<Grouping>((static_cast<int>(settings.grouping) + 1) % 7); quickSave(); break;
             case 4: settings.sizeSort = !settings.sizeSort; quickSave(); break;
             case 5: settings.notInstalledOnly = !settings.notInstalledOnly; quickSave(); break;
             case 6: draft = settings; settingsNotice.clear(); settingsIndex = 0; screen = Screen::Settings; break;
             case 7: screen = Screen::About; break;
             case 8: screen = Screen::ConfirmExit; break;
             case 9: case 10: collectionTags = menuIndex == 10; collectionIndex = 0; collectionNotice.clear(); screen = Screen::Collections; break;
+            case 11: bulkMode = true; bulkIndex = 0; featureNotice.clear(); screen = markedTitles.empty() ? Screen::Dashboard : Screen::BulkMenu; break;
+            case 12: screen = Screen::Queue; queueIndex = 0; featureNotice.clear(); break;
+            case 13: screen = Screen::SavedCollections; savedIndex = 0; featureNotice.clear(); break;
+            case 14: screen = Screen::Backups; featureNotice.clear(); emit(CommandType::ScanBackups); break;
+            case 15: draft = settings; setupSourceIndex = 0; setupSource = draft.sources[0]; setupReturn = Screen::Options; sourceReport = {}; featureNotice.clear(); setupIndex = 0; screen = Screen::SourceSetup; break;
         }
         return;
     }
@@ -453,7 +488,7 @@ void Ui::handle(Button b) {
             case 0: beginEdit(EditKind::SourceUrl, 0, draft.sources[0].url); break;
             case 1: sourceIndex = 1; screen = Screen::Sources; break;
             case 2: draft.layout = draft.layout == Layout::Tiles ? Layout::Summary : Layout::Tiles; break;
-            case 3: draft.grouping = static_cast<Grouping>((static_cast<int>(draft.grouping) + 1) % 6); break;
+            case 3: draft.grouping = static_cast<Grouping>((static_cast<int>(draft.grouping) + 1) % 7); break;
             case 4: draft.sizeSort = !draft.sizeSort; break;
             case 5: draft.notInstalledOnly = !draft.notInstalledOnly; break;
             case 6: draft.animations = !draft.animations; break;
@@ -462,10 +497,15 @@ void Ui::handle(Button b) {
             case 9: emit(CommandType::ClearArtwork); break;
             case 10: emit(CommandType::Save); break;
             case 11: screen = Screen::Storage; storageIndex = storage.destination == InstallDestination::External ? 1 : 0; emit(CommandType::Storage); break;
+            case 12: setupSourceIndex = 0; setupSource = draft.sources[0]; setupReturn = Screen::Settings; sourceReport = {}; featureNotice.clear(); setupIndex = 0; screen = Screen::SourceSetup; break;
         }
         return;
     }
     if (screen == Screen::Sources) {
+        if (b == Button::Square && sourceIndex < draft.sources.size()) {
+            setupSourceIndex = sourceIndex; setupSource = draft.sources[sourceIndex]; setupReturn = Screen::Sources;
+            sourceReport = {}; featureNotice.clear(); setupIndex = 0; screen = Screen::SourceSetup; return;
+        }
         if (b == Button::Up && sourceIndex > 1) --sourceIndex;
         if (b == Button::Down && sourceIndex < draft.sources.size()) ++sourceIndex;
         if (b == Button::Triangle && sourceIndex < draft.sources.size()) {
@@ -486,21 +526,16 @@ void Ui::handle(Button b) {
         if (b == Button::Cross) {
             auto action = actions[menuIndex];
             if (action == "Launch game") { emit(CommandType::Launch, pending); screen = Screen::Dashboard; }
-            else if (action.find("Install") == 0) screen = Screen::ConfirmInstall;
+            else if (action.find("Install") == 0) { installReturn = actionReturn == Screen::Packages ? Screen::Packages : Screen::Dashboard; screen = Screen::ConfirmInstall; }
             else if (action == "Uninstall") {
                 if (pending.queued) status = "Finish or cancel this title's queued download before uninstalling";
                 else screen = Screen::ConfirmUninstall;
             }
             else if (action.find("Rate game") == 0) { ratingIndex = pending.rating ? pending.rating - 1 : 0; screen = Screen::Rating; }
             else if (action == "Assign category" || action == "Assign tags") {
-                const bool tags = action == "Assign tags";
-                localDraft = pending.info; quickAssignment = true; localNotice.clear();
-                const auto choices = termChoices(tags, true);
-                const auto active = tags ? (localDraft.tags.empty() ? std::string() : localDraft.tags.front()) : localDraft.category;
-                const auto found = std::find_if(choices.begin(), choices.end(), [&](const std::string& term) { return lower(term) == lower(active); });
-                pickerIndex = found == choices.end() ? (choices.empty() ? 0 : 1) : 1 + (found - choices.begin());
-                screen = tags ? Screen::PickTags : Screen::PickCategory;
+                beginAssignment(action == "Assign tags");
             }
+            else if (action == "Game packages") { packageTitle = pending.titleId; packageIndex = 0; screen = Screen::Packages; }
             else if (action == "Edit local info") { localDraft = pending.info; quickAssignment = false; localIndex = 0; localNotice.clear(); screen = Screen::LocalInfo; }
             else if (action == "Details") { detailReturn = Screen::Actions; detailScroll = 0; screen = Screen::Details; }
             else { emit(CommandType::RefreshArtwork, pending); screen = Screen::Dashboard; }
@@ -526,8 +561,8 @@ void Ui::handle(Button b) {
             }
             else if (pending.installed) { menuIndex = 0; screen = Screen::Actions; }
             else if (pending.queued) status = "This package is already queued. See PS4 Notifications > Downloads.";
-            else screen = Screen::ConfirmInstall;
-        } else if (b == Button::Triangle) { pending = *e; menuIndex = 0; screen = Screen::Actions; }
+            else { installReturn = Screen::Dashboard; screen = Screen::ConfirmInstall; }
+        } else if (b == Button::Triangle) { pending = *e; menuIndex = 0; actionReturn = Screen::Dashboard; screen = Screen::Actions; }
         else if (b == Button::Square) { pending = *e; detailReturn = Screen::Dashboard; detailScroll = 0; screen = Screen::Details; }
         else if (settings.layout == Layout::Summary) {
             if (b == Button::Up && position()) --selected[static_cast<int>(library)];

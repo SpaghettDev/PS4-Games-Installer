@@ -1,6 +1,7 @@
 #pragma once
 #include "catalog.hpp"
 #include <map>
+#include <set>
 
 namespace psgi {
 constexpr size_t MaxLocalTerms = 256, MaxGameTags = 16, MaxLocalName = 64, MaxLocalDescription = 2047;
@@ -14,9 +15,15 @@ struct GameRecord {
     uint64_t firstSeenInstalled = 0, launches = 0, lastLaunch = 0;
     LocalInfo info{};
 };
+struct SavedCollection {
+    std::string name, query;
+    LocalFilter filter;
+    bool available = false;
+};
 struct PlayerData {
     std::map<std::string, GameRecord> games;
     std::vector<std::string> categories, tags;
+    std::vector<SavedCollection> collections;
     bool observeInstalled(const std::vector<Entry>& entries, uint64_t now);
     void rate(const std::string& titleId, unsigned stars);
     void noteLaunch(const std::string& titleId, uint64_t now);
@@ -24,6 +31,10 @@ struct PlayerData {
     void createTerm(bool tag, const std::string& name);
     void renameTerm(bool tag, const std::string& previous, const std::string& name);
     void deleteTerm(bool tag, const std::string& name);
+    void saveCollection(SavedCollection collection, const std::string& previous = "");
+    void deleteCollection(const std::string& name);
+    // Tags are added/removed without replacing other tags or any other local field.
+    void assignMany(const std::set<std::string>& ids, const LocalInfo& change, unsigned operation);
     void apply(Entry& entry) const;
     void apply(std::vector<Entry>& entries) const;
 };

@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <stdexcept>
 #include <vector>
+#include <mutex>
 #include <orbis/libkernel.h>
 
 namespace {
@@ -72,6 +73,7 @@ Installer& installer() {
     static Installer instance;
     return instance;
 }
+std::mutex serviceMutex;
 }
 
 namespace psgi {
@@ -139,15 +141,36 @@ int submit(const Entry& entry, int userId, const std::string& localPath, const P
     return task;
 }
 }
-int queueInstall(const Entry& entry, int userId) { return submit(entry, userId, ""); }
+int queueInstall(const Entry& entry, int userId) { std::lock_guard<std::mutex> lock(serviceMutex); return submit(entry, userId, ""); }
 int queueLocalInstall(const Entry& entry, const std::string& path, int userId) {
+    std::lock_guard<std::mutex> lock(serviceMutex);
     const auto systemPath = storagePackagePath(path);
     const auto package = inspectPackage(path);
     if (!entry.titleId.empty() && entry.titleId != package.titleId)
         throw std::runtime_error("Downloaded package Title ID does not match the selected game");
     return submit(entry, userId, systemPath, &package);
 }
+void cancelInstallTask(int taskId) {
+    std::lock_guard<std::mutex> lock(serviceMutex);
+    if (taskId < 0) throw std::runtime_error("Invalid owned installation task");
+    auto& bgft = installer();
+    Progress state{};
+    const int status = bgft.progress(taskId, &state);
+    if (static_cast<uint32_t>(status) == 0x80990019u) return;
+    check(status, "Check task before cancellation");
+    const uint64_t total = state.lengthTotal ? state.lengthTotal : state.length;
+    const uint64_t done = state.lengthTotal ? state.transferredTotal : state.transferred;
+    if (state.error || (total && done >= total && state.preparingPercent >= 100 && state.localCopyPercent >= 100)) {
+        check(bgft.unregisterTask(taskId), "Release inactive owned task; staging file was kept"); return;
+    }
+    const int module = sceKernelLoadStartModule("/system/common/lib/libSceBgft.sprx", 0, nullptr, 0, nullptr, nullptr);
+    if (module < 0) check(module, "Load cancellation service");
+    auto stop = symbol<int (*)(int)>(module, "sceBgftServiceDownloadStopTask");
+    check(stop(taskId), "Stop owned installation task; check PS4 Downloads");
+    check(bgft.unregisterTask(taskId), "Remove stopped task; staging file was kept");
+}
 bool retireInactiveTask(int taskId) {
+    std::lock_guard<std::mutex> lock(serviceMutex);
     Progress progress{};
     auto& bgft = installer();
     if (bgft.progress(taskId, &progress)) return false;
@@ -160,6 +183,7 @@ bool retireInactiveTask(int taskId) {
 }
 
 TaskProgress taskProgress(int id) {
+    std::lock_guard<std::mutex> lock(serviceMutex);
     Progress p{};
     int result = installer().progress(id, &p);
     // A service failure is not proof that the installer released a staging file.

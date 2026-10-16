@@ -1,5 +1,15 @@
 # Work tracker
 
+## Current implementation: library and installer improvements
+
+- [x] Persistent queue with distinct transfer, registration, installation and verification stages.
+- [x] Bulk category/tag changes by Title ID with atomic save and cancellation.
+- [x] USB backup/restore of personal records, including a pre-restore recovery copy.
+- [x] Named saved collections with rating, launch-history and installation filters.
+- [x] Base game/update/DLC grouping and installed/available version comparison.
+- [x] Source setup helper with validation, counts and actionable connection/format errors.
+- [x] Regression tests, PS4 package validation, screenshots and consumer docs for r23.
+
 - [x] Remove Unity files and initialize independent repository.
 - [x] Root Makefile, application identity, assets, and revision packaging.
 - [x] Library metadata, installed discovery, settings persistence, and offline cache.
@@ -46,6 +56,14 @@
 
 ## Console acceptance checks
 
+- [ ] Retest r23: enqueue several packages, monitor stages, retry failures and restore queue state after closing/reopening.
+- [ ] Retest r23: cancel a waiting transfer, a direct transfer and an owned BGFT task; cancellation failure keeps ownership/staging.
+- [ ] Retest r23: a completed transfer without the title/version stays unconfirmed; actual installation is confirmed by a fresh scan.
+- [ ] Retest r23: export to ordinary USB, disconnect/reconnect, restore a valid backup and inspect the pre-restore recovery copy.
+- [ ] Retest r23: bulk category/add/remove/clear tags in both libraries, including cancellation and failed-save retry.
+- [ ] Retest r23: create/edit/delete saved rules, restart and verify rating, launch and installed-status filters.
+- [ ] Retest r23: base/update/DLC grouping, version comparison, package details and O back navigation.
+- [ ] Retest r23: source helper with a valid/empty catalog, HTML/404/unreachable source and PS4 IME; use/save only the tested URL.
 - [ ] Retest r22: Triangle > Assign category with X; Assign tags with X toggles / Square save, in both libraries.
 - [ ] Retest r22: create names through IME, cancel with O, retry a failed write and scroll all game actions.
 - [ ] Retest r21: use PS4 IME for category, label, tags and description from both libraries.

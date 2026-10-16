@@ -31,7 +31,9 @@ void removeStagedPackage(const std::string& directory, const std::string& url) {
 }
 int installPackage(const Entry& entry, int userId, const std::string& directory,
                    const std::atomic<bool>* cancelled, const DownloadProgress& progress,
-                   const std::function<void(const std::string&)>& note) {
+                   const std::function<void(const std::string&)>& note,
+                   const std::function<void(InstallPhase)>& phase) {
+    if (phase) phase(InstallPhase::Checking);
     if (note) note("Probing package header and HTTP Range support");
     std::string magic;
     const auto probe = httpTransfer(entry.url, [&](const void* data, size_t count, uint64_t) {
@@ -41,6 +43,7 @@ int installPackage(const Entry& entry, int userId, const std::string& directory,
     if (!packageMagic(magic)) throw std::runtime_error("Package URL did not return a PS4 PKG file");
     if (cancelled && *cancelled) throw std::runtime_error("Download cancelled");
     if (probe.status == 206 && probe.length == 4) {
+        if (phase) phase(InstallPhase::Registering);
         if (note) note("Range supported; registering remote package with BGFT");
         return queueInstall(entry, userId);
     }
@@ -50,6 +53,7 @@ int installPackage(const Entry& entry, int userId, const std::string& directory,
     if (mkdir(folder.c_str(), 0700) && errno != EEXIST) throw std::runtime_error("Cannot create package staging directory");
     const std::string path = stagedPackagePath(directory, entry.url), part = path + ".part";
     if (!completeFile(path, probe.length)) {
+        if (phase) phase(InstallPhase::Downloading);
         progress(0, probe.length);
         FILE* file = std::fopen(part.c_str(), "wb");
         if (!file) throw std::runtime_error("Cannot write package staging file");
@@ -79,6 +83,7 @@ int installPackage(const Entry& entry, int userId, const std::string& directory,
         } catch (...) { if (file) std::fclose(file); unlink(part.c_str()); throw; }
     } else if (note) note("Reusing complete downloaded package; no new download needed");
     if (cancelled && *cancelled) throw std::runtime_error("Download cancelled");
+    if (phase) phase(InstallPhase::Registering);
     if (note) note("Download complete. Requesting PS4 installation; not installed yet.");
     return queueLocalInstall(entry, path, userId);
 }

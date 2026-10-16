@@ -11,5 +11,6 @@ Application source is distributed under GPLv2; see LICENSE.
 - Native prototype and BGFT ABI reference: https://github.com/ItsJokerZz/UnityOrbisBridge (GPLv2).
 - Installation-location registry research reference: https://github.com/ReSo7200/DirectPackageInstaller-Enhanced/blob/DN8/Payload/main_experimental.c
 - Packed launcher import mapping: https://github.com/OpenOrbis/create-fself/blob/master/pkg/oelf/OELFStrangeLibs.go
+- BGFT task stop/unregister reference: https://github.com/flatz/ps4_remote_pkg_installer/blob/master/installer.c
 
 The new application icon and SVG artwork were created for this project.

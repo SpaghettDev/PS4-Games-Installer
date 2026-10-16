@@ -55,7 +55,7 @@ int main() {
     rejects([&] { data.rate("CUSA00001", 6); }); rejects([&] { data.rate("../game", 2); });
     rejects([] { parsePlayerData(R"({"schema":1,"games":{"CUSA00001":{"rating":-1}}})"); });
     rejects([] { parsePlayerData(R"({"schema":1,"games":{"CUSA00001":{"rating":1},"CUSA00001":{"rating":2}}})"); });
-    rejects([] { parsePlayerData(R"({"schema":3,"games":{}})"); });
+    rejects([] { parsePlayerData(R"({"schema":4,"games":{}})"); });
 
     auto entries = parseCatalog(R"({"DATA":{"http://nas/a.pkg":{"name":"Alpha","title_id":"CUSA00001"},"http://nas/b.pkg":{"name":"Bravo","title_id":"CUSA00002"}}})", "games");
     auto local = entries; for (auto& entry : local) { entry.installed = true; entry.url.clear(); }

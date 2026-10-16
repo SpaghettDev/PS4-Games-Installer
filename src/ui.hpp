@@ -5,15 +5,16 @@
 #include "queue.hpp"
 #include "backup.hpp"
 #include "source.hpp"
+#include "maintenance.hpp"
 #include <deque>
 #include <optional>
 
 namespace psgi {
 enum class Button { Up, Down, Left, Right, Cross, Circle, Square, Triangle, Options, L1, R1 };
 enum class Screen { Splash, Dashboard, Options, Settings, Sources, Storage, Details, Actions, Rating, LocalInfo, PickCategory, PickTags, DiscardLocal, Collections, ConfirmDeleteCollection, About, ConfirmExit, ConfirmInstall, InstallError, ConfirmUninstall, Discard, Keyboard,
-    BulkMenu, ConfirmBulkClear, SavedCollections, EditSaved, ConfirmDeleteSaved, Queue, QueueDetails, ConfirmCancelQueue, Backups, BackupFiles, ConfirmRestore, SourceSetup, Packages };
+    BulkMenu, ConfirmBulkClear, SavedCollections, EditSaved, ConfirmDeleteSaved, Queue, QueueDetails, ConfirmCancelQueue, Backups, BackupFiles, ConfirmRestore, SourceSetup, Packages, Cleanup, ConfirmCleanup, Diagnostics };
 enum class CommandType { Refresh, Save, Test, Storage, SetStorage, ClearArtwork, RefreshArtwork, Install, Uninstall, Rate, SaveLocalInfo, CreateCollection, RenameCollection, DeleteCollection, Launch, Keyboard, Quit,
-    BulkAssign, SaveSavedCollection, DeleteSavedCollection, ScanBackups, ExportBackup, RestoreBackup, TestSource, RetryQueue, CancelQueue, ClearQueue, RefreshQueue };
+    BulkAssign, SaveSavedCollection, DeleteSavedCollection, ScanBackups, ExportBackup, RestoreBackup, TestSource, RetryQueue, CancelQueue, ClearQueue, RefreshQueue, ScanUsage, CleanStaging, ExportDiagnostics };
 struct Command {
     CommandType type; Entry entry; size_t source = 0; std::string text;
     std::optional<Settings> configuration = {}; std::optional<LocalInfo> personal = {}; std::string previous = {};
@@ -50,7 +51,11 @@ public:
     Screen screen = Screen::Splash, detailReturn = Screen::Dashboard;
     size_t selected[2] = {0, 0}, menuIndex = 0, settingsIndex = 0, sourceIndex = 0, detailScroll = 0;
     size_t ratingIndex = 0;
-    bool sidebar = false, loading = true;
+    bool sidebar = false, loading = true, updatesOnly = false;
+    size_t sidebarIndex = 0;
+    Screen featureReturn = Screen::Options, maintenanceReturn = Screen::Options;
+    StorageUsage usage;
+    bool cleanupArtwork = false;
     uint64_t freeBytes = 0;
     InstallStorage storage;
     bool storageChecked = false;
@@ -111,6 +116,7 @@ public:
     std::vector<std::string> packageRows() const;
     std::vector<std::string> queueRows() const;
     std::vector<std::string> queueDetails() const;
+    InstallRequirements requirements() const;
     bool localDirty() const { return !sameInfo(localDraft, pending.info); }
 };
 std::string layoutName(Layout layout);

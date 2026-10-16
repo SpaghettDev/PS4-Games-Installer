@@ -1,5 +1,56 @@
 # Implementation progress
 
+## r25 navigation and maintenance improvements — 2026-10-16
+
+- User authorized suggestions 1–6. Implementing sidebar shortcuts, sorting,
+  Updates, dependency checks, storage cleanup and USB diagnostics. Package
+  checksum verification (suggestion 7) is outside this requested change.
+- Cleanup will require evidence that staging files are released; ambiguous legacy
+  files and active tasks remain protected. Diagnostic export uses an allowlisted
+  report rather than copying configuration, URLs, personal profiles or raw logs.
+
+- Implemented contextual sidebar Downloads/Collections, Updates filtering/version
+  labels and persistent sidebar/Updates state. Expanded sort fields/order with old
+  setting migration and unknown values last; paginated the expanded Settings.
+- Added enqueue/retry dependency guards, persisted queued-base links, independent
+  eligible scheduling and a fresh installed scan before update/DLC transfer. Queued
+  dependencies fail clearly when their base fails/cancels. Optional catalog base
+  version requirements persist; firmware metadata remains advisory.
+- Added measured artwork/staging/reclaimable/protected usage and confirmed cleanup.
+  Explicit released/in-use lease files protect old/ambiguous packages after crashes;
+  failed starts that cannot unregister now retain their owned task IDs.
+- Added selected-field USB diagnostics, bounded operation/code summaries, omission
+  of raw logs/URLs/personal fields, unique exports and USB readback. Source files and
+  existing USB player backups remain independent of diagnostic exports.
+- Initial OpenOrbis compile exposed unsupported C++ stream headers; replaced the
+  log splitter with bounded string parsing. Host compilation also required a lambda
+  directory deleter. Native compilation/import validation then passed.
+- Initial feature/App integration tests passed, including missing-base, failed
+  dependencies, stale UI vs fresh console state, cleanup and disconnected USB checks.
+  Corrected two new test fixture setups before running the complete suite.
+- Generated 60 desktop captures and inspected Updates, expanded Settings, blocked
+  install requirements, cleanup and USB diagnostics. Adjusted singular file counts
+  and removed lease implementation terminology from the consumer cleanup screen.
+  The complete suite then passed (all C++ suites and 15 Python integrations),
+  including HTTP lease release/protection cases. A second run also passed after
+  the successful dependency-ordering test and explicit empty Updates screen.
+- Final review fixed queued-package back navigation to Game packages, protected
+  Failed state for a retained task whose start failed, and tolerated cache files
+  disappearing during measurement. Added retained-task polling/cancellation and
+  package back-navigation regressions. The complete suite passed again after these
+  fixes, including all 15 Python integrations and the native adapter checks.
+- Built `dist/PS4Game_installer-r25.pkg` (6,619,136 bytes). `make validate` passes
+  package hashes/signatures and packed import checks; revision, source fingerprint
+  and manifest SHA-256 match the final package.
+- Regenerated all 61 desktop captures at r25. Inspected sidebar focus, Updates in
+  summary/tiles, blocked and queued-base requirements, expanded Settings, cleanup,
+  diagnostic export confirmation and empty Updates. Refreshed all consumer images
+  and added Updates/cleanup/diagnostic captures; README image links resolve.
+- README, CHANGELOG and TODO describe the six requested improvements, controls,
+  migration, ownership protection, export omissions and remaining console checks.
+  Identity/whitespace audits pass. No console deployment or remote push was made;
+  r25 hardware acceptance remains explicitly unchecked in TODO.md.
+
 ## r24 background download stage refinement — 2026-10-16
 
 - Recorded whether a PS4 task was registered for a remote background transfer

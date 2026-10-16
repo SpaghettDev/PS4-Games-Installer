@@ -1,4 +1,5 @@
 #include "download.hpp"
+#include "settings.hpp"
 #include <cassert>
 #include <filesystem>
 #include <fstream>
@@ -33,7 +34,10 @@ int queueLocalInstall(const Entry& e, const std::string& path, int user) {
         for (int i = 0; i < n; ++i) assert(chunk[i] == char((read + i) % 251));
         read += n;
     }
-    assert(std::streamoff(read) == size); ++localCalls; return 92;
+    assert(std::streamoff(read) == size); ++localCalls;
+    assert(readFile(path + ".lease", 32) == "in-use\n");
+    if (mode == "safe-refusal" || mode == "uncertain-refusal") throw SubmissionFailure("Native refusal fixture", mode == "safe-refusal");
+    return 92;
 }
 }
 int main(int argc, char** argv) {
@@ -51,10 +55,15 @@ int main(int argc, char** argv) {
             assert(task == 92 && localCalls == 1 && remoteCalls == 0 && updates > 1);
             assert(psgi::installPackage(entry, 123, directory, &cancelled, [](uint64_t, uint64_t) {}) == 92);
             assert(localCalls == 2); // A valid staged file survives a registration retry.
-            psgi::removeStagedPackage(directory, url); assert(!std::filesystem::exists(path));
+            psgi::removeStagedPackage(directory, url); assert(!std::filesystem::exists(path) && !std::filesystem::exists(path + ".lease"));
         }
     } catch (const std::exception& e) {
         const std::string message = e.what(); std::cout << message << '\n';
+        if (mode == "safe-refusal" || mode == "uncertain-refusal") {
+            assert(message == "Native refusal fixture" && localCalls == 1 && remoteCalls == 0);
+            assert(std::filesystem::exists(path) && psgi::readFile(path + ".lease",32) == (mode == "safe-refusal" ? "released\n" : "in-use\n"));
+            psgi::removeStagedPackage(directory,url); return 0;
+        }
         if (mode == "missing") assert(message.find("HTTP 404") != std::string::npos);
         else if (mode == "html") assert(message.find("PS4 PKG") != std::string::npos);
         else if (mode == "cancel") assert(message.find("cancelled") != std::string::npos);

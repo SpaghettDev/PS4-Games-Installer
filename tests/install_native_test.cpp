@@ -46,8 +46,8 @@ int registerPkg(Params* p, int* task) {
 int registerLocal(Local* p, int* task) { assert(local && p->slot == (update ? 3u : 0u)); return registerPkg(&p->params, task); }
 int initApp() { return 0; }
 int getSlot(const char* id, unsigned* slot) { assert(std::strcmp(id, "CUSA00001") == 0); *slot = 3; return 0; }
-int start(int task) { assert(task == 45); ++starts; return mode == "start-error" ? -3 : 0; }
-int unregisterTask(int task) { assert(task == 45); ++removals; return mode == "remove-error" ? -4 : 0; }
+int start(int task) { assert(task == 45); ++starts; return mode == "start-error" || mode == "start-retained" ? -3 : 0; }
+int unregisterTask(int task) { assert(task == 45); ++removals; return mode == "remove-error" || mode == "start-retained" ? -4 : 0; }
 int stop(int task) { assert(task == 45); ++stops; return mode == "stop-error" ? -6 : 0; }
 int progress(int task, Progress* p) {
     assert(task == 45); *p = {};
@@ -148,5 +148,14 @@ int main() {
     mode = "stop-error"; rejects([] { cancelInstallTask(45); }, "Stop owned"); assert(stops == 2 && removals == before + 1);
     mode = "remove-error"; rejects([] { cancelInstallTask(45); }, "Release inactive"); assert(removals == before + 2);
     mode = "missing"; cancelInstallTask(45); assert(removals == before + 2);
+    local = false; expectedUrl = entry.url; expectedIcon = entry.coverUrl; expectedContent.clear();
+    mode = "start-retained";
+    bool retained = false;
+    try { queueInstall(entry, 123); } catch (const SubmissionFailure& error) { retained = !error.storageReleased && error.retainedTask == 45; }
+    assert(retained);
+    mode = "start-error";
+    bool released = false;
+    try { queueInstall(entry, 123); } catch (const SubmissionFailure& error) { released = error.storageReleased && error.retainedTask < 0; }
+    assert(released);
     std::puts("BGFT remote/local registration, URL preservation, conflicts, retry cleanup and completion checks passed");
 }

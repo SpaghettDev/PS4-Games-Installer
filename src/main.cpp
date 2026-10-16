@@ -88,9 +88,25 @@ void capture(App& app, Renderer& renderer, Canvas& canvas) {
     shot("45-package-groups");
     ui.screen = Screen::Options; ui.menuIndex = 12; shot("46-more-options");
     ui.settings.grouping = Grouping::None; ui.rebuild();
+    ui.screen = Screen::Dashboard; ui.sidebar = true; ui.sidebarIndex = 3; shot("49-sidebar-shortcuts");
+    ui.sidebar = false; ui.updatesOnly = true; ui.library = Library::Available; ui.rebuild(); shot("50-newer-updates");
+    ui.settings.layout = Layout::Summary; ui.rebuild(); shot("51-updates-summary");
+    ui.updatesOnly = false; ui.settings.sort = SortField::Rating; ui.settings.descending = true; ui.rebuild(); shot("52-sort-ratings");
+    ui.screen = Screen::Options; ui.menuIndex = 16; shot("53-sort-and-maintenance");
+    ui.draft = ui.settings; ui.screen = Screen::Settings; ui.settingsIndex = 13; shot("54-settings-order");
+    for (const auto& e : ui.available) if (packageKind(e) == 1) ui.pending = e;
+    auto local = ui.installed; ui.installed.clear(); ui.screen = Screen::ConfirmInstall; shot("55-missing-base");
+    QueueItem base; base.entry = local.front(); base.entry.url = "http://preview.invalid/queued-base.pkg"; base.stage = QueueStage::Waiting; ui.downloads.push_back(base);
+    shot("56-wait-for-base"); ui.downloads.pop_back(); ui.installed = local; ui.rebuild();
+    ui.screen = Screen::Cleanup; ui.featureNotice = "Storage checked. Active and uncertain packages kept."; shot("57-storage-cleanup");
+    ui.screen = Screen::ConfirmCleanup; ui.cleanupArtwork = false; shot("58-confirm-cleanup");
+    ui.screen = Screen::Diagnostics; ui.featureNotice.clear(); shot("59-usb-diagnostics");
+    ui.featureNotice = "Diagnostics saved: PS4-Games-Installer-diagnostics-1792152000-0.json"; shot("60-diagnostics-exported");
+    ui.featureNotice.clear(); ui.settings.sort = SortField::Name; ui.settings.descending = false; ui.rebuild();
     ui.screen = Screen::About; shot("09-about");
     ui.screen = Screen::ConfirmExit; shot("10-exit");
-    ui.screen = Screen::Dashboard; ui.available.clear(); ui.rebuild(); shot("11-empty");
+    ui.screen = Screen::Dashboard; ui.available.clear(); ui.updatesOnly = true; ui.rebuild(); shot("61-updates-empty");
+    ui.updatesOnly = false; ui.rebuild(); shot("11-empty");
     ui.status = "Server unavailable. Showing the last valid library; Installed works offline.";
     ui.library = Library::Installed; ui.rebuild(); shot("12-offline");
 }

@@ -63,7 +63,14 @@ Settings parseSettings(const std::string& text) {
     else if (grouping == "tag") s.grouping = Grouping::Tag;
     else if (grouping == "title") s.grouping = Grouping::Title;
     else if (!grouping.empty() && grouping != "none") throw std::runtime_error("Invalid grouping");
-    s.sizeSort = boolean(root.get(), "size_sort", false);
+    const auto sort = stringField(root.get(), "sort_field");
+    if (sort.empty()) { s.sort = boolean(root.get(), "size_sort", false) ? SortField::Size : SortField::Name; s.descending = s.sort == SortField::Size; }
+    else {
+        const char* names[] = {"name", "size", "rating", "last_launch", "first_installed"};
+        size_t i = 0; for (; i < 5 && sort != names[i]; ++i) {}
+        if (i == 5) throw std::runtime_error("Invalid sort field");
+        s.sort = static_cast<SortField>(i); s.descending = boolean(root.get(), "sort_descending", i != 0);
+    }
     s.notInstalledOnly = boolean(root.get(), "not_installed_only", false);
     s.animations = boolean(root.get(), "animations", true);
     s.refreshOnStart = boolean(root.get(), "refresh_on_start", true);
@@ -78,7 +85,12 @@ std::string serializeSettings(const Settings& s) {
     cJSON_AddStringToObject(root.get(), "layout", s.layout == Layout::Tiles ? "tiles" : "summary");
     const char* groups[] = {"none", "category", "region", "letter", "local_category", "tag", "title"};
     cJSON_AddStringToObject(root.get(), "grouping", groups[static_cast<int>(s.grouping)]);
-    cJSON_AddBoolToObject(root.get(), "size_sort", s.sizeSort);
+    const char* sorts[] = {"name", "size", "rating", "last_launch", "first_installed"};
+    const auto sort = static_cast<unsigned>(s.sort);
+    if (sort >= 5) throw std::runtime_error("Invalid sort field");
+    cJSON_AddStringToObject(root.get(), "sort_field", sorts[sort]);
+    cJSON_AddBoolToObject(root.get(), "sort_descending", s.descending);
+    cJSON_AddBoolToObject(root.get(), "size_sort", s.sort == SortField::Size && s.descending);
     cJSON_AddBoolToObject(root.get(), "not_installed_only", s.notInstalledOnly);
     cJSON_AddBoolToObject(root.get(), "animations", s.animations);
     cJSON_AddBoolToObject(root.get(), "refresh_on_start", s.refreshOnStart);
@@ -87,6 +99,10 @@ std::string serializeSettings(const Settings& s) {
     return out.get();
 }
 bool sameSettings(const Settings& a, const Settings& b) { return serializeSettings(a) == serializeSettings(b); }
+std::string sortName(SortField field) {
+    const char* names[] = {"Name", "Size", "Rating", "Last launched here", "First recorded install"};
+    const auto index = static_cast<unsigned>(field); return index < 5 ? names[index] : "Unknown";
+}
 
 void atomicWrite(const std::string& path, const std::string& text) {
     std::string temporary = path + ".tmp";

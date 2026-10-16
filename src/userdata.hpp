@@ -40,7 +40,8 @@ struct PlayerData {
 };
 struct LibraryCursor { std::string titleId, url; size_t index = 0; std::string group; };
 struct ViewState {
-    bool available = false, sidebar = false;
+    bool available = false, sidebar = false, updatesOnly = false;
+    size_t sidebarIndex = 0;
     std::string query;
     LocalFilter filter;
     LibraryCursor cursor[2];

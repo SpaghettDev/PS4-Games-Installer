@@ -57,7 +57,31 @@ std::vector<std::string> Ui::queueDetails() const {
         job.message, "Transferred bytes only measure download progress. Installation needs PS4 confirmation.",
         "A failed or cancelled package can be retried with X. Triangle cancels an owned active task.", job.entry.url};
 }
+InstallRequirements Ui::requirements() const {
+    std::vector<Entry> bases;
+    for (const auto& job : downloads) if (queueActive(job.stage) && packageKind(job.entry) == 0) bases.push_back(job.entry);
+    return installationRequirements(pending, installed, bases);
+}
 bool Ui::handleFeatures(Button b) {
+    if (screen == Screen::Cleanup || screen == Screen::ConfirmCleanup) {
+        if (b == Button::Circle) { screen = screen == Screen::Cleanup ? maintenanceReturn : Screen::Cleanup; return true; }
+        if (screen == Screen::ConfirmCleanup) {
+            if (b == Button::Cross) { emit(cleanupArtwork ? CommandType::ClearArtwork : CommandType::CleanStaging); screen = Screen::Cleanup; }
+        } else if (b == Button::Triangle) emit(CommandType::ScanUsage);
+        else if (b == Button::Cross || b == Button::Square) { cleanupArtwork = b == Button::Square; screen = Screen::ConfirmCleanup; }
+        return true;
+    }
+    if (screen == Screen::Diagnostics) {
+        if (b == Button::Circle) screen = maintenanceReturn;
+        if (b == Button::Triangle) emit(CommandType::ScanBackups);
+        if (b == Button::Up && backupIndex) --backupIndex;
+        if (b == Button::Down && backupIndex + 1 < backupDevices.size()) ++backupIndex;
+        if (b == Button::Cross && !backupDevices.empty()) {
+            backupIndex = std::min(backupIndex, backupDevices.size() - 1);
+            Command c{}; c.type = CommandType::ExportDiagnostics; c.text = backupDevices[backupIndex].path; commands.push_back(std::move(c));
+        }
+        return true;
+    }
     if (screen == Screen::Dashboard && bulkMode) {
         if (b == Button::Circle) { bulkMode = false; markedTitles.clear(); return true; }
         if (b == Button::Triangle) { bulkIndex = 0; featureNotice.clear(); screen = Screen::BulkMenu; return true; }
@@ -90,7 +114,7 @@ bool Ui::handleFeatures(Button b) {
         return true;
     }
     if (screen == Screen::SavedCollections) {
-        if (b == Button::Circle) { screen = Screen::Options; return true; }
+        if (b == Button::Circle) { screen = featureReturn; return true; }
         savedIndex = std::min(savedIndex, savedRows().size() - 1);
         if (b == Button::Up && savedIndex) --savedIndex;
         if (b == Button::Down && savedIndex + 1 < savedRows().size()) ++savedIndex;
@@ -110,7 +134,7 @@ bool Ui::handleFeatures(Button b) {
                 if (savedIndex == 2) filter.minRating = 4;
                 if (savedIndex == 3) { filter.installState = 3; library = Library::Available; }
             }
-            selected[static_cast<int>(library)] = 0; sidebar = false; screen = Screen::Dashboard; quickSave();
+            updatesOnly = false; sidebarIndex = size_t(library); selected[static_cast<int>(library)] = 0; sidebar = false; screen = Screen::Dashboard; quickSave();
         }
         return true;
     }
@@ -154,7 +178,7 @@ bool Ui::handleFeatures(Button b) {
             if (b == Button::Cross && !downloads.empty()) { Command c{}; c.type = CommandType::CancelQueue; c.text = downloads[queueIndex].entry.url; commands.push_back(std::move(c)); screen = Screen::QueueDetails; }
             return true;
         }
-        if (b == Button::Circle) { screen = screen == Screen::Queue ? Screen::Options : Screen::Queue; return true; }
+        if (b == Button::Circle) { screen = screen == Screen::Queue ? featureReturn : Screen::Queue; return true; }
         if (screen == Screen::Queue) {
             if (b == Button::Up && queueIndex) --queueIndex;
             if (b == Button::Down && queueIndex + 1 < downloads.size()) ++queueIndex;
@@ -217,7 +241,7 @@ bool Ui::handleFeatures(Button b) {
         if (b == Button::Cross || b == Button::Square || b == Button::Triangle) {
             pending = available[related[packageIndex]];
             if (b == Button::Cross) {
-                if (pending.queued) { for (size_t i = 0; i < downloads.size(); ++i) if (downloads[i].entry.url == pending.url) queueIndex = i; screen = Screen::Queue; }
+                if (pending.queued) { for (size_t i = 0; i < downloads.size(); ++i) if (downloads[i].entry.url == pending.url) queueIndex = i; featureReturn = Screen::Packages; screen = Screen::Queue; }
                 else { installReturn = Screen::Packages; screen = Screen::ConfirmInstall; }
             } else if (b == Button::Square) { detailReturn = Screen::Packages; detailScroll = 0; screen = Screen::Details; }
             else { actionReturn = Screen::Packages; menuIndex = 0; screen = Screen::Actions; }

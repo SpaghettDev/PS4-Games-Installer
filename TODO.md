@@ -1,5 +1,15 @@
 # Work tracker
 
+## Current implementation: navigation and maintenance
+
+- [x] Sidebar Downloads, Collections and Updates shortcuts with correct back navigation.
+- [x] Rating, last-launch, first-recorded-install, name and size sorting with both directions.
+- [x] Updates view showing newer catalog versions for installed titles.
+- [x] Base-game/version dependency checks at enqueue and immediately before installation.
+- [x] Storage usage and confirmed cleanup of safely released staging/artwork files.
+- [x] USB diagnostic export with credentials, URLs/tokens and personal notes excluded.
+- [x] Host tests, PS4 package validation, screenshots, docs and local commit for r25.
+
 ## Current implementation: library and installer improvements
 
 - [x] Persistent queue with distinct transfer, registration, installation and verification stages.
@@ -88,6 +98,14 @@
   and the config-file confirmation is displayed.
 - [x] r16 FTP log shows 44 packages loaded/refreshed and a successful connection
   test; user confirms remote artwork downloads work (2026-10-16).
+- [ ] Retest r25: sidebar shortcuts and O return to the invoking screen; Updates
+  and selected game survive launch/reopen; filters and both sort directions work.
+- [ ] Retest r25: missing-base update/DLC is blocked; queued base completes and
+  verifies before dependents; cancelling/failing the base explains dependent failure.
+- [ ] Retest r25: staging/artwork sizes match the console; cleanup confirmation
+  preserves active and unknown files, removes released/partial files, and refreshes usage.
+- [ ] Retest r25: USB diagnostic export/readback, disconnect/read-only recovery,
+  and absence of private URLs/credentials; report opens on a desktop.
 - [ ] Retest r10: Installed tiles, summary backgrounds and details show local icons
   for internal/external titles, including offline startup without a server.
 - [ ] Retest r9: loading ends without a forced splash delay.

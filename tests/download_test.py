@@ -56,7 +56,7 @@ class DownloadTests(unittest.TestCase):
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:
-            for mode in ("range", "local", "missing", "html", "cancel", "space", "unknown-length", "truncated"):
+            for mode in ("range", "local", "missing", "html", "cancel", "space", "unknown-length", "truncated", "safe-refusal", "uncertain-refusal"):
                 with self.subTest(mode=mode), tempfile.TemporaryDirectory(prefix="psgi-download-") as directory:
                     url = f"http://127.0.0.1:{server.server_port}/{mode}/A%20Game%20%5BUS%5D.pkg?token=kept"
                     result = subprocess.run([str(RUNNER), url, directory, mode], capture_output=True, text=True, timeout=15)

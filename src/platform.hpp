@@ -3,6 +3,7 @@
 #include <atomic>
 #include <optional>
 #include <functional>
+#include <stdexcept>
 
 namespace psgi {
 std::string httpGet(const std::string& url, size_t limit = MaxCatalogBytes, const std::atomic<bool>* cancelled = nullptr);
@@ -16,6 +17,12 @@ void prepareConsole();
 // Called after application resources and worker threads have been destroyed.
 // Native builds hand termination to the PS4 shell; desktop builds return status.
 int finishApplication(int status);
+struct SubmissionFailure : std::runtime_error {
+    bool storageReleased;
+    int retainedTask;
+    SubmissionFailure(const std::string& message, bool released, int task = -1)
+        : std::runtime_error(message), storageReleased(released), retainedTask(task) {}
+};
 int queueInstall(const Entry& entry, int userId);
 int queueLocalInstall(const Entry& entry, const std::string& path, int userId);
 // Only call for failed/completed tasks owned/tracked by this application.

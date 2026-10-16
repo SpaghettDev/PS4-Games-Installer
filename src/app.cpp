@@ -3,6 +3,7 @@
 #include "platform.hpp"
 #include "download.hpp"
 #include "cJSON.h"
+#include "revision.hpp"
 #include <chrono>
 #include <ctime>
 #include <cstdio>
@@ -14,7 +15,7 @@
 
 namespace psgi {
 namespace {
-enum class ResultKind { Local, Remote, Test, Storage, Install, Uninstall, Poll, Cancel, SourceTest };
+enum class ResultKind { Local, Remote, Test, Storage, Install, Uninstall, Poll, Cancel, SourceTest, Maintenance };
 struct Result {
     ResultKind kind = ResultKind::Test;
     std::optional<std::vector<Entry>> local, remote;
@@ -26,6 +27,7 @@ struct Result {
     std::map<std::string, TaskProgress> progress;
     std::optional<SourceReport> sourceReport;
     bool backgroundTransfer = false;
+    std::optional<StorageUsage> usage;
 };
 struct TransferUpdate { std::string url; QueueStage stage; uint64_t bytes = 0, total = 0; };
 constexpr size_t CacheLimit = 64 * 1024 * 1024;
@@ -37,6 +39,13 @@ std::string errorCode(int result) {
     char code[20]; std::snprintf(code, sizeof(code), "0x%08X", static_cast<unsigned>(result)); return code;
 }
 uint64_t timestamp() { const auto now = std::time(nullptr); return now > 0 ? uint64_t(now) : 0; }
+InstallRequirements queueRequirements(const Entry& entry, const Ui& ui) {
+    std::vector<Entry> bases;
+    for (const auto& job : ui.downloads) if (queueActive(job.stage) && packageKind(job.entry) == 0) bases.push_back(job.entry);
+    const auto required = installationRequirements(entry, ui.installed, bases);
+    if (!required.blockers.empty()) throw std::runtime_error(required.blockers.front());
+    return required;
+}
 void requireBackupDevice(const std::string& path) {
     const auto devices = scanBackupDevices();
     if (std::none_of(devices.begin(), devices.end(), [&](const BackupDevice& device) { return device.path == path; }))
@@ -107,6 +116,7 @@ App::App(const std::string& data, bool preview)
                 job.bytesPerSecond = i == 1 ? 38000000 : 0; job.task = i == 2 ? 45 : -1; ui.downloads.push_back(job);
             }
         }
+        ui.usage = {240000000, 36000000000ULL, 12000000000ULL, 24000000000ULL, 2, 1, true};
         ui.backupDevices = {{"/mnt/usb0", {"PS4-Games-Installer-player-1792152000-0.json"}}};
         ui.setLibraries(local, entries);
         ui.freeBytes = 423000000000ULL;
@@ -180,9 +190,31 @@ void App::syncQueued() {
     for (const auto& task : tasks) ui.queued.insert(task.first);
     ui.rebuild();
 }
+std::set<std::string> App::protectedStaging() const {
+    std::set<std::string> paths;
+    for (const auto& job : ui.downloads) if (queueActive(job.stage) || job.task >= 0) paths.insert(stagedPackagePath(directory, job.entry.url));
+    for (const auto& task : tasks) paths.insert(stagedPackagePath(directory, task.first));
+    if (!activeDownloadUrl.empty()) paths.insert(stagedPackagePath(directory, activeDownloadUrl));
+    return paths;
+}
 void App::startNextDownload(int user) {
     if (worker->busy() || !queueWritable) return;
-    auto found = std::find_if(ui.downloads.begin(), ui.downloads.end(), [](const QueueItem& job) { return job.stage == QueueStage::Waiting; });
+    auto found = ui.downloads.end(); bool changed = false;
+    for (auto it = ui.downloads.begin(); it != ui.downloads.end(); ++it) if (it->stage == QueueStage::Waiting) {
+        if (!it->dependsOn.empty()) {
+            const auto* base = findJob(ui.downloads, it->dependsOn);
+            if (base && (base->stage == QueueStage::Failed || base->stage == QueueStage::Cancelled)) {
+                it->stage = QueueStage::Failed; it->message = "Base-game installation failed or was cancelled. Install the base game, then retry this package."; changed = true; continue;
+            }
+            if (base && base->stage != QueueStage::Completed) {
+                it->message = "Waiting for the base game to finish installation and verification"; continue;
+            }
+        }
+        const auto required = installationRequirements(it->entry, ui.installed);
+        if (!required.blockers.empty()) { it->stage = QueueStage::Failed; it->message = required.blockers.front(); changed = true; continue; }
+        found = it; break;
+    }
+    if (changed) { persistQueue(); syncQueued(); }
     if (found == ui.downloads.end()) return;
     const auto entry = found->entry;
     found->stage = QueueStage::Checking; found->message = "Checking package URL and HTTP Range support"; found->updated = timestamp();
@@ -192,13 +224,19 @@ void App::startNextDownload(int user) {
     worker->start([this, entry, user] {
         Result r; r.kind = ResultKind::Install; r.entry = entry;
         QueueStage stage = QueueStage::Checking; uint64_t bytes = 0, total = 0;
-        try { r.task = installPackage(entry, user, directory, &worker->cancelled, [&](uint64_t done, uint64_t length) {
+        try {
+            if (packageKind(entry) == 1 || packageKind(entry) == 2) {
+                const auto required = installationRequirements(entry, scanInstalled());
+                if (!required.blockers.empty()) throw std::runtime_error(required.blockers.front());
+            }
+            r.task = installPackage(entry, user, directory, &worker->cancelled, [&](uint64_t done, uint64_t length) {
             bytes = done; total = length; worker->reportTransfer({entry.url, stage, done, length});
         }, [this](const std::string& message) { log(message); worker->report(message); }, [&](InstallPhase phase) {
             r.backgroundTransfer = phase == InstallPhase::RegisteringRemote;
             stage = phase == InstallPhase::Checking ? QueueStage::Checking : phase == InstallPhase::Downloading ? QueueStage::Downloading : QueueStage::Registering;
             worker->reportTransfer({entry.url, stage, bytes, total});
-        }); } catch (const std::exception& e) { r.message = e.what(); }
+        }); } catch (const SubmissionFailure& e) { r.message = e.what(); r.task = e.retainedTask; }
+        catch (const std::exception& e) { r.message = e.what(); }
         return r;
     });
     ui.status = "Checking package URL and server range support..."; ui.loading = true;
@@ -255,6 +293,8 @@ void App::tick(double elapsed, Video& video) {
         if (initialScan) { initialScan = false; bootReady = true; }
         if (result->local) { lastLocalScan = elapsed; ui.freeBytes = result->freeBytes; }
         if (result->storage) { ui.storage = *result->storage; ui.storageChecked = true; }
+        if (result->usage) ui.usage = *result->usage;
+        if (result->kind == ResultKind::Maintenance) { cleaningStaging = false; ui.featureNotice = result->message; }
         if (result->sourceReport) {
             ui.sourceTesting = false;
             if (result->sourceReport->source.url == ui.setupSource.url && result->sourceReport->source.category == ui.setupSource.category) ui.sourceReport = *result->sourceReport;
@@ -278,11 +318,12 @@ void App::tick(double elapsed, Video& video) {
                     reportedTaskErrors.erase(result->task);
                     tasks[result->entry.url] = result->task; job->task = result->task;
                     job->backgroundTransfer = result->backgroundTransfer;
-                    job->stage = pendingCancels.count(result->entry.url) ? QueueStage::Cancelling : QueueStage::Installing;
+                    job->stage = pendingCancels.count(result->entry.url) ? QueueStage::Cancelling : result->message.empty() ? QueueStage::Installing : QueueStage::Failed;
                     job->message = "Registered with PS4. Waiting for installation, then a fresh library scan.";
                     ui.status = "Installation queued. Manage it here or in PS4 Notifications > Downloads.";
+                    if (!result->message.empty()) { job->message = ui.status = result->message; ui.installError = result->message; ui.failedInstall = result->entry; }
                     try { saveTasks(); } catch (const std::exception&) { ui.status += " Legacy task tracking could not be saved."; }
-                    log("BGFT installation task " + std::to_string(result->task) + " started for " + result->entry.titleId);
+                    log("BGFT installation task " + std::to_string(result->task) + (result->message.empty() ? " started for " : " retained after failed start for ") + result->entry.titleId);
                 } else if (pendingCancels.erase(result->entry.url)) {
                     job->stage = QueueStage::Cancelled; job->message = "Download cancelled by you. Any complete staged package was kept for retry.";
                     ui.status = job->message;
@@ -336,7 +377,7 @@ void App::tick(double elapsed, Video& video) {
                         job->stage = QueueStage::Verifying; job->verificationStarted = timestamp(); changed = true;
                     }
                     job->systemCompleted = job->systemCompleted || progress.completed;
-                } else if (job->stage != QueueStage::Cancelling && job->stage != QueueStage::Completed &&
+                } else if (job->stage != QueueStage::Cancelling && job->stage != QueueStage::Failed && job->stage != QueueStage::Completed &&
                            !(job->stage == QueueStage::Verifying && job->systemCompleted)) {
                     const bool downloading = job->backgroundTransfer && (!progress.total || progress.transferred < progress.total);
                     job->stage = downloading ? QueueStage::Downloading : QueueStage::Installing;
@@ -429,7 +470,52 @@ void App::tick(double elapsed, Video& video) {
                     })) throw std::runtime_error("Wait for the current operation, then test again");
                     ui.status = "Testing catalog connection..."; ui.loading = true; break;
                 }
-                case CommandType::ClearArtwork: artwork.clear(); ui.status = "Artwork cache cleared"; break;
+                case CommandType::ClearArtwork:
+                    if (demo) { ui.featureNotice = ui.status = "Preview: no real cache files deleted"; break; }
+                    artwork.clear(); ui.featureNotice = ui.status = "Artwork cache cleared";
+                    if (ui.screen == Screen::Cleanup) ui.usage = scanStorageUsage(directory, protectedStaging(), queueWritable);
+                    break;
+                case CommandType::ScanUsage:
+                case CommandType::CleanStaging: {
+                    if (demo) { ui.featureNotice = "Preview: sample usage; no real files deleted"; break; }
+                    const auto paths = protectedStaging(); const bool trusted = queueWritable;
+                    const bool clean = command.type == CommandType::CleanStaging;
+                    if (!worker->start([this, paths, trusted, clean] {
+                        Result r; r.kind = ResultKind::Maintenance;
+                        try {
+                            if (clean) {
+                                const auto removed = cleanStaging(directory, paths, trusted);
+                                r.message = "Removed " + std::to_string(removed.files) + " files / " + formatSize(removed.bytes) + (removed.failed ? "; " + std::to_string(removed.failed) + " files could not be removed" : "; active and uncertain packages kept");
+                            } else r.message = "Storage usage checked. Unmarked legacy packages stay protected.";
+                            r.usage = scanStorageUsage(directory, paths, trusted);
+                        } catch (const std::exception& e) { r.message = e.what(); }
+                        return r;
+                    })) throw std::runtime_error("Wait for the current operation, then refresh or clean storage");
+                    cleaningStaging = clean; ui.loading = true; ui.featureNotice = ui.status = clean ? "Cleaning released staging files..." : "Checking cache and staging usage..."; break;
+                }
+                case CommandType::ExportDiagnostics: {
+                    if (demo) throw std::runtime_error("Desktop preview does not export sample diagnostics to USB");
+                    DiagnosticSnapshot snapshot; snapshot.revision = PSGI_REVISION; snapshot.installed = ui.installed.size(); snapshot.available = ui.available.size();
+                    snapshot.storage = ui.storage; snapshot.usage = ui.usage; snapshot.queue = ui.downloads;
+                    {
+                        std::lock_guard<std::mutex> lock(logMutex);
+                        FILE* file = std::fopen((directory + "/app.log").c_str(), "rb");
+                        if (file) {
+                            if (!fseeko(file,0,SEEK_END)) { const auto length = ftello(file); if (length >= 0 && !fseeko(file, length > 262144 ? length - 262144 : 0, SEEK_SET)) {
+                                snapshot.logTail.resize(size_t(std::min<off_t>(length,262144))); snapshot.logTail.resize(std::fread(snapshot.logTail.data(),1,snapshot.logTail.size(),file));
+                            } }
+                            std::fclose(file);
+                        }
+                    }
+                    const auto device = command.text;
+                    if (!worker->start([snapshot, device] {
+                        Result r; r.kind = ResultKind::Maintenance;
+                        try { requireBackupDevice(device); r.message = "Diagnostics saved: " + exportDiagnostics(device, snapshot, timestamp()); }
+                        catch (const std::exception& e) { r.message = e.what(); }
+                        return r;
+                    })) throw std::runtime_error("Wait for the current operation, then export diagnostics");
+                    ui.loading = true; ui.featureNotice = ui.status = "Writing sanitized diagnostics to USB..."; break;
+                }
                 case CommandType::RefreshArtwork: artwork.refresh(command.entry); ui.status = "Artwork will be reloaded"; break;
                 case CommandType::Rate: {
                     auto next = ui.player; next.rate(command.entry.titleId, command.source); savePlayer(next);
@@ -497,11 +583,14 @@ void App::tick(double elapsed, Video& video) {
                     ui.loading = true; ui.featureNotice = ui.status = "Testing source URL and catalog format..."; break;
                 }
                 case CommandType::RetryQueue: {
+                    if (cleaningStaging) throw std::runtime_error("Wait for storage cleanup before queuing packages");
                     auto* job = findJob(ui.downloads, command.text);
                     if (!job) throw std::runtime_error("Queue item no longer exists");
                     if (job->stage != QueueStage::Failed && job->stage != QueueStage::Cancelled) throw std::runtime_error("Only failed or cancelled packages can be retried");
                     if (tasks.count(command.text)) throw std::runtime_error("Cancel the existing owned PS4 task before retrying");
+                    const auto required = queueRequirements(job->entry, ui);
                     auto next = ui.downloads; enqueueJob(next, job->entry, timestamp());
+                    findJob(next, job->entry.url)->dependsOn = required.dependencyUrl;
                     if (!queueWritable) throw std::runtime_error("queue.json needs repair; original file was kept unchanged");
                     if (!demo) saveQueue(directory, next);
                     ui.downloads = std::move(next); syncQueued();
@@ -596,11 +685,14 @@ void App::tick(double elapsed, Video& video) {
                     break;
                 }
                 case CommandType::Install: {
+                    if (cleaningStaging) throw std::runtime_error("Wait for storage cleanup before queuing packages");
                     if (demo) { ui.status = "Desktop preview cannot install PS4 packages"; break; }
                     if (!queueWritable) throw std::runtime_error("queue.json needs repair; the original file was kept unchanged");
                     if (tasks.count(command.entry.url)) throw std::runtime_error("This package is already queued");
                     savePosition();
+                    const auto required = queueRequirements(command.entry, ui);
                     auto next = ui.downloads; enqueueJob(next, command.entry, timestamp());
+                    findJob(next, command.entry.url)->dependsOn = required.dependencyUrl;
                     saveQueue(directory, next); ui.downloads = std::move(next); syncQueued();
                     ui.status = "Package added to the download queue";
                     log("Install queued: " + command.entry.titleId);

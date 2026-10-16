@@ -294,6 +294,8 @@ void savePlayerData(const std::string& directory, const PlayerData& data) {
 ViewState parseViewState(const std::string& text) {
     auto root = parse(text); ViewState state;
     state.available = boolean(root.get(), "available"); state.sidebar = boolean(root.get(), "sidebar");
+    state.updatesOnly = boolean(root.get(), "updates_only");
+    state.sidebarIndex = cJSON_GetObjectItemCaseSensitive(root.get(), "sidebar_index") ? number(root.get(), "sidebar_index", 4) : (state.available ? 1 : 0);
     state.query = string(root.get(), "query", 512);
     if (auto* filter = cJSON_GetObjectItemCaseSensitive(root.get(), "local_filter")) {
         state.filter = readFilter(filter);
@@ -312,6 +314,8 @@ ViewState parseViewState(const std::string& text) {
 std::string serializeViewState(const ViewState& state) {
     Json root(cJSON_CreateObject(), cJSON_Delete); cJSON_AddNumberToObject(root.get(), "schema", 1);
     cJSON_AddBoolToObject(root.get(), "available", state.available); cJSON_AddBoolToObject(root.get(), "sidebar", state.sidebar);
+    cJSON_AddBoolToObject(root.get(), "updates_only", state.updatesOnly);
+    cJSON_AddNumberToObject(root.get(), "sidebar_index", state.sidebarIndex);
     cJSON_AddStringToObject(root.get(), "query", state.query.c_str());
     auto* filter = cJSON_AddObjectToObject(root.get(), "local_filter");
     writeFilter(filter, state.filter);

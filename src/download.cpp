@@ -1,4 +1,5 @@
 #include "download.hpp"
+#include "settings.hpp"
 #include <algorithm>
 #include <cstdio>
 #include <cerrno>
@@ -27,7 +28,8 @@ std::string stagedPackagePath(const std::string& directory, const std::string& u
     return directory + "/downloads" + name;
 }
 void removeStagedPackage(const std::string& directory, const std::string& url) {
-    unlink(stagedPackagePath(directory, url).c_str());
+    const auto path = stagedPackagePath(directory, url);
+    if (!unlink(path.c_str()) || errno == ENOENT) unlink((path + ".lease").c_str());
 }
 int installPackage(const Entry& entry, int userId, const std::string& directory,
                    const std::atomic<bool>* cancelled, const DownloadProgress& progress,
@@ -53,6 +55,11 @@ int installPackage(const Entry& entry, int userId, const std::string& directory,
     if (mkdir(folder.c_str(), 0700) && errno != EEXIST) throw std::runtime_error("Cannot create package staging directory");
     const std::string path = stagedPackagePath(directory, entry.url), part = path + ".part";
     if (!completeFile(path, probe.length)) {
+        if (!access(path.c_str(), F_OK)) {
+            std::string lease;
+            try { lease = readFile(path + ".lease", 32); } catch (const std::exception&) {}
+            if (lease != "released\n") throw std::runtime_error("Existing staged package may still be used by PS4. Finish/cancel it in Downloads before retrying.");
+        }
         if (phase) phase(InstallPhase::Downloading);
         progress(0, probe.length);
         FILE* file = std::fopen(part.c_str(), "wb");
@@ -80,11 +87,17 @@ int installPackage(const Entry& entry, int userId, const std::string& directory,
             if (std::fflush(file) || fsync(fileno(file))) throw std::runtime_error("Cannot flush downloaded package");
             const int closed = std::fclose(file); file = nullptr;
             if (closed || rename(part.c_str(), path.c_str())) throw std::runtime_error("Cannot save downloaded package");
+            atomicWrite(path + ".lease", "released\n");
         } catch (...) { if (file) std::fclose(file); unlink(part.c_str()); throw; }
     } else if (note) note("Reusing complete downloaded package; no new download needed");
     if (cancelled && *cancelled) throw std::runtime_error("Download cancelled");
     if (phase) phase(InstallPhase::Registering);
     if (note) note("Download complete. Requesting PS4 installation; not installed yet.");
-    return queueLocalInstall(entry, path, userId);
+    atomicWrite(path + ".lease", "in-use\n");
+    try { return queueLocalInstall(entry, path, userId); }
+    catch (const SubmissionFailure& failure) {
+        if (failure.storageReleased) atomicWrite(path + ".lease", "released\n");
+        throw;
+    }
 }
 }

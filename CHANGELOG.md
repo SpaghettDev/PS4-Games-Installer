@@ -1,5 +1,27 @@
 # Changelog
 
+## r25 — 2026-10-16
+
+- Add sidebar Downloads, Collections and Updates with contextual back navigation
+  and saved Updates/sidebar state. Show newer patches for installed Title IDs and
+  installed-to-available versions in both layouts.
+- Add rating, last launch here and first recorded install sorting alongside name
+  and size, with ascending/descending order, unknown values last and migration of
+  existing size-sort preferences. Paginate expanded Settings.
+- Check update/DLC base-game requirements before enqueue, on Retry and against a
+  fresh console scan immediately before network/registration work. Persist queued
+  base dependencies, wait for verified installation and explain failed dependencies.
+  Support optional catalog `required_base_version`; firmware remains advisory.
+- Add confirmed staging/artwork cleanup and measured cache/staging/protected usage.
+  Preserve active jobs, unknown legacy packages and ambiguous ownership via durable
+  staging leases. Retain task IDs and the Failed state when a failed start cannot
+  unregister its task; allow explicit cancellation without losing file ownership.
+- Add USB diagnostic reports containing allowlisted counts, stages, Title IDs and
+  selected error codes. Exclude raw logs, URLs, credentials and personal records;
+  recheck the drive, use unique files and verify the written report.
+- Package checksum verification was excluded as requested. New console flows still
+  require hardware acceptance; host/native validation is recorded in PROGRESS.md.
+
 ## r24 — 2026-10-16
 
 - Distinguish PS4-managed background downloads from direct staging and local

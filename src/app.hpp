@@ -17,7 +17,7 @@ class App {
     bool queueWritable = true;
     std::mutex logMutex;
     bool demo = false, initialScan = true, bootReady = false, startRemote = false;
-    bool quitting = false;
+    bool quitting = false, cleaningStaging = false;
     double lastLocalScan = 0, lastPoll = 0;
     std::map<std::string, int> tasks;
     std::map<int, int> reportedTaskErrors;
@@ -31,6 +31,7 @@ class App {
     void persistQueue();
     void syncQueued();
     void startNextDownload(int userId);
+    std::set<std::string> protectedStaging() const;
 public:
     Ui ui;
     ArtworkCache artwork;

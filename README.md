@@ -28,7 +28,8 @@ It requires an active homebrew environment; this app does not install GoldHEN.
   background installer; other servers use a direct-download fallback first.
 - Switch between a cover tile grid and a summary list. The summary background
   follows the selected game's artwork. Group by category, region, first letter,
-  local category, tag or game/Title ID, or none; sort by name or size and optionally hide
+  local category, tag or game/Title ID, or none. Sort by name, size, local rating,
+  last launch here or first recorded install, in either direction; optionally hide
   installed remote titles.
 - Edit catalog URLs with the PS4 on-screen keyboard, test connectivity, and save
   settings from the app. No FTP configuration is needed for normal setup.
@@ -46,8 +47,13 @@ It requires an active homebrew environment; this app does not install GoldHEN.
   personal records to USB without copying game files.
 - Track a persistent download queue with retry/cancel, separate installation
   verification, transfer rates and approximate remaining download time.
-- Browse a game's base packages, updates and DLC together, with installed and
-  available versions where the catalog supplies them.
+- Open **Downloads**, **Collections** and **Updates** directly from the sidebar.
+  Updates shows newer catalog patches for your installed Title IDs, with the
+  installed and available versions on screen.
+- Browse a game's base packages, updates and DLC together, with base-game/version
+  requirements checked before installation. Queue dependent packages after a base.
+- Review cache/staging usage, clean released files with confirmation, and export
+  selected diagnostics to an ordinary USB drive without copying raw logs or URLs.
 
 **Background animation** in Settings controls the flowing bubbles in both Tiles
 and Summary list. It is on by default; switching it off leaves a still background.
@@ -151,7 +157,9 @@ the ordinary URL editor and Test connection for offline/manual configuration.
 | --- | --- |
 | Left analog stick / D-pad | Navigate games, sidebar, menus and details; hold to repeat |
 | Left at the first tile/list column | Focus the sidebar |
-| X / Right on the sidebar | Return to games |
+| Up / Down on the sidebar | Select Installed, Available, Updates, Downloads or Collections |
+| X on the sidebar | Browse games or open Downloads / Collections |
+| Right on the sidebar | Return to games |
 | L1 / R1 | Switch Installed / Available |
 | X on Installed | Launch the game |
 | X on Available | Install confirmation, or actions for an installed title |
@@ -163,7 +171,15 @@ the ordinary URL editor and Test connection for offline/manual configuration.
 
 Selecting Exit from Options opens the same Circle confirmation. Settings are saved
 only when Save settings is selected; Circle offers to discard unsaved edits.
-Quick view/group/sort/filter changes in Options are saved immediately.
+Quick view/group/sort/filter changes in Options are saved immediately. **Sort**
+cycles Name, Size, Rating, Last launched here and First recorded install; **Order**
+selects ascending/descending. In Settings these edits remain a draft until Save.
+Unknown sizes, unrated titles and missing history stay at the end in both directions.
+Launch history covers this app's launch requests; first recorded install is when
+this app first observed the title, not its original system installation date.
+Existing `size_sort` settings migrate automatically to the equivalent new sort.
+Sidebar Downloads/Collections return to the dashboard with O; opening them through
+Options returns to Options. Updates and sidebar focus are saved with the session.
 The stick has a deadzone to filter drift; the D-pad takes priority when both are
 used. After closing the keyboard, release any held buttons and center the stick
 before navigating again.
@@ -336,7 +352,30 @@ marks all DLC installed. Each source's configured catalog category identifies it
 package type; configure updates and DLC as their own sources when supplied by
 separate endpoints. Correct Title IDs and version metadata improve these views.
 
+**Updates** in the sidebar filters the catalog to update packages with an exact
+installed Title ID and a newer dotted numeric version. Unknown versions are left
+out rather than guessed; search and local filters still apply. Tiles and summary
+rows show the installed version followed by the available version. This view uses
+only your configured catalogs; it does not query PlayStation services.
+
+Update/DLC confirmation explains the required base Title ID. X is blocked when
+that base is missing; Triangle opens **Game packages** so you can choose it first.
+If its base game is already queued here, the dependent package can also be queued.
+It waits until the base has finished and a fresh scan verifies it. Failure or
+cancellation of the base fails dependent items with an explanation; retry after
+resolving the base. Other eligible queue items can proceed while a dependency waits.
+The app checks the console's installed state again before fetching/submitting an
+update or DLC, including after restart.
+
+Catalog authors may add `"required_base_version": "1.10"` to an update/DLC entry.
+When present, it must be a numeric dotted version and the installed base must meet
+it. This requirement survives queue restarts. Without it, only base presence and
+exact Title ID can be checked. Catalog `min_fw` is shown as advisory information;
+firmware/backport compatibility and region/package compatibility are not inferred.
+
 ![Related packages with sample data](docs/images/game-packages.png)
+
+![Newer updates with sample versions](docs/images/updates.png)
 
 ## Installation storage
 
@@ -362,7 +401,7 @@ still pending for the new r17 selector on PS4 11.00 + GoldHEN.
 
 ## Downloads and offline use
 
-Open **Options > Download queue** to manage up to 200 tracked packages. Installing
+Open **Downloads** in the sidebar or **Options > Download queue** to manage up to 200 tracked packages. Installing
 adds a persistent waiting item, including when another transfer is running. Package
 preflights/direct downloads run one at a time; accepted PS4 tasks continue in the
 background and have a separate progress monitor.
@@ -450,6 +489,49 @@ entries, 64 MiB offline catalog, PNG/JPEG
 covers up to 2048×2048, 48 decoded covers and a 128 MiB disk artwork cache.
 Use Settings to clear artwork or Triangle to refresh one game's artwork.
 
+## Storage cleanup
+
+Open **Options > Storage cleanup**, also available in Settings. The screen shows
+artwork-cache size, package-staging size, reclaimable bytes/files and protected
+bytes/files. Triangle refreshes these figures. X offers confirmed staging cleanup;
+Square offers confirmed artwork cleanup. O cancels either confirmation.
+
+Staging cleanup rechecks the files and current tracked jobs when submitted. It
+removes inactive partial downloads and complete packages explicitly marked released.
+It keeps queued/owned transfers, packages possibly still used by PS4, unmarked
+packages left by older revisions, unrelated files and symlinks. Corrupt queue
+tracking disables staging cleanup. New packages cannot enter the queue during the
+cleanup itself. Removing a released complete file means a later Retry downloads it
+again. Artwork is fetched again as needed; games and personal records stay intact.
+
+A small `.pkg.lease` file records whether PS4 might still need a staged package.
+Ambiguous registration errors keep it protected, including after an app crash.
+If starting a registered task fails and PS4 cannot release it, the app keeps that
+owned task ID for cancellation and protects its package. Do not manually remove
+protected files while the system might be using them.
+
+![Storage cleanup with sample usage](docs/images/storage-cleanup.png)
+
+## USB diagnostic export
+
+Open **Options > Export diagnostics to USB**, also available in Settings. Connect
+a writable FAT/exFAT USB drive, refresh with Triangle, select it and press X.
+The app rechecks the drive and writes/readbacks a new
+`PS4-Games-Installer-diagnostics-<timestamp>-<sequence>.json` report. Existing files
+and personal-record backups are kept; diagnostic reports never appear in Restore.
+PS4 Extended Storage is a game destination, not an ordinary USB export drive.
+
+The report contains the application revision, library counts, storage availability,
+last measured cache usage, queue stages, Title IDs, numeric versions, task IDs,
+transfer bytes and selected native/HTTP error codes. Raw logs, package/source URLs,
+credentials, cookies, game names and personal notes/labels/tags are excluded.
+Only recognized operation labels and error-code formats are extracted from the
+bounded log tail; lines mentioning credential fields are discarded. This deliberately
+omits diagnostic context that could contain private data. The report does not change
+or sanitize the original local `app.log`. The desktop preview disables USB writes.
+
+![USB diagnostic export](docs/images/diagnostics.png)
+
 ## Build on Linux
 
 Install Docker and GNU Make on the host; the compiler, SDK, publishing tools, font
@@ -535,12 +617,12 @@ The console stores its files under `/data/PS4-Game-Installer/`:
 - `config.json`: saved sources and display preferences; see config.example.json.
 - `catalog.json`: last successful remote catalog snapshot.
 - `player.json`: personal Title ID records and saved collection rules (schema 3).
-- `session.json`: library selections, search and active filter rules.
-- `queue.json`: waiting/active/finished queue items, progress snapshots and task ownership.
+- `session.json`: library selections, Updates mode, sidebar focus, search and active filter rules.
+- `queue.json`: waiting/active/finished items, base dependencies, progress and task ownership.
 - `tasks.json`: compatibility copy of submitted task IDs from earlier releases.
 - `player-before-restore-*.json`: recovery copies made before USB restores.
 - `artwork/`: disposable cover cache.
-- `downloads/`: private package staging; do not remove files used by active PS4 tasks.
+- `downloads/`: private package staging and `.pkg.lease` ownership markers; use Storage cleanup for released files.
 - `app.log`: recent operation results and service errors.
 
 On the first launch of r13 or later, this app's previous

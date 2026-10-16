@@ -15,7 +15,7 @@ namespace {
 std::mutex requestMutex;
 std::string lastUrl;
 std::atomic<bool> allowInstalls{false}, allowRetirement{false};
-std::atomic<bool> rejectInstall{false};
+std::atomic<bool> rejectInstall{false}, retainFailedStart{false};
 std::atomic<int> submissions{0}, progressMode{0};
 std::atomic<bool> blockProbe{false}, uniqueTasks{false}, failCancellation{false};
 std::atomic<int> cancellations{0};
@@ -54,7 +54,9 @@ void uninstallTitle(const std::string& id) {
 int queueInstall(const Entry&, int) {
     if (!allowInstalls) throw std::runtime_error("PS4 required");
     if (rejectInstall) throw std::runtime_error("PS4 refused installation (0x80990086). No matching task could be confirmed. Downloaded package kept.");
-    const int count = ++submissions; return uniqueTasks ? 100 + count : 45;
+    const int count = ++submissions; const int task = uniqueTasks ? 100 + count : 45;
+    if (retainFailedStart) throw SubmissionFailure("Start task failed; owned registration retained", false, task);
+    return task;
 }
 int queueLocalInstall(const Entry&, const std::string&, int) { throw std::runtime_error("PS4 required"); }
 bool retireInactiveTask(int task) { assert(task >= 45); return allowRetirement; }
@@ -424,6 +426,66 @@ int main() {
         assert(app.ui.downloads.size() == 2 && app.ui.downloads[0].stage == QueueStage::Cancelled && app.ui.queued.empty());
         app.ui.screen = Screen::Queue; app.ui.handle(Button::Options); app.tick(0, video); assert(app.ui.downloads.empty());
     }
+    // Missing-base guard, persistent dependency ordering and a second check of
+    // real installed state immediately before network/registration work.
+    const auto dependencies = directory + "/dependencies"; std::filesystem::create_directory(dependencies); saveSettings(dependencies, offline);
+    Entry base = games[0]; base.version = "1.00";
+    Entry patch = base; patch.url += "?patch=1"; patch.category = "updates"; patch.version = "1.20";
+    Entry dlc = base; dlc.url += "?dlc=1"; dlc.category = "dlc";
+    { std::lock_guard<std::mutex> lock(requestMutex); localGames.clear(); }
+    progressMode = 0; blockProbe = true;
+    {
+        App app(dependencies); settle(app, video);
+        auto enqueue = [&](const Entry& entry) { app.ui.pending = entry; app.ui.screen = Screen::ConfirmInstall; app.ui.handle(Button::Cross); app.tick(0, video); };
+        const auto before = submissions.load(); enqueue(patch); assert(app.ui.downloads.empty() && submissions == before && app.ui.screen == Screen::ConfirmInstall);
+        enqueue(base); enqueue(patch); enqueue(dlc);
+        assert(app.ui.downloads.size() == 3 && app.ui.downloads[1].dependsOn == base.url && app.ui.downloads[2].dependsOn == base.url);
+        assert(loadQueue(dependencies)[1].dependsOn == base.url);
+        app.ui.screen = Screen::QueueDetails; app.ui.queueIndex = 0; app.ui.handle(Button::Triangle); app.ui.handle(Button::Cross); app.tick(0, video); settle(app, video);
+        for (unsigned i=0;i<10;++i) app.tick(0,video);
+        assert(app.ui.downloads[0].stage == QueueStage::Cancelled && app.ui.downloads[1].stage == QueueStage::Failed && app.ui.downloads[2].stage == QueueStage::Failed && submissions == before);
+        // UI scan is stale, but the worker must check the current console scan.
+        blockProbe = false; app.ui.setLibraries(std::vector<Entry>{base},std::vector<Entry>{patch});
+        enqueue(patch); settle(app, video);
+        assert(submissions == before && app.ui.downloads[1].stage == QueueStage::Failed && app.ui.downloads[1].message.find("missing") != std::string::npos);
+        // Maintenance re-checks protection when the confirmation is submitted.
+        const auto staged = stagedPackagePath(dependencies, base.url); std::filesystem::create_directory(dependencies + "/downloads");
+        atomicWrite(staged, "package"); atomicWrite(staged + ".lease", "released\n");
+        app.ui.screen = Screen::Options; app.ui.menuIndex = 17; app.ui.handle(Button::Cross); app.tick(0,video); settle(app,video);
+        assert(app.ui.usage.reclaimable == 7);
+        app.ui.handle(Button::Cross); app.ui.handle(Button::Cross); app.tick(0,video); settle(app,video);
+        assert(!std::filesystem::exists(staged) && app.ui.usage.staging == 0);
+        app.ui.screen = Screen::Diagnostics; app.ui.backupDevices = {{"/mnt/usb7/disconnected-fixture",{}}}; app.ui.backupIndex=0;
+        app.ui.handle(Button::Cross); app.tick(0,video); settle(app,video); assert(app.ui.featureNotice.find("disconnected") != std::string::npos);
+    }
+    const auto ordering = directory + "/dependency-ordering"; std::filesystem::create_directory(ordering); saveSettings(ordering, offline);
+    QueueItem queuedPatch; queuedPatch.entry = patch; queuedPatch.dependsOn = base.url;
+    QueueItem runningBase; runningBase.entry = base; runningBase.stage = QueueStage::Installing; runningBase.task = 170;
+    QueueItem unrelated; unrelated.entry = games[1];
+    saveQueue(ordering, {queuedPatch, runningBase, unrelated});
+    progressMode = 0;
+    {
+        const auto before = submissions.load(); App app(ordering); settle(app,video);
+        assert(submissions == before + 1 && app.ui.downloads[0].stage == QueueStage::Waiting && app.ui.downloads[2].task >= 100);
+        { std::lock_guard<std::mutex> lock(requestMutex); localGames = {base}; }
+        progressMode = 2; allowRetirement = true;
+        for (unsigned i=0; i<200 && app.ui.downloads[0].task < 0; ++i) { app.tick(4,video); std::this_thread::sleep_for(std::chrono::milliseconds(5)); }
+        assert(app.ui.downloads[1].stage == QueueStage::Completed && app.ui.downloads[0].task >= 100 && submissions == before + 2);
+        assert(loadQueue(ordering)[0].dependsOn == base.url);
+    }
+    const auto retained = directory + "/retained-start"; std::filesystem::create_directory(retained); saveSettings(retained,offline);
+    progressMode=0; retainFailedStart=true;
+    {
+        App app(retained); settle(app,video);
+        app.ui.pending=games[1];app.ui.screen=Screen::ConfirmInstall;app.ui.handle(Button::Cross);app.tick(0,video);settle(app,video);
+        assert(app.ui.downloads[0].stage==QueueStage::Failed && app.ui.downloads[0].task>=100);
+        app.ui.screen=Screen::QueueDetails;app.ui.queueIndex=0;
+        for (unsigned i=0;i<20;++i) { app.tick(4,video);std::this_thread::sleep_for(std::chrono::milliseconds(5)); }
+        assert(app.ui.downloads[0].stage==QueueStage::Failed && app.ui.downloads[0].message.find("owned registration retained")!=std::string::npos);
+        app.ui.handle(Button::Triangle);app.ui.handle(Button::Cross);app.tick(4,video);waitForStatus(app,video,4,"Owned task cancelled");
+        assert(app.ui.downloads[0].task<0 && app.ui.downloads[0].stage==QueueStage::Cancelled);
+    }
+    retainFailedStart=false;
     uniqueTasks = false;
     std::filesystem::remove_all(directory);
     std::puts("Settings persistence and tracked installation progress, failed-task recovery, retry and staging cleanup passed");

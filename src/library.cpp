@@ -3,8 +3,39 @@
 #include <map>
 #include <ctime>
 #include <limits>
+#include "sfo.hpp"
 
 namespace psgi {
+bool newerUpdate(const Entry& e) {
+    const auto newer = compareVersions(e.version, e.installedVersion);
+    return packageKind(e) == 1 && e.baseInstalled && newer && *newer > 0;
+}
+std::string requiredBaseVersion(const Entry& entry) {
+    for (const auto& field : entry.metadata) if (lower(field.first) == "required_base_version") return field.second;
+    return "";
+}
+InstallRequirements installationRequirements(const Entry& e, const std::vector<Entry>& installed, const std::vector<Entry>& queuedBases) {
+    InstallRequirements out;
+    if (!e.minFirmware.empty()) out.notes.push_back("Catalog minimum firmware: " + e.minFirmware.substr(0, 64) + ". Firmware compatibility has not been verified.");
+    if (packageKind(e) != 1 && packageKind(e) != 2) return out;
+    if (!validTitleId(e.titleId)) { out.blockers.push_back("A valid Title ID is required to check this update/DLC's base game."); return out; }
+    const auto base = std::find_if(installed.begin(), installed.end(), [&](const Entry& local) { return local.titleId == e.titleId; });
+    const auto waiting = std::find_if(queuedBases.begin(), queuedBases.end(), [&](const Entry& queued) { return queued.titleId == e.titleId && packageKind(queued) == 0 && queued.url != e.url; });
+    if (waiting != queuedBases.end()) {
+        out.dependencyUrl = waiting->url; out.notes.push_back("Waits for the queued base game " + e.titleId + " to finish installation.");
+    } else if (base == installed.end()) out.blockers.push_back("Base game " + e.titleId + " is missing. Install its base package first, then retry this update/DLC.");
+    const auto required = requiredBaseVersion(e);
+    if (!required.empty()) {
+        out.notes.push_back("Required base version: " + required.substr(0, 64));
+        if (!compareVersions(required, required)) out.blockers.push_back("The catalog's required_base_version is invalid; correct its dotted numeric version.");
+        else if (base != installed.end() && out.dependencyUrl.empty()) {
+            auto version = compareVersions(base->version, required);
+            if (!version || *version < 0) out.blockers.push_back("Installed base version " + (base->version.empty() ? std::string("unknown") : base->version) + " does not meet required version " + required + ".");
+        }
+    }
+    out.notes.push_back("Base game and add-on/update must share the exact Title ID. Check catalog version and region information.");
+    return out;
+}
 std::optional<int> compareVersions(const std::string& a, const std::string& b) {
     auto parts = [](const std::string& text) -> std::vector<unsigned> {
         std::vector<unsigned> out; unsigned value = 0, digits = 0;
@@ -89,13 +120,14 @@ bool matchesLocal(const Entry& entry, const LocalFilter& filter) {
     return true;
 }
 std::vector<VisibleEntry> makeView(const std::vector<Entry>& entries, const Settings& s,
-                                 Library library, const std::string& query, const LocalFilter& filter) {
+                                 Library library, const std::string& query, const LocalFilter& filter, bool updatesOnly) {
     std::vector<VisibleEntry> out;
     auto q = lower(query);
     std::map<std::string, std::string> titleNames;
     if (s.grouping == Grouping::Title) for (const auto& e : entries) if (!e.titleId.empty() && packageKind(e) == 0) titleNames[e.titleId] = e.name;
     for (size_t i = 0; i < entries.size(); ++i) {
         const auto& e = entries[i];
+        if (updatesOnly && !newerUpdate(e)) continue;
         if (!matchesLocal(e, filter)) continue;
         if (library == Library::Available && s.notInstalledOnly && e.installed) continue;
         std::string searchable = e.name + " " + e.titleId + " " + e.info.category + " " + e.info.label + " " + e.info.description;
@@ -126,9 +158,21 @@ std::vector<VisibleEntry> makeView(const std::vector<Entry>& entries, const Sett
             auto version = compareVersions(x.version, y.version);
             if (version && *version) return *version > 0;
         }
-        uint64_t xs = library == Library::Installed ? x.installedSize : x.size;
-        uint64_t ys = library == Library::Installed ? y.installedSize : y.size;
-        if (s.sizeSort && xs != ys) return xs > ys;
+        auto key = [&](const Entry& e) -> uint64_t {
+            switch (s.sort) {
+                case SortField::Size: return library == Library::Installed ? e.installedSize : e.size;
+                case SortField::Rating: return e.rating;
+                case SortField::LastLaunch: return e.lastLaunch;
+                case SortField::FirstInstalled: return e.firstSeenInstalled;
+                default: return 0;
+            }
+        };
+        const auto xs = key(x), ys = key(y);
+        if (s.sort != SortField::Name && xs != ys) {
+            if (!xs || !ys) return xs != 0; // Unknown/unrated stays last in either direction.
+            return s.descending ? xs > ys : xs < ys;
+        }
+        if (s.sort == SortField::Name && lower(x.name) != lower(y.name)) return s.descending ? lower(x.name) > lower(y.name) : lower(x.name) < lower(y.name);
         if (lower(x.name) != lower(y.name)) return lower(x.name) < lower(y.name);
         return x.titleId + x.url < y.titleId + y.url;
     });

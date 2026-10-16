@@ -12,6 +12,7 @@ struct QueueItem {
     bool backgroundTransfer = false;
     bool previouslyPresent = false;
     std::string previousVersion;
+    std::string dependsOn;
     std::string message;
     double sampleTime = 0;
     uint64_t sampleBytes = 0, bytesPerSecond = 0;

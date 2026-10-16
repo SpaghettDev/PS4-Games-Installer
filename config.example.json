@@ -6,7 +6,8 @@
   },
   "layout": "tiles",
   "grouping": "none",
-  "size_sort": false,
+  "sort_field": "name",
+  "sort_descending": false,
   "not_installed_only": false,
   "animations": true,
   "refresh_on_start": true

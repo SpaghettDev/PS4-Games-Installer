@@ -4,12 +4,15 @@
 namespace psgi {
 enum class Layout { Tiles, Summary };
 enum class Grouping { None, Category, Region, Letter, LocalCategory, Tag, Title };
+enum class SortField { Name, Size, Rating, LastLaunch, FirstInstalled };
 struct Settings {
     std::vector<Source> sources{{"games", ""}};
     Layout layout = Layout::Tiles;
     Grouping grouping = Grouping::None;
-    bool sizeSort = false, notInstalledOnly = false, animations = true, refreshOnStart = true;
+    SortField sort = SortField::Name;
+    bool descending = false, notInstalledOnly = false, animations = true, refreshOnStart = true;
 };
+std::string sortName(SortField field);
 Settings parseSettings(const std::string& text);
 std::string serializeSettings(const Settings& settings);
 bool sameSettings(const Settings& a, const Settings& b);

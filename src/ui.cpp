@@ -77,7 +77,7 @@ void Ui::rebuild() {
         }
     }
     player.apply(installed); player.apply(available); player.apply(pending);
-    visible = makeView(entries(), settings, library, query, filter);
+    visible = makeView(entries(), settings, library, query, filter, updatesOnly && library == Library::Available);
     uniqueShown = installable = 0; std::vector<bool> seen(entries().size());
     for (const auto& item : visible) if (!seen[item.index]) {
         seen[item.index] = true; ++uniqueShown;
@@ -99,11 +99,11 @@ void Ui::setLibraries(std::optional<std::vector<Entry>> local, std::optional<std
 }
 ViewState Ui::captureView() const {
     ViewState state; state.available = library == Library::Available; state.query = query; state.sidebar = sidebar;
-    state.filter = filter;
+    state.filter = filter; state.updatesOnly = updatesOnly; state.sidebarIndex = sidebarIndex;
     for (size_t i = 0; i < 2; ++i) {
         const auto which = i ? Library::Available : Library::Installed;
         const auto& list = i ? available : installed;
-        const auto view = makeView(list, settings, which, query, filter);
+        const auto view = makeView(list, settings, which, query, filter, updatesOnly && i);
         auto& cursor = state.cursor[i]; cursor.index = selected[i];
         if (!view.empty()) {
             const auto& entry = list[view[std::min(selected[i], view.size() - 1)].index];
@@ -116,11 +116,11 @@ ViewState Ui::captureView() const {
 }
 void Ui::restoreView(const ViewState& state) {
     library = state.available ? Library::Available : Library::Installed; query = state.query; sidebar = state.sidebar;
-    filter = state.filter;
+    filter = state.filter; updatesOnly = state.updatesOnly; sidebarIndex = state.sidebarIndex;
     rebuild();
     for (size_t i = 0; i < 2; ++i) {
         const auto& list = i ? available : installed;
-        const auto view = makeView(list, settings, i ? Library::Available : Library::Installed, query, filter);
+        const auto view = makeView(list, settings, i ? Library::Available : Library::Installed, query, filter, updatesOnly && i);
         const auto& cursor = state.cursor[i];
         selected[i] = view.empty() ? 0 : std::min(cursor.index, view.size() - 1);
         std::optional<size_t> fallback;
@@ -139,6 +139,7 @@ std::string Ui::librarySummary() const {
     if (library == Library::Installed)
         return std::to_string(installed.size()) + " installed games" +
             (uniqueShown != installed.size() ? " / " + std::to_string(uniqueShown) + " shown" : "");
+    if (updatesOnly) return std::to_string(uniqueShown) + " newer update packages for installed games";
     return std::to_string(installable) + " available to install / " + std::to_string(available.size()) + " packages";
 }
 std::vector<std::string> Ui::details() const {
@@ -229,17 +230,17 @@ void Ui::finishEdit(const std::optional<std::string>& text) {
 std::vector<std::string> Ui::options() const {
     return {"Refresh library", "Search" + (query.empty() ? std::string() : ": " + query),
         "View: " + layoutName(settings.layout), "Group: " + groupName(settings.grouping),
-        settings.sizeSort ? "Sort: Largest first" : "Sort: Name A-Z",
+        "Sort: " + sortName(settings.sort),
         settings.notInstalledOnly ? "Available: Not installed" : "Available: All packages", "Settings", "About", "Exit", "Browse local categories", "Browse local tags",
-        bulkMode ? "Organize selected games" : "Select multiple games", "Download queue", "Saved collections", "USB backup / restore", "Connection setup helper"};
+        bulkMode ? "Organize selected games" : "Select multiple games", "Download queue", "Saved collections", "USB backup / restore", "Connection setup helper", settings.descending ? "Order: Descending" : "Order: Ascending", "Storage cleanup", "Export diagnostics to USB"};
 }
 std::vector<std::string> Ui::settingRows() const {
     return {"Games JSON URL", "Other catalog sources", "View: " + layoutName(draft.layout),
-        "Grouping: " + groupName(draft.grouping), draft.sizeSort ? "Sort: Largest first" : "Sort: Name A-Z",
+        "Grouping: " + groupName(draft.grouping), "Sort: " + sortName(draft.sort),
         draft.notInstalledOnly ? "Available: Not installed" : "Available: All packages",
         draft.animations ? "Background animation: On" : "Background animation: Off",
         draft.refreshOnStart ? "Refresh on startup: On" : "Refresh on startup: Off",
-        "Test connection", "Clear artwork cache", "Save settings", "Installation destination", "Connection setup helper"};
+        "Test connection", "Clear artwork cache", "Save settings", "Installation destination", "Connection setup helper", draft.descending ? "Order: Descending" : "Order: Ascending", "Storage cleanup", "Export diagnostics to USB"};
 }
 std::vector<std::string> Ui::actionRows() const {
     std::vector<std::string> rows;
@@ -399,7 +400,12 @@ void Ui::handle(Button b) {
     }
     if (screen == Screen::ConfirmInstall) {
         if (b == Button::Circle) screen = installReturn;
-        else if (b == Button::Cross) { emit(CommandType::Install, pending); screen = installReturn; }
+        else if (b == Button::Triangle) { packageTitle = pending.titleId; packageIndex = 0; screen = Screen::Packages; }
+        else if (b == Button::Cross) {
+            const auto required = requirements();
+            if (!required.blockers.empty()) status = required.blockers.front();
+            else { emit(CommandType::Install, pending); screen = installReturn; }
+        }
         return;
     }
     if (screen == Screen::InstallError) {
@@ -464,17 +470,20 @@ void Ui::handle(Button b) {
             case 1: beginEdit(EditKind::Search, 0, query); break;
             case 2: settings.layout = settings.layout == Layout::Tiles ? Layout::Summary : Layout::Tiles; quickSave(); break;
             case 3: settings.grouping = static_cast<Grouping>((static_cast<int>(settings.grouping) + 1) % 7); quickSave(); break;
-            case 4: settings.sizeSort = !settings.sizeSort; quickSave(); break;
+            case 4: settings.sort = static_cast<SortField>((int(settings.sort) + 1) % 5); settings.descending = settings.sort != SortField::Name; quickSave(); break;
             case 5: settings.notInstalledOnly = !settings.notInstalledOnly; quickSave(); break;
             case 6: draft = settings; settingsNotice.clear(); settingsIndex = 0; screen = Screen::Settings; break;
             case 7: screen = Screen::About; break;
             case 8: screen = Screen::ConfirmExit; break;
             case 9: case 10: collectionTags = menuIndex == 10; collectionIndex = 0; collectionNotice.clear(); screen = Screen::Collections; break;
             case 11: bulkMode = true; bulkIndex = 0; featureNotice.clear(); screen = markedTitles.empty() ? Screen::Dashboard : Screen::BulkMenu; break;
-            case 12: screen = Screen::Queue; queueIndex = 0; featureNotice.clear(); break;
-            case 13: screen = Screen::SavedCollections; savedIndex = 0; featureNotice.clear(); break;
+            case 12: featureReturn = Screen::Options; screen = Screen::Queue; queueIndex = 0; featureNotice.clear(); break;
+            case 13: featureReturn = Screen::Options; screen = Screen::SavedCollections; savedIndex = 0; featureNotice.clear(); break;
             case 14: screen = Screen::Backups; featureNotice.clear(); emit(CommandType::ScanBackups); break;
             case 15: draft = settings; setupSourceIndex = 0; setupSource = draft.sources[0]; setupReturn = Screen::Options; sourceReport = {}; featureNotice.clear(); setupIndex = 0; screen = Screen::SourceSetup; break;
+            case 16: settings.descending = !settings.descending; quickSave(); break;
+            case 17: maintenanceReturn = Screen::Options; screen = Screen::Cleanup; featureNotice.clear(); emit(CommandType::ScanUsage); break;
+            case 18: maintenanceReturn = Screen::Options; screen = Screen::Diagnostics; featureNotice.clear(); emit(CommandType::ScanBackups); break;
         }
         return;
     }
@@ -482,14 +491,14 @@ void Ui::handle(Button b) {
         if (b == Button::Up && settingsIndex) --settingsIndex;
         if (b == Button::Down && settingsIndex + 1 < settingRows().size()) ++settingsIndex;
         if (b != Button::Cross && b != Button::Left && b != Button::Right) return;
-        if (b != Button::Cross && (settingsIndex < 2 || settingsIndex > 7)) return;
+        if (b != Button::Cross && (settingsIndex < 2 || (settingsIndex > 7 && settingsIndex != 13))) return;
         settingsNotice.clear();
         switch (settingsIndex) {
             case 0: beginEdit(EditKind::SourceUrl, 0, draft.sources[0].url); break;
             case 1: sourceIndex = 1; screen = Screen::Sources; break;
             case 2: draft.layout = draft.layout == Layout::Tiles ? Layout::Summary : Layout::Tiles; break;
             case 3: draft.grouping = static_cast<Grouping>((static_cast<int>(draft.grouping) + 1) % 7); break;
-            case 4: draft.sizeSort = !draft.sizeSort; break;
+            case 4: draft.sort = static_cast<SortField>((int(draft.sort) + (b == Button::Left ? 4 : 1)) % 5); draft.descending = draft.sort != SortField::Name; break;
             case 5: draft.notInstalledOnly = !draft.notInstalledOnly; break;
             case 6: draft.animations = !draft.animations; break;
             case 7: draft.refreshOnStart = !draft.refreshOnStart; break;
@@ -498,6 +507,9 @@ void Ui::handle(Button b) {
             case 10: emit(CommandType::Save); break;
             case 11: screen = Screen::Storage; storageIndex = storage.destination == InstallDestination::External ? 1 : 0; emit(CommandType::Storage); break;
             case 12: setupSourceIndex = 0; setupSource = draft.sources[0]; setupReturn = Screen::Settings; sourceReport = {}; featureNotice.clear(); setupIndex = 0; screen = Screen::SourceSetup; break;
+            case 13: draft.descending = !draft.descending; break;
+            case 14: maintenanceReturn = Screen::Settings; screen = Screen::Cleanup; featureNotice.clear(); emit(CommandType::ScanUsage); break;
+            case 15: maintenanceReturn = Screen::Settings; screen = Screen::Diagnostics; featureNotice.clear(); emit(CommandType::ScanBackups); break;
         }
         return;
     }
@@ -544,12 +556,18 @@ void Ui::handle(Button b) {
     }
     if (b == Button::Options) { menuIndex = 0; screen = Screen::Options; return; }
     if (b == Button::L1 || b == Button::R1) {
-        library = library == Library::Installed ? Library::Available : Library::Installed; rebuild(); return;
+        library = library == Library::Installed ? Library::Available : Library::Installed; updatesOnly = false; sidebarIndex = int(library); rebuild(); return;
     }
     if (sidebar) {
-        if (b == Button::Up) library = Library::Installed;
-        if (b == Button::Down) library = Library::Available;
-        if (b == Button::Right || b == Button::Cross) sidebar = false;
+        if (b == Button::Up && sidebarIndex) --sidebarIndex;
+        if (b == Button::Down && sidebarIndex < 4) ++sidebarIndex;
+        if (sidebarIndex < 3) {
+            library = sidebarIndex ? Library::Available : Library::Installed; updatesOnly = sidebarIndex == 2;
+        }
+        if (b == Button::Cross && sidebarIndex >= 3) {
+            featureReturn = Screen::Dashboard; featureNotice.clear();
+            screen = sidebarIndex == 3 ? Screen::Queue : Screen::SavedCollections;
+        } else if (b == Button::Right || b == Button::Cross) sidebar = false;
         rebuild(); return;
     }
     if (auto* e = current()) {
@@ -567,18 +585,18 @@ void Ui::handle(Button b) {
         else if (settings.layout == Layout::Summary) {
             if (b == Button::Up && position()) --selected[static_cast<int>(library)];
             if (b == Button::Down && position() + 1 < visible.size()) ++selected[static_cast<int>(library)];
-            if (b == Button::Left) sidebar = true;
+            if (b == Button::Left) { sidebar = true; sidebarIndex = updatesOnly ? 2 : size_t(library); }
         } else {
             const auto& rows = tileRows();
             size_t row = tileRowIndex(), col = 0;
             for (size_t c = 0; c < rows[row].items.size(); ++c) if (rows[row].items[c] == position()) col = c;
             if (b == Button::Left) {
-                if (col == 0) sidebar = true; else --selected[static_cast<int>(library)];
+                if (col == 0) { sidebar = true; sidebarIndex = updatesOnly ? 2 : size_t(library); } else --selected[static_cast<int>(library)];
             }
             if (b == Button::Right && col + 1 < rows[row].items.size()) ++selected[static_cast<int>(library)];
             if (b == Button::Up && row) selected[static_cast<int>(library)] = rows[row-1].items[std::min(col, rows[row-1].items.size()-1)];
             if (b == Button::Down && row + 1 < rows.size()) selected[static_cast<int>(library)] = rows[row+1].items[std::min(col, rows[row+1].items.size()-1)];
         }
-    } else if (b == Button::Left) sidebar = true;
+    } else if (b == Button::Left) { sidebar = true; sidebarIndex = updatesOnly ? 2 : size_t(library); }
 }
 }

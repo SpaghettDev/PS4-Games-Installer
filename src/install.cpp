@@ -116,7 +116,7 @@ int submit(const Entry& entry, int userId, const std::string& localPath, const P
         rc = bgft.registerLocal(&local, &task);
     }
     if (static_cast<uint32_t>(rc) == 0x80990088)
-        throw std::runtime_error("Installed title conflict (" + hexCode(rc) + "). Existing title was kept.");
+        throw SubmissionFailure("Installed title conflict (" + hexCode(rc) + "). Existing title was kept.", true);
     if (static_cast<uint32_t>(rc) == 0x80990086 || static_cast<uint32_t>(rc) == 0x80990015) {
         std::string message = "PS4 refused installation (" + hexCode(rc) + "). ";
         const std::string content = package ? package->contentId : entry.contentId;
@@ -128,15 +128,15 @@ int submit(const Entry& entry, int userId, const std::string& localPath, const P
             message += ". Finish or cancel that title in PS4 Notifications > Downloads, then retry.";
         } else message += "No matching task could be confirmed. Close the app, restart the PS4, enable GoldHEN and retry.";
         if (package) message += " Downloaded package kept.";
-        throw std::runtime_error(message);
+        throw SubmissionFailure(message, false);
     }
-    if (rc) throw std::runtime_error(std::string(localPath.empty() ? "Register remote package" : "Register local package " + package->titleId + " at " + localPath) + ": " + hexCode(rc));
+    if (rc) throw SubmissionFailure(std::string(localPath.empty() ? "Register remote package" : "Register local package " + package->titleId + " at " + localPath) + ": " + hexCode(rc), true);
     if (task < 0) throw std::runtime_error("BGFT returned an invalid task ID");
     rc = bgft.start(task);
     if (rc) {
         int cleanup = bgft.unregisterTask(task);
-        throw std::runtime_error("Start task: " + hexCode(rc) +
-            (cleanup ? "; remove task in PS4 Notifications > Downloads" : "; registration removed"));
+        throw SubmissionFailure("Start task: " + hexCode(rc) +
+            (cleanup ? "; remove task in PS4 Notifications > Downloads" : "; registration removed"), !cleanup, cleanup ? task : -1);
     }
     return task;
 }

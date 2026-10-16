@@ -8,7 +8,8 @@
 - Keep r32 verification/launch-access fixes, queue actions and the documentation
   reorganization with its screenshot gallery.
 - Native launcher/uninstall and App regressions passed; r34 package built and
-  validated. Console launch retest remains pending.
+  validated. User confirmed launching works after the rollback (2026-10-17,
+  PS4 11.00 + GoldHEN session).
 
 ## Documentation — 2026-10-17
 

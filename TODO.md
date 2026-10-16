@@ -16,8 +16,9 @@
 - [x] Keep r32 verification fixes and the revised consumer/expert/development manuals.
 - [x] Run launcher/uninstall/session regressions and build/validate r34.
 - [x] Commit the successful revision and updated progress/changelog.
-- [ ] Retest r34 on PS4 11.00 + GoldHEN: accept the normal close-installer dialog,
-  launch the game without crashing the console, then reopen at the saved selection.
+- [x] Game launching works after the r34 rollback; reported console launch crash
+  resolved in the user's test (2026-10-17, PS4 11.00 + GoldHEN session).
+- [ ] Verify reopening r34 restores the saved selection after the game handoff.
 
 ## Current implementation: r32 verification and launch recovery
 

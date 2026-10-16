@@ -22,7 +22,13 @@
 - Corrected the expert/development manuals and checked local document references.
   Whitespace and tracked identity audits pass; local commit includes revision.json.
   No renderer/menu changes, console actions, deployment or push performed.
-  r34 console launch acceptance remains pending.
+- User subsequently confirmed "now it works" after installing the rollback.
+  Record r34 game launching as working and the reported r33 launch-crash scenario
+  as resolved in this test, on the existing PS4 11.00 + GoldHEN session. No new
+  native log was collected; saved-selection restoration and other feature checks
+  remain separate.
+- Updated acceptance documentation and committed the confirmation. This is a
+  documentation-only update; application sources, artifact and revision remain r34.
 
 ## Consumer README and separate manuals — 2026-10-17
 

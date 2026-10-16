@@ -118,9 +118,10 @@ void Renderer::panel(Canvas& c, int x, int y, int w, int h, const std::string& t
     c.text(title, x + 40, y + 68, 36, White, w - 80);
 }
 void Renderer::menu(Canvas& c, const std::vector<std::string>& rows, size_t selected,
-                    int x, int y, int w, int rowHeight) {
-    for (size_t i = 0; i < rows.size(); ++i) {
-        int top = y + int(i) * rowHeight;
+                    int x, int y, int w, int rowHeight, size_t count) {
+    const size_t start = count == SIZE_MAX ? 0 : selected / count * count;
+    for (size_t i = start; i < rows.size() && i - start < count; ++i) {
+        int top = y + int(i - start) * rowHeight;
         if (i == selected) c.rounded(x, top - 32, w, rowHeight - 4, 9, Blue, 180);
         c.text(rows[i], x + 20, top, 27, i == selected ? White : Muted, w - 40);
         if (i == selected) c.rectangle(x, top - 27, 3, rowHeight - 14, Accent);
@@ -172,12 +173,13 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
     c.text("Settings & more", 78, 875, 23, White, 236);
     c.text("Vintage2000.org", 78, 935, 18, Muted);
     c.text(ui.library == Library::Installed ? "Installed games" : "Available games", 368, 206, 32, White);
-    c.text(std::to_string(ui.visible.size()) + (ui.visible.size() == 1 ? " title" : " titles"), 1640, 204, 23, Muted, 220);
+    c.text(ui.filterDescription(), 750, 205, 20, Accent, 850);
+    c.text(std::to_string(ui.shownGames()) + (ui.shownGames() == 1 ? " title" : " titles"), 1640, 204, 23, Muted, 220);
 
     if (ui.visible.empty()) {
         c.image(*placeholder, 1020, 365, 140, 140, 180);
-        c.text(ui.library == Library::Installed ? "No installed games found" : "Your remote library belongs here", 700, 585, 34, White, 1100);
-        c.text(ui.library == Library::Installed ? "Refresh the library in Options, or browse Available." : "Open Options > Settings and enter your Games JSON URL.", 610, 641, 26, Muted, 1220);
+        c.text(!ui.filterDescription().empty() || !ui.query.empty() ? "No games match this view" : ui.library == Library::Installed ? "No installed games found" : "Your remote library belongs here", 700, 585, 34, White, 1100);
+        c.text(!ui.filterDescription().empty() ? "Options > Browse local categories or tags > All games clears local filters." : !ui.query.empty() ? "Options > Search lets you change or clear your search." : ui.library == Library::Installed ? "Refresh the library in Options, or browse Available." : "Open Options > Settings and enter your Games JSON URL.", 610, 641, 26, Muted, 1220);
         if (ui.loading) c.text("Loading...", 1020, 702, 25, Accent);
     } else if (ui.settings.layout == Layout::Tiles) {
         const auto& rows = ui.tileRows();
@@ -194,12 +196,14 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
                 if (focus) c.rounded(x - 3, y - 3, 336, 325, 13, Accent, 220);
                 c.rounded(x, y, 330, 319, 11, Panel, focus ? 245 : 190);
                 auto image = artwork.request(entry, focus);
-                c.image(*(image ? image : placeholder), x + 43, y + 12, 244, 224);
+                c.image(*(image ? image : placeholder), x + 55, y + 12, 220, 204);
                 if (!state(entry).empty()) {
                     c.rounded(x + 13, y + 16, 148, 28, 6, 0x08283c, 235);
                     c.text(state(entry), x + 22, y + 36, 15, Accent, 132);
                 }
-                c.text(entry.name, x + 17, y + 267, 25, White, 297);
+                c.text(entry.name, x + 17, y + 245, 24, White, 297);
+                c.text(entry.info.category.empty() ? "Uncategorized" : entry.info.category, x + 17, y + 270, 17, Accent, 146);
+                c.text(entry.info.label.empty() ? "Unlabeled" : entry.info.label, x + 174, y + 270, 17, Muted, 140);
                 c.text(shortSize(ui.library == Library::Installed ? entry.installedSize : entry.size), x + 17, y + 299, 21, Muted, 288);
                 stars(c, entry.rating, x + 190, y + 282, 18);
             }
@@ -215,10 +219,12 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
             if (focus) c.rounded(361, y - 24, 926, 76, 9, Blue, 190);
             auto image = artwork.request(entry, focus);
             c.image(*(image ? image : placeholder), 374, y - 17, 58, 58);
-            c.text(entry.name, 450, y + 7, 27, White, 645);
+            c.text(entry.name, 450, y + 3, 25, White, 645);
             std::string meta = entry.titleId + (entry.region.empty() ? "" : "  " + entry.region) + (ui.visible[i].group.empty() ? "" : "  /  " + ui.visible[i].group);
             if (!state(entry).empty()) meta += "  /  " + state(entry);
-            c.text(meta, 451, y + 35, 18, Muted, 660);
+            c.text(entry.info.category.empty() ? "Uncategorized" : entry.info.category, 451, y + 26, 17, Accent, 300);
+            c.text(entry.info.label.empty() ? "Unlabeled" : entry.info.label, 775, y + 26, 17, Muted, 315);
+            c.text(meta, 451, y + 46, 15, Muted, 640);
             c.text(shortSize(ui.library == Library::Installed ? entry.installedSize : entry.size), 1110, y + 13, 21, Muted, 165);
             stars(c, entry.rating, 1110, y + 25, 17);
         }
@@ -227,10 +233,17 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
             c.rounded(1340, 252, 514, 622, 16, Panel, 180);
             c.image(*(image ? image : placeholder), 1366, 279, 462, 400);
             c.text(selected->name, 1372, 732, 30, White, 452);
-            c.text(shortSize(ui.library == Library::Installed ? selected->installedSize : selected->size), 1373, 780, 24, Accent, 450);
+            c.text(selected->info.category.empty() ? "Uncategorized" : selected->info.category, 1373, 763, 18, Accent, 215);
+            c.text(selected->info.label.empty() ? "Unlabeled" : selected->info.label, 1605, 763, 18, Muted, 218);
+            c.text(shortSize(ui.library == Library::Installed ? selected->installedSize : selected->size), 1373, 800, 24, Accent, 450);
             c.text(state(*selected), 1373, 831, 20, Muted, 450);
             stars(c, selected->rating, 1373, 845, 20);
         }
+    }
+    if (selected) {
+        auto description = selected->info.description.empty() ? selected->description : selected->info.description;
+        for (auto& c : description) if (c == '\n' || c == '\r' || c == '\t') c = ' ';
+        if (!description.empty()) c.text(description, 368, 946, 21, Muted, 1250);
     }
     c.rectangle(54, 964, 1812, 1, 0x638aad, 65);
     c.text(ui.librarySummary(), 70, 1000, 22, White, 620);
@@ -242,7 +255,8 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
     switch (ui.screen) {
         case Screen::Options:
             panel(c, 520, 168, 880, 728, "Options");
-            menu(c, ui.options(), ui.menuIndex, 553, 310, 814, 58);
+            menu(c, ui.options(), ui.menuIndex, 553, 310, 814, 58, 8);
+            c.text("Up / Down for more options", 570, 812, 20, Muted, 760);
             hints(c, 570, 862, {{Button::Cross, "Select"}, {Button::Circle, "Back"}}); break;
         case Screen::Settings: {
             panel(c, 352, 115, 1216, 840, "Settings");
@@ -310,6 +324,43 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
             c.text("Saved locally by Title ID. Catalog refreshes keep your rating.", 600, 770, 20, Muted, 720);
             hints(c, 600, 829, {{Button::Cross, "Save rating"}, {Button::Circle, "Cancel"}}); break;
         }
+        case Screen::LocalInfo:
+            panel(c, 350, 170, 1220, 740, "Edit local game info");
+            c.text(ui.pending.name + "  /  " + ui.pending.titleId, 395, 307, 28, White, 1130);
+            menu(c, ui.localRows(), ui.localIndex, 390, 385, 1140, 72);
+            c.text(ui.localNotice.empty() ? "New category/tag names are created when you save. Empty text clears a field." : ui.localNotice, 395, 785, 22, Accent, 1130);
+            hints(c, 395, 861, {{Button::Cross, "Edit / Save"}, {Button::Circle, "Back"}}); break;
+        case Screen::PickCategory:
+        case Screen::PickTags: {
+            const bool tags = ui.screen == Screen::PickTags;
+            panel(c, 470, 160, 980, 760, tags ? "Choose local tags" : "Choose local category");
+            std::vector<std::string> rows{tags ? "Clear all game tags" : "Uncategorized"};
+            for (const auto& term : ui.termChoices(tags, true)) {
+                const bool active = tags ? std::any_of(ui.localDraft.tags.begin(), ui.localDraft.tags.end(), [&](const std::string& tag) { return lower(tag) == lower(term); }) : lower(term) == lower(ui.localDraft.category);
+                rows.push_back(std::string(active ? "[Selected]  " : "") + term);
+            }
+            menu(c, rows, ui.pickerIndex, 510, 320, 900, 56, 8);
+            c.text(tags ? "X toggles a tag. O returns to the draft." : "Choose a category, or press Triangle to create one.", 510, 788, 21, Muted, 900);
+            hints(c, 510, 863, {{Button::Cross, "Select"}, {Button::Triangle, "New"}, {Button::Circle, "Back"}}); break;
+        }
+        case Screen::Collections: {
+            panel(c, 380, 140, 1160, 790, ui.collectionTags ? "Browse local tags" : "Browse local categories");
+            c.text(ui.library == Library::Installed ? "Installed library" : "Available library", 425, 276, 23, Accent, 1070);
+            menu(c, ui.collectionRows(), ui.collectionIndex, 420, 340, 1080, 56, 7);
+            c.text(ui.collectionNotice.empty() ? "L1 / R1 switches categories and tags. Up / Down scrolls names." : ui.collectionNotice, 425, 792, 21, Muted, 1070);
+            hints(c, 425, 857, {{Button::Cross, "Browse"}, {Button::Triangle, "New"}, {Button::Square, "Rename"}, {Button::Options, "Delete"}}, 21);
+            hints(c, 425, 900, {{Button::Circle, "Back"}}, 21); break;
+        }
+        case Screen::ConfirmDeleteCollection:
+            panel(c, 390, 280, 1140, 530, ui.collectionTags ? "Delete local tag?" : "Delete local category?");
+            c.text(ui.collectionOriginal, 435, 429, 32, White, 1050);
+            c.text("This removes the name and its assignments from all local records.", 435, 515, 24, Muted, 1050);
+            c.text("Games, ratings, descriptions and installation history are kept.", 435, 566, 24, Muted, 1050);
+            hints(c, 435, 749, {{Button::Cross, "Delete local name"}, {Button::Circle, "Cancel"}}); break;
+        case Screen::DiscardLocal:
+            panel(c, 495, 334, 930, 380, "Discard local info edits?");
+            c.text("Your saved local info will be kept.", 545, 502, 26, Muted, 830);
+            hints(c, 545, 652, {{Button::Circle, "Discard"}, {Button::Cross, "Keep editing"}}, 26); break;
         case Screen::ConfirmUninstall:
             panel(c, 360, 266, 1200, 548, "Uninstall game?");
             c.text(ui.pending.name, 410, 413, 33, White, 1100);
@@ -367,7 +418,7 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
             c.text("Native PS4 dashboard built with the OpenOrbis toolchain.", 345, 745, 24, Muted, 1230);
             hints(c, 345, 827, {{Button::Circle, "Back"}}); break;
         case Screen::Keyboard:
-            panel(c, 300, 330, 1320, 400, ui.editKind == EditKind::Search ? "Search library" : ui.editKind == EditKind::SourceCategory ? "Category name" : "Catalog JSON URL");
+            panel(c, 300, 330, 1320, 400, keyboardTitle(ui.editKind));
             c.rounded(340, 466, 1240, 88, 10, 0x061c32, 255);
             c.text(ui.keyboardText + "|", 367, 522, 28, White, 1185);
 #ifdef PSGI_HOST

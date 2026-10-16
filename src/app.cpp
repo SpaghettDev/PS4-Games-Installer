@@ -81,6 +81,8 @@ App::App(const std::string& data, bool preview)
         ui.player.observeInstalled(local, 1792108800);
         if (!local.empty()) ui.player.rate(local[0].titleId, 5);
         if (entries.size() > 8) { ui.player.observeInstalled({entries[8]}, 1792108800); ui.player.rate(entries[8].titleId, 4); }
+        if (!local.empty()) ui.player.setInfo(local[0].titleId, {"Action", "Favorite", "Fast combat and great music. Come back for the remaining secrets.", {"Weekend", "Single player"}});
+        if (entries.size() > 8) ui.player.setInfo(entries[8].titleId, {"Adventure", "Relaxing", "A peaceful underwater journey. Perfect for a quiet evening.", {"Weekend", "Short games"}});
         ui.setLibraries(local, entries);
         ui.freeBytes = 423000000000ULL;
         ui.storage.internal = {true, ui.freeBytes}; ui.storage.external = {true, 1200000000000ULL};
@@ -282,6 +284,40 @@ void App::tick(double elapsed, Video& video) {
                     auto next = ui.player; next.rate(command.entry.titleId, command.source); savePlayer(next);
                     ui.status = command.source ? "Local rating saved: " + std::to_string(command.source) + "/5" : "Local rating removed";
                     log(ui.status); break;
+                }
+                case CommandType::SaveLocalInfo: {
+                    try {
+                        auto next = ui.player; next.setInfo(command.entry.titleId, command.personal.value());
+                        auto position = ui.captureView(); savePlayer(next); ui.restoreView(position);
+                        ui.localDraft = ui.player.games.at(command.entry.titleId).info;
+                        ui.localNotice = ui.status = "Local info saved on this PS4";
+                    } catch (const std::exception& e) { ui.localNotice = std::string("Save failed: ") + e.what(); throw; }
+                    break;
+                }
+                case CommandType::CreateCollection:
+                case CommandType::RenameCollection:
+                case CommandType::DeleteCollection: {
+                    try {
+                        auto next = ui.player; const bool tag = command.source != 0;
+                        auto position = ui.captureView();
+                        if (command.type == CommandType::CreateCollection) next.createTerm(tag, command.text);
+                        else if (command.type == CommandType::RenameCollection) next.renameTerm(tag, command.previous, command.text);
+                        else next.deleteTerm(tag, command.text);
+                        auto& active = tag ? position.filter.tag : position.filter.category;
+                        const auto old = command.type == CommandType::RenameCollection ? command.previous : command.text;
+                        if (command.type != CommandType::CreateCollection && lower(active) == lower(old)) {
+                            active = command.type == CommandType::RenameCollection ? localName(command.text) : "";
+                        }
+                        if (command.type != CommandType::CreateCollection && ui.settings.grouping == (tag ? Grouping::Tag : Grouping::LocalCategory))
+                            for (auto& cursor : position.cursor) if (lower(cursor.group) == lower(old))
+                                cursor.group = command.type == CommandType::RenameCollection ? localName(command.text) : "";
+                        savePlayer(next); ui.restoreView(position);
+                        ui.collectionNotice = ui.status = command.type == CommandType::DeleteCollection ? "Local name and assignments removed; game records kept" : "Local category/tag saved";
+                        const auto choices = ui.termChoices(tag); ui.collectionIndex = std::min(ui.collectionIndex, choices.size() + 1);
+                        if (command.type != CommandType::DeleteCollection) for (size_t i = 0; i < choices.size(); ++i)
+                            if (lower(choices[i]) == lower(command.text)) ui.collectionIndex = i + 2;
+                    } catch (const std::exception& e) { ui.collectionNotice = std::string("Save failed: ") + e.what(); throw; }
+                    break;
                 }
                 case CommandType::Uninstall: {
                     if (demo) { ui.status = "Desktop preview cannot uninstall PS4 games"; break; }

@@ -3,23 +3,35 @@
 #include <map>
 
 namespace psgi {
+constexpr size_t MaxLocalTerms = 256, MaxGameTags = 16, MaxLocalName = 64, MaxLocalDescription = 2047;
+std::string localName(const std::string& text);
+LocalInfo normalizeInfo(LocalInfo info);
+bool sameInfo(const LocalInfo& a, const LocalInfo& b);
+std::string joinedTags(const std::vector<std::string>& tags);
 struct GameRecord {
     bool wasInstalled = false;
     unsigned rating = 0;
     uint64_t firstSeenInstalled = 0, launches = 0, lastLaunch = 0;
+    LocalInfo info{};
 };
 struct PlayerData {
     std::map<std::string, GameRecord> games;
+    std::vector<std::string> categories, tags;
     bool observeInstalled(const std::vector<Entry>& entries, uint64_t now);
     void rate(const std::string& titleId, unsigned stars);
     void noteLaunch(const std::string& titleId, uint64_t now);
+    void setInfo(const std::string& titleId, LocalInfo info);
+    void createTerm(bool tag, const std::string& name);
+    void renameTerm(bool tag, const std::string& previous, const std::string& name);
+    void deleteTerm(bool tag, const std::string& name);
     void apply(Entry& entry) const;
     void apply(std::vector<Entry>& entries) const;
 };
-struct LibraryCursor { std::string titleId, url; size_t index = 0; };
+struct LibraryCursor { std::string titleId, url; size_t index = 0; std::string group; };
 struct ViewState {
     bool available = false, sidebar = false;
     std::string query;
+    LocalFilter filter;
     LibraryCursor cursor[2];
 };
 PlayerData parsePlayerData(const std::string& text);

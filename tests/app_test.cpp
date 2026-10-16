@@ -224,6 +224,37 @@ int main() {
         action(app.ui, "Rate game"); assert(app.ui.screen == Screen::Rating);
         app.ui.ratingIndex = 3; app.ui.handle(Button::Cross); app.tick(0, video);
         assert(app.ui.current()->rating == 4 && loadPlayerData(personal).games.at("CUSA00002").rating == 4);
+        action(app.ui, "Edit local info"); app.ui.handle(Button::Cross); app.ui.handle(Button::Triangle);
+        app.tick(0, video); app.ui.finishEdit("Adventure"); app.ui.handle(Button::Circle);
+        app.ui.localIndex = 1; app.ui.handle(Button::Cross); app.tick(0, video); app.ui.finishEdit("Favorite");
+        app.ui.localIndex = 2; app.ui.handle(Button::Cross); app.ui.handle(Button::Triangle);
+        app.tick(0, video); app.ui.finishEdit("Weekend"); app.ui.handle(Button::Circle);
+        app.ui.localIndex = 3; app.ui.handle(Button::Cross); app.tick(0, video); app.ui.finishEdit("My own description");
+        assert(loadPlayerData(personal).games.at("CUSA00002").info.category.empty());
+        std::filesystem::create_directory(personal + "/player.json.tmp");
+        app.ui.localIndex = 4; app.ui.handle(Button::Cross); app.tick(0, video);
+        assert(app.ui.screen == Screen::LocalInfo && app.ui.localDirty() && app.ui.localNotice.find("Save failed") == 0);
+        assert(loadPlayerData(personal).games.at("CUSA00002").info.category.empty());
+        std::filesystem::remove(personal + "/player.json.tmp");
+        app.ui.handle(Button::Cross); app.tick(0, video);
+        assert(!app.ui.localDirty() && app.ui.current()->info.label == "Favorite");
+        assert(loadPlayerData(personal).games.at("CUSA00002").info.tags == std::vector<std::string>{"Weekend"});
+        // Edit through Installed, then browse/filter the same record in Available.
+        app.ui.handle(Button::Circle); app.ui.handle(Button::Circle); app.ui.handle(Button::R1);
+        const auto tagged = std::find_if(app.ui.available.begin(), app.ui.available.end(), [](const Entry& e) { return e.titleId == "CUSA00002"; });
+        assert(tagged != app.ui.available.end() && tagged->info.description == "My own description");
+        app.ui.handle(Button::Options); app.ui.menuIndex = 9; app.ui.handle(Button::Cross);
+        app.ui.collectionIndex = 2; app.ui.handle(Button::Cross); app.tick(0, video);
+        assert(app.ui.current()->titleId == "CUSA00002" && app.ui.filter.category == "Adventure");
+        app.ui.handle(Button::Options); app.ui.menuIndex = 9; app.ui.handle(Button::Cross); app.ui.collectionIndex = 2;
+        app.ui.handle(Button::Square); app.tick(0, video); app.ui.finishEdit("Story games"); app.tick(0, video);
+        assert(app.ui.filter.category == "Story games" && loadPlayerData(personal).games.at("CUSA00002").info.category == "Story games");
+        app.ui.handle(Button::Options); app.ui.handle(Button::Circle); // Cancel deletion first.
+        assert(loadPlayerData(personal).categories == std::vector<std::string>{"Story games"});
+        app.ui.handle(Button::Options); app.ui.handle(Button::Cross); app.tick(0, video);
+        assert(app.ui.filter.category.empty() && loadPlayerData(personal).categories.empty());
+        assert(loadPlayerData(personal).games.at("CUSA00002").info.label == "Favorite");
+        app.ui.screen = Screen::Dashboard; app.ui.handle(Button::L1);
         failLaunch = true;
         app.ui.screen = Screen::Dashboard; app.ui.handle(Button::Cross); app.tick(0, video);
         assert(launchCalls == 2 && app.ui.status == "Launch fixture failed");
@@ -243,11 +274,13 @@ int main() {
         assert(removed != app.ui.available.end() && !removed->installed && removed->wasInstalled && removed->rating == 4);
         const auto records = loadPlayerData(personal);
         assert(records.games.at("CUSA00002").wasInstalled && records.games.at("CUSA00002").rating == 4);
+        assert(records.games.at("CUSA00002").info.description == "My own description" && records.games.at("CUSA00002").info.label == "Favorite");
         app.ui.handle(Button::R1); assert(app.ui.librarySummary().find("available to install") != std::string::npos);
     }
     {
         App app(personal); settle(app, video);
         assert(app.ui.player.games.at("CUSA00002").rating == 4 && app.ui.player.games.at("CUSA00002").wasInstalled);
+        assert(app.ui.player.games.at("CUSA00002").info.tags == std::vector<std::string>{"Weekend"});
     }
     const auto corrupt = directory + "/corrupt"; std::filesystem::create_directory(corrupt);
     saveSettings(corrupt, personalSettings); atomicWrite(corrupt + "/player.json", "broken personal records");

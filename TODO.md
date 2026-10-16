@@ -36,12 +36,20 @@
 - [x] Correct BGFT's system-visible staging path and submit validated PKG identity/size.
 - [x] Reuse complete packages despite the SDK stat size mismatch.
 - [x] Keep registration/task errors visible; distinguish downloading from installing.
+- [x] Add local Title ID categories, labels, descriptions and tags, with drafts and explicit save results.
+- [x] Create/rename/delete local categories/tags and browse/filter/group by them.
+- [x] Show category/label on both layouts and selected local description previews.
 - [x] Remote artwork downloads work (user report for r16, 2026-10-16).
 - [x] Application confirmed working on real PS4 11.00 + GoldHEN (user report, 2026-10-16).
 - [ ] Complete the individual console acceptance checks below.
 
 ## Console acceptance checks
 
+- [ ] Retest r21: use PS4 IME for category, label, tags and description from both libraries.
+- [ ] Retest r21: save, refresh/restart and uninstall; personal metadata stays by Title ID.
+- [ ] Retest r21: browse/filter/group local categories and tags, including names with no assigned games.
+- [ ] Retest r21: rename/delete a category/tag; assignments update, notes/ratings/history remain.
+- [ ] Retest r21: cancel an edit and retry a failed save without losing the draft.
 - [x] Initial console launch reaches the splash and readable startup-error screen
   (user report, 2026-10-16; failed opening the icon in the previous build).
 - [x] PS4 keyboard opens and correctly accepts source URL input (user confirmation,

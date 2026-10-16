@@ -28,13 +28,17 @@ It requires an active homebrew environment; this app does not install GoldHEN.
   background installer; other servers use a direct-download fallback first.
 - Switch between a cover tile grid and a summary list. The summary background
   follows the selected game's artwork. Group by category, region, first letter,
-  or none; sort by name or size and optionally hide installed remote titles.
+  local category or tag, or none; sort by name or size and optionally hide
+  installed remote titles.
 - Edit catalog URLs with the PS4 on-screen keyboard, test connectivity, and save
   settings from the app. No FTP configuration is needed for normal setup.
 - View detailed metadata, search the current library, and use an offline catalog
   and bounded artwork cache. The blue background has optional floating bubbles.
 - Rate games from 1 to 5 stars using Triangle > Rate game. Stars appear on tiles
   and in the summary list. Ratings and history stay local across catalog updates.
+- Add your own category, label, description and tags to any Title ID. Browse
+  local categories/tags, keep notes and organize both libraries without editing
+  the server's catalog.
 - Resume the selected library and game after launching a game or exiting the app.
   The bottom-left counter follows the current library and shows packages ready
   to install on Available.
@@ -130,7 +134,7 @@ enabled; firmware TLS/certificate support can limit which HTTPS hosts work.
 | L1 / R1 | Switch Installed / Available |
 | X on Installed | Launch the game |
 | X on Available | Install confirmation, or actions for an installed title |
-| Triangle | Game actions: launch/install, details, artwork, rating and Uninstall for installed games |
+| Triangle | Game actions: launch/install, details, artwork, rating, Edit local info and Uninstall for installed games |
 | Square | Game details; Up/Down scroll |
 | Options | Refresh, search, view/group/sort/filter, Settings, About and Exit |
 | O | Close a window or go back |
@@ -171,6 +175,56 @@ game keep them. Back up this file to preserve ratings and history; back up
 If `player.json` is corrupt, the app keeps it unchanged and reports an error
 when a record is edited. Restore a valid backup or repair the file to resume
 recording.
+
+## Your categories, labels, notes and tags
+
+Select a game in **Installed** or **Available**, then choose **Triangle > Edit
+local info**. You can assign one category, a short label, a description and up to
+16 tags. The same Title ID shares these fields across both libraries and every
+remote package variant, even if its name or URL changes.
+
+- **Category:** X opens the picker. Select an existing category or Triangle to
+  enter a new one. Choose Uncategorized to clear the assignment.
+- **Label:** X opens the keyboard. For example, use Favorite, Next to play or
+  Completed. Empty text clears the label.
+- **Tags:** X toggles tags in the picker; Triangle creates a new tag. O returns
+  to the editor. Clear all game tags removes this title's assignments.
+- **Description:** enter your personal notes. The selected game's description
+  previews above the dashboard footer; Square > Details shows its full text.
+- Choose **Save local info** to write the changes. New category/tag names entered
+  here are created on save. O offers to discard an unsaved draft; failed writes
+  keep the draft so you can retry.
+
+Category and label are always visible on tiles and summary rows, with
+Uncategorized / Unlabeled for unassigned fields. Your description takes precedence
+over a remote description in the selected-game preview. Search also matches local
+categories, labels, descriptions and tags.
+
+![Local game info editor with sample data](docs/images/local-info.png)
+
+Open **Options > Browse local categories** or **Browse local tags**; scroll down
+in Options to reach these entries. The browser shows counts for the current
+library. X selects a filter; L1/R1 switches category/tag browsing. Category and
+tag filters can be combined, and switching Installed/Available keeps them.
+**All games / clear local filters** clears both; search and the installed-only
+setting remain independent.
+
+In that browser, Triangle creates a name even before any game uses it. Square
+renames the highlighted name and updates every assignment. Options opens deletion
+confirmation; deleting a local category/tag clears its assignments and keeps the
+games, labels, notes, ratings and history. O always goes back or cancels.
+
+**Options > Group** and **Settings > Grouping** also offer **Local category** and
+**Local tag**. A game with several tags appears under each tag, while the footer
+counts each package once. Filter choices and the selected tag group are restored
+with the saved session. Catalog categories such as games/updates remain separate
+from your personal categories.
+
+All of this stays in `player.json` on the PS4, survives refreshes/restarts and
+remains after uninstalling a game. Existing ratings/history are preserved when
+upgrading. The app writes player schema 2; older releases preserve that file
+without editing it. Limits are 256 local categories, 256 tags, 64 UTF-8 bytes per
+name/label and 2047 UTF-8 bytes per description.
 
 ## Installation storage
 

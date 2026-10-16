@@ -18,20 +18,35 @@ void matchInstalled(std::vector<Entry>& remote, const std::vector<Entry>& instal
         e.queued = queuedUrls.count(e.url) != 0;
     }
 }
+bool matchesLocal(const Entry& entry, const LocalFilter& filter) {
+    if (filter.uncategorized && !entry.info.category.empty()) return false;
+    if (filter.untagged && !entry.info.tags.empty()) return false;
+    if (!filter.category.empty() && lower(filter.category) != lower(entry.info.category)) return false;
+    if (!filter.tag.empty() && std::none_of(entry.info.tags.begin(), entry.info.tags.end(), [&](const std::string& tag) { return lower(tag) == lower(filter.tag); })) return false;
+    return true;
+}
 std::vector<VisibleEntry> makeView(const std::vector<Entry>& entries, const Settings& s,
-                                 Library library, const std::string& query) {
+                                 Library library, const std::string& query, const LocalFilter& filter) {
     std::vector<VisibleEntry> out;
     auto q = lower(query);
     for (size_t i = 0; i < entries.size(); ++i) {
         const auto& e = entries[i];
+        if (!matchesLocal(e, filter)) continue;
         if (library == Library::Available && s.notInstalledOnly && e.installed) continue;
-        if (!q.empty() && lower(e.name + " " + e.titleId).find(q) == std::string::npos) continue;
+        std::string searchable = e.name + " " + e.titleId + " " + e.info.category + " " + e.info.label + " " + e.info.description;
+        for (const auto& tag : e.info.tags) searchable += " " + tag;
+        if (!q.empty() && lower(searchable).find(q) == std::string::npos) continue;
         std::string group;
         if (s.grouping == Grouping::Category) group = e.category.empty() ? "Unknown" : e.category;
         else if (s.grouping == Grouping::Region) group = e.region.empty() || e.region == "UNK" ? "Unknown" : e.region;
         else if (s.grouping == Grouping::Letter) {
             char c = lower(e.name).empty() ? '#' : lower(e.name)[0];
             group = c >= 'a' && c <= 'z' ? std::string(1, c - 'a' + 'A') : "#";
+        }
+        else if (s.grouping == Grouping::LocalCategory) group = e.info.category.empty() ? "Uncategorized" : e.info.category;
+        else if (s.grouping == Grouping::Tag) {
+            if (e.info.tags.empty()) group = "Untagged";
+            else { for (const auto& tag : e.info.tags) if (filter.tag.empty() || lower(tag) == lower(filter.tag)) out.push_back({i, tag}); continue; }
         }
         out.push_back({i, group});
     }
@@ -50,6 +65,10 @@ std::vector<std::pair<std::string, std::string>> entryDetails(const Entry& e) {
     auto unknown = [](const std::string& s) { return s.empty() ? "Unknown" : s; };
     std::vector<std::pair<std::string, std::string>> out{
         {"Name", e.name},
+        {"Local category", e.info.category.empty() ? "Uncategorized" : e.info.category},
+        {"Local label", e.info.label.empty() ? "Unlabeled" : e.info.label},
+        {"Local tags", e.info.tags.empty() ? "Untagged" : [&] { std::string value; for (const auto& tag : e.info.tags) { if (!value.empty()) value += ", "; value += tag; } return value; }()},
+        {"Local description", e.info.description.empty() ? "Not set" : e.info.description},
         {"Title ID", unknown(e.titleId)}, {"Version", unknown(e.version)},
         {"Region", unknown(e.region)}, {"Category", unknown(e.category)},
         {"Package size", formatSize(e.size)}, {"Installed size", formatSize(e.installedSize)},

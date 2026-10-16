@@ -86,7 +86,7 @@ std::vector<Button> Video::input(Ui& ui) {
                 flushInput(); continue;
             }
             if (event.type == SDL_TEXTINPUT) {
-                size_t maximum = ui.editKind == EditKind::SourceCategory ? 32 : ui.editKind == EditKind::Search ? 128 : 2047;
+                size_t maximum = keyboardMaximum(ui.editKind);
                 if (ui.keyboardText.size() + std::strlen(event.text.text) <= maximum) ui.keyboardText += event.text.text;
             }
             if (event.type != SDL_KEYDOWN) continue;
@@ -101,7 +101,7 @@ std::vector<Button> Video::input(Ui& ui) {
                 ui.keyboardText.erase(last);
             } else if (key == SDLK_v && (event.key.keysym.mod & KMOD_CTRL)) {
                 char* text = SDL_GetClipboardText();
-                if (text && ui.keyboardText.size() + std::strlen(text) <= 2047) ui.keyboardText += text;
+                if (text && ui.keyboardText.size() + std::strlen(text) <= keyboardMaximum(ui.editKind)) ui.keyboardText += text;
                 SDL_free(text);
             }
             continue;
@@ -199,12 +199,12 @@ std::vector<Button> Video::input(Ui&) {
 void Video::startKeyboard(Ui& ui) {
     sceSysmoduleLoadModule(ORBIS_SYSMODULE_IME_DIALOG);
     sceCommonDialogInitialize();
-    size_t maximum = ui.editKind == EditKind::SourceCategory ? 32 : ui.editKind == EditKind::Search ? 128 : 2047;
+    size_t maximum = keyboardMaximum(ui.editKind);
     auto initial = toUtf16(ui.keyboardText);
     if (initial.size() > maximum) throw std::runtime_error("Text is too long for the keyboard");
     inputBuffer.assign(maximum + 1, 0);
     std::copy(initial.begin(), initial.end(), inputBuffer.begin());
-    inputTitle = ui.editKind == EditKind::Search ? u"Search library" : ui.editKind == EditKind::SourceCategory ? u"Category name" : u"Games JSON URL";
+    inputTitle = toUtf16(keyboardTitle(ui.editKind));
     OrbisImeDialogSetting params{};
     params.userId = userId;
     params.type = ui.editKind == EditKind::SourceUrl ? ORBIS_TYPE_TYPE_URL : ORBIS_TYPE_DEFAULT;

@@ -10,6 +10,14 @@ constexpr size_t MaxCatalogBytes = 8 * 1024 * 1024;
 constexpr size_t MaxEntries = 50000;
 
 struct Source { std::string category, url; };
+struct LocalInfo {
+    std::string category, label, description;
+    std::vector<std::string> tags;
+};
+struct LocalFilter {
+    std::string category, tag;
+    bool uncategorized = false, untagged = false;
+};
 struct Entry {
     std::string url, name, titleId, region, version, minFirmware, category;
     std::string coverUrl, localIcon, release, contentId, description;
@@ -19,6 +27,7 @@ struct Entry {
     bool wasInstalled = false;
     unsigned rating = 0;
     uint64_t firstSeenInstalled = 0, launches = 0, lastLaunch = 0;
+    LocalInfo info;
     std::vector<std::pair<std::string, std::string>> metadata;
 };
 

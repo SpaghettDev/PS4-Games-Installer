@@ -1,5 +1,40 @@
 # Implementation progress
 
+## r21 local game organization — 2026-10-16
+
+- Added personal category, label, description and tags to the existing Title ID
+  record, separate from catalog data and the package category used for install
+  routing. Both Installed and Available receive the same saved personal fields.
+- Added local name registries, including empty categories/tags, case-insensitive
+  ASCII reuse, rename with assignment updates, and confirmed deletion that clears
+  assignments while preserving all other records. Limits: 256 categories and 256
+  tags, 16 tags per title, 64-byte names/labels and 2047-byte descriptions.
+- Existing player schema 1 records load with default empty metadata. Writes use
+  schema 2 so older releases reject and preserve the profile rather than erase
+  new fields when updating ratings. Saves still use atomic replacement, validate
+  before writing, preserve corrupt files and retain drafts on write failure.
+- Added controller/IME editing, category/tag pickers and a local browser with
+  creation, rename, delete confirmation, filtering and clear-filter actions.
+  Added local-category/tag grouping and session filter/group restoration. Counts
+  stay unique when one title appears in multiple tag groups.
+- Tiles/summary always show category and label; selected descriptions preview
+  above the footer. Details/search include the local fields. The native build
+  compiled and launcher import validation passed.
+- Full `make test` passes, including all 15 Python integrations. New checks cover
+  legacy profiles, refresh isolation, shared Installed/Available records, name
+  creation/rename/deletion, notes after uninstall/restart, failed-save draft
+  retention, discard/cancel, tag-picker cursor clamping, multiline details,
+  combined filters, multi-tag counts, group selection and session persistence.
+- Built `dist/PS4Game_installer-r21.pkg`; `make validate` passes hashes, signatures
+  and packed launcher imports. Verified the package SHA-256 and source fingerprint
+  against the manifest/revision record. No failed build consumed a revision.
+- Generated 29 r21 desktop captures and inspected the editor, tag picker,
+  category/tag browser and both dashboard layouts. Refreshed README screenshots
+  and documented editing, browsing, management, filtering and data limits.
+- Source identity and whitespace checks pass. No deployment or Git push; the
+  new console IME/controller flows and long descriptions remain explicit hardware
+  checks in TODO.md. Existing native install behavior was retained this turn.
+
 ## r20 download versus installation — 2026-10-16
 
 - Pulled current app log, saved catalog/config/task/player data, app.db, staging

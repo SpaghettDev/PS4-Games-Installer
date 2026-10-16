@@ -7,11 +7,13 @@
 
 namespace psgi {
 enum class Button { Up, Down, Left, Right, Cross, Circle, Square, Triangle, Options, L1, R1 };
-enum class Screen { Splash, Dashboard, Options, Settings, Sources, Storage, Details, Actions, Rating, About, ConfirmExit, ConfirmInstall, InstallError, ConfirmUninstall, Discard, Keyboard };
-enum class CommandType { Refresh, Save, Test, Storage, SetStorage, ClearArtwork, RefreshArtwork, Install, Uninstall, Rate, Launch, Keyboard, Quit };
-struct Command { CommandType type; Entry entry; size_t source = 0; std::string text; std::optional<Settings> configuration = {}; };
+enum class Screen { Splash, Dashboard, Options, Settings, Sources, Storage, Details, Actions, Rating, LocalInfo, PickCategory, PickTags, DiscardLocal, Collections, ConfirmDeleteCollection, About, ConfirmExit, ConfirmInstall, InstallError, ConfirmUninstall, Discard, Keyboard };
+enum class CommandType { Refresh, Save, Test, Storage, SetStorage, ClearArtwork, RefreshArtwork, Install, Uninstall, Rate, SaveLocalInfo, CreateCollection, RenameCollection, DeleteCollection, Launch, Keyboard, Quit };
+struct Command { CommandType type; Entry entry; size_t source = 0; std::string text; std::optional<Settings> configuration = {}; std::optional<LocalInfo> personal = {}; std::string previous = {}; };
 struct TileRow { std::string group; std::vector<size_t> items; };
-enum class EditKind { SourceUrl, SourceCategory, Search };
+enum class EditKind { SourceUrl, SourceCategory, Search, GameCategory, GameLabel, GameTag, GameDescription, CreateCategory, CreateTag, RenameCategory, RenameTag };
+size_t keyboardMaximum(EditKind kind);
+std::string keyboardTitle(EditKind kind);
 
 class Ui {
     std::deque<Command> commands;
@@ -21,6 +23,7 @@ class Ui {
     void emit(CommandType type, const Entry& entry = {});
     void beginEdit(EditKind kind, size_t index, const std::string& text);
     void quickSave();
+    size_t uniqueShown = 0, installable = 0;
 public:
     Settings settings, draft;
     PlayerData player;
@@ -38,6 +41,11 @@ public:
     size_t storageIndex = 0;
     std::string status = "Loading your library...", query, keyboardText;
     std::string settingsNotice;
+    LocalInfo localDraft;
+    size_t localIndex = 0, pickerIndex = 0, collectionIndex = 0;
+    bool collectionTags = false;
+    std::string localNotice, collectionNotice, collectionOriginal;
+    LocalFilter filter;
     std::string installError;
     Entry failedInstall;
     EditKind editKind = EditKind::SourceUrl;
@@ -61,6 +69,12 @@ public:
     std::vector<std::string> options() const;
     std::vector<std::string> settingRows() const;
     std::vector<std::string> actionRows() const;
+    size_t shownGames() const { return uniqueShown; }
+    std::vector<std::string> termChoices(bool tags, bool draft = false) const;
+    std::vector<std::string> collectionRows() const;
+    std::vector<std::string> localRows() const;
+    std::string filterDescription() const;
+    bool localDirty() const { return !sameInfo(localDraft, pending.info); }
 };
 std::string layoutName(Layout layout);
 std::string groupName(Grouping group);

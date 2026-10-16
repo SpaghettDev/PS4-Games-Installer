@@ -1,5 +1,20 @@
 # Changelog
 
+## r21 — 2026-10-16
+
+- Add local category, label, description and up to 16 tags per Title ID through
+  Triangle > Edit local info in Installed and Available, with explicit Save and
+  discard handling. Failed saves keep the draft for retry.
+- Always show category/label on tiles and summary rows; show the selected game's
+  local description preview and include the full local info in Details/search.
+- Browse/filter by local category or tag from Options. Create, rename and delete
+  local names, including names not assigned to a game yet. Renames update game
+  assignments; deletion keeps games, ratings, notes and history.
+- Add local-category and multi-tag grouping, unique-game counts and persisted
+  filters/selection within tag groups. Keep catalog package types independent.
+- Read existing player records and write schema 2 atomically. Older app versions
+  preserve this file rather than stripping fields they do not understand.
+
 ## r20 — 2026-10-16
 
 - Correct local installation paths for BGFT's system namespace: translate this

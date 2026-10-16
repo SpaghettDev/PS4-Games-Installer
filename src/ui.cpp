@@ -2,12 +2,33 @@
 #include "sfo.hpp"
 #include <algorithm>
 #include <map>
+#include <stdexcept>
 
 namespace psgi {
 std::string layoutName(Layout layout) { return layout == Layout::Tiles ? "Tiles" : "Summary list"; }
 std::string groupName(Grouping group) {
-    const char* names[] = {"None", "Category", "Region", "First letter"};
+    const char* names[] = {"None", "Catalog category", "Region", "First letter", "Local category", "Local tag"};
     return names[static_cast<int>(group)];
+}
+size_t keyboardMaximum(EditKind kind) {
+    if (kind == EditKind::SourceUrl) return 2047;
+    if (kind == EditKind::SourceCategory) return 32;
+    if (kind == EditKind::Search) return 128;
+    if (kind == EditKind::GameDescription) return MaxLocalDescription;
+    return MaxLocalName;
+}
+std::string keyboardTitle(EditKind kind) {
+    switch (kind) {
+        case EditKind::SourceUrl: return "Games JSON URL";
+        case EditKind::SourceCategory: return "Catalog source category";
+        case EditKind::Search: return "Search library";
+        case EditKind::GameLabel: return "Local game label";
+        case EditKind::GameDescription: return "Local game description";
+        case EditKind::GameTag: case EditKind::CreateTag: return "New local tag";
+        case EditKind::RenameTag: return "Rename local tag";
+        case EditKind::RenameCategory: return "Rename local category";
+        default: return "New local category";
+    }
 }
 size_t Ui::position() const { return selected[static_cast<int>(library)]; }
 const std::vector<Entry>& Ui::entries() const { return library == Library::Installed ? installed : available; }
@@ -47,7 +68,12 @@ void Ui::rebuild() {
         }
     }
     player.apply(installed); player.apply(available); player.apply(pending);
-    visible = makeView(entries(), settings, library, query);
+    visible = makeView(entries(), settings, library, query, filter);
+    uniqueShown = installable = 0; std::vector<bool> seen(entries().size());
+    for (const auto& item : visible) if (!seen[item.index]) {
+        seen[item.index] = true; ++uniqueShown;
+        if (!entries()[item.index].installed && !entries()[item.index].queued) ++installable;
+    }
     selected[static_cast<int>(library)] = visible.empty() ? 0 : std::min(position(), visible.size() - 1);
     grid.clear(); gridRowByPosition.clear();
     for (size_t i = 0; i < visible.size(); ++i) {
@@ -64,25 +90,28 @@ void Ui::setLibraries(std::optional<std::vector<Entry>> local, std::optional<std
 }
 ViewState Ui::captureView() const {
     ViewState state; state.available = library == Library::Available; state.query = query; state.sidebar = sidebar;
+    state.filter = filter;
     for (size_t i = 0; i < 2; ++i) {
         const auto which = i ? Library::Available : Library::Installed;
         const auto& list = i ? available : installed;
-        const auto view = makeView(list, settings, which, query);
+        const auto view = makeView(list, settings, which, query, filter);
         auto& cursor = state.cursor[i]; cursor.index = selected[i];
         if (!view.empty()) {
             const auto& entry = list[view[std::min(selected[i], view.size() - 1)].index];
             if (validTitleId(entry.titleId)) cursor.titleId = entry.titleId;
             if (i) cursor.url = entry.url;
+            if (settings.grouping == Grouping::Tag || settings.grouping == Grouping::LocalCategory) cursor.group = view[std::min(selected[i], view.size() - 1)].group;
         }
     }
     return state;
 }
 void Ui::restoreView(const ViewState& state) {
     library = state.available ? Library::Available : Library::Installed; query = state.query; sidebar = state.sidebar;
+    filter = state.filter;
     rebuild();
     for (size_t i = 0; i < 2; ++i) {
         const auto& list = i ? available : installed;
-        const auto view = makeView(list, settings, i ? Library::Available : Library::Installed, query);
+        const auto view = makeView(list, settings, i ? Library::Available : Library::Installed, query, filter);
         const auto& cursor = state.cursor[i];
         selected[i] = view.empty() ? 0 : std::min(cursor.index, view.size() - 1);
         std::optional<size_t> fallback;
@@ -90,8 +119,9 @@ void Ui::restoreView(const ViewState& state) {
             const auto& entry = list[view[p].index];
             const bool title = !cursor.titleId.empty() && entry.titleId == cursor.titleId;
             const bool url = !cursor.url.empty() && entry.url == cursor.url;
-            if (title && !fallback) fallback = p;
-            if ((title && (!i || cursor.url.empty() || url)) || (cursor.titleId.empty() && url)) { fallback = p; break; }
+            if (title && (!fallback || (!cursor.group.empty() && cursor.group == view[p].group))) fallback = p;
+            if (((title && (!i || cursor.url.empty() || url)) || (cursor.titleId.empty() && url)) &&
+                (cursor.group.empty() || cursor.group == view[p].group)) { fallback = p; break; }
         }
         if (fallback) selected[i] = *fallback;
     }
@@ -99,24 +129,30 @@ void Ui::restoreView(const ViewState& state) {
 std::string Ui::librarySummary() const {
     if (library == Library::Installed)
         return std::to_string(installed.size()) + " installed games" +
-            (visible.size() != installed.size() ? " / " + std::to_string(visible.size()) + " shown" : "");
-    size_t ready = 0;
-    for (const auto& item : visible) if (!available[item.index].installed && !available[item.index].queued) ++ready;
-    return std::to_string(ready) + " available to install / " + std::to_string(available.size()) + " packages";
+            (uniqueShown != installed.size() ? " / " + std::to_string(uniqueShown) + " shown" : "");
+    return std::to_string(installable) + " available to install / " + std::to_string(available.size()) + " packages";
 }
 std::vector<std::string> Ui::details() const {
     std::vector<std::string> lines;
     for (const auto& field : entryDetails(pending)) {
-        std::string line = field.first + ": " + field.second;
-        while (line.size() > 72) {
-            size_t cut = line.rfind(' ', 72);
-            if (cut < 20 || cut == std::string::npos) cut = 72;
-            while (cut > 0 && (static_cast<unsigned char>(line[cut]) & 0xc0) == 0x80) --cut;
-            if (!cut) cut = 72; // Invalid UTF-8 must still make forward progress.
-            lines.push_back(line.substr(0, cut));
-            line.erase(0, cut + (line[cut] == ' ' ? 1 : 0));
+        std::string text = field.first + ": " + field.second;
+        for (auto& c : text) if (c == '\r' || c == '\t') c = ' ';
+        size_t start = 0;
+        for (;;) {
+            const auto end = text.find('\n', start);
+            std::string line = text.substr(start, end == std::string::npos ? end : end - start);
+            while (line.size() > 72) {
+                size_t cut = line.rfind(' ', 72);
+                if (cut < 20 || cut == std::string::npos) cut = 72;
+                while (cut > 0 && (static_cast<unsigned char>(line[cut]) & 0xc0) == 0x80) --cut;
+                if (!cut) cut = 72; // Invalid UTF-8 must still make forward progress.
+                lines.push_back(line.substr(0, cut));
+                line.erase(0, cut + (line[cut] == ' ' ? 1 : 0));
+            }
+            lines.push_back(line);
+            if (end == std::string::npos) break;
+            start = end + 1;
         }
-        lines.push_back(line);
     }
     return lines;
 }
@@ -129,6 +165,23 @@ void Ui::beginEdit(EditKind kind, size_t index, const std::string& text) {
 void Ui::finishEdit(const std::optional<std::string>& text) {
     screen = keyboardReturn;
     if (!text) return;
+    if (editKind >= EditKind::GameCategory) {
+        try {
+            if (editKind == EditKind::GameDescription) { auto next = localDraft; next.description = *text; localDraft = normalizeInfo(next); }
+            else if (editKind == EditKind::GameLabel) localDraft.label = localName(*text);
+            else if (editKind == EditKind::GameCategory) localDraft.category = localName(*text);
+            else if (editKind == EditKind::GameTag) { auto next = localDraft; next.tags.push_back(*text); localDraft = normalizeInfo(next); }
+            else {
+                auto name = localName(*text);
+                if (name.empty()) throw std::runtime_error("Enter a category or tag name");
+                Command command{}; command.type = editKind == EditKind::RenameCategory || editKind == EditKind::RenameTag ? CommandType::RenameCollection : CommandType::CreateCollection;
+                command.source = editKind == EditKind::CreateTag || editKind == EditKind::RenameTag;
+                command.text = name; command.previous = collectionOriginal; commands.push_back(std::move(command));
+            }
+            localNotice = "Draft updated. Select Save local info to keep it.";
+        } catch (const std::exception& e) { localNotice = collectionNotice = status = e.what(); }
+        return;
+    }
     if (editKind == EditKind::Search) { query = *text; rebuild(); return; }
     if (editKind == EditKind::SourceUrl) {
         if (!text->empty() && !isHttpUrl(*text)) { settingsNotice = status = "Invalid URL. Use http:// or https:// with no spaces."; return; }
@@ -149,7 +202,7 @@ std::vector<std::string> Ui::options() const {
     return {"Refresh library", "Search" + (query.empty() ? std::string() : ": " + query),
         "View: " + layoutName(settings.layout), "Group: " + groupName(settings.grouping),
         settings.sizeSort ? "Sort: Largest first" : "Sort: Name A-Z",
-        settings.notInstalledOnly ? "Available: Not installed" : "Available: All packages", "Settings", "About", "Exit"};
+        settings.notInstalledOnly ? "Available: Not installed" : "Available: All packages", "Settings", "About", "Exit", "Browse local categories", "Browse local tags"};
 }
 std::vector<std::string> Ui::settingRows() const {
     return {"Games JSON URL", "Other catalog sources", "View: " + layoutName(draft.layout),
@@ -166,13 +219,123 @@ std::vector<std::string> Ui::actionRows() const {
             std::vector<std::string>{"Launch game", "Install remote package", "Details", "Refresh artwork"};
     else rows = {"Install package", "Details", "Refresh artwork"};
     if (validTitleId(pending.titleId)) rows.push_back("Rate game" + (pending.rating ? " (" + std::to_string(pending.rating) + "/5)" : std::string()));
+    if (validTitleId(pending.titleId)) rows.push_back("Edit local info");
     if (pending.installed) rows.push_back("Uninstall");
+    return rows;
+}
+std::vector<std::string> Ui::termChoices(bool tags, bool draft) const {
+    auto terms = tags ? player.tags : player.categories;
+    auto add = [&](const std::string& value) {
+        if (!value.empty() && std::none_of(terms.begin(), terms.end(), [&](const std::string& term) { return lower(term) == lower(value); })) terms.push_back(value);
+    };
+    if (draft) { if (tags) { for (const auto& tag : localDraft.tags) add(tag); } else add(localDraft.category); }
+    return terms;
+}
+std::vector<std::string> Ui::localRows() const {
+    return {"Category: " + (localDraft.category.empty() ? "Uncategorized" : localDraft.category),
+        "Label: " + (localDraft.label.empty() ? "Unlabeled" : localDraft.label),
+        "Tags: " + (localDraft.tags.empty() ? "Untagged" : joinedTags(localDraft.tags)),
+        "Description: " + (localDraft.description.empty() ? "Not set" : localDraft.description), "Save local info"};
+}
+std::string Ui::filterDescription() const {
+    std::string value;
+    if (!filter.category.empty() || filter.uncategorized) value = "Category: " + (filter.uncategorized ? std::string("Uncategorized") : filter.category);
+    if (!filter.tag.empty() || filter.untagged) { if (!value.empty()) value += " / "; value += "Tag: " + (filter.untagged ? std::string("Untagged") : filter.tag); }
+    return value;
+}
+std::vector<std::string> Ui::collectionRows() const {
+    std::map<std::string, size_t> counts; size_t empty = 0, total = 0;
+    for (const auto& entry : entries()) {
+        if (library == Library::Available && settings.notInstalledOnly && entry.installed) continue;
+        ++total;
+        if (collectionTags) {
+            if (entry.info.tags.empty()) ++empty;
+            for (const auto& tag : entry.info.tags) ++counts[lower(tag)];
+        } else if (entry.info.category.empty()) ++empty;
+        else ++counts[lower(entry.info.category)];
+    }
+    std::vector<std::string> rows{"All games / clear local filters (" + std::to_string(total) + ")",
+        std::string(collectionTags ? "Untagged" : "Uncategorized") + " (" + std::to_string(empty) + ")"};
+    for (const auto& name : termChoices(collectionTags)) rows.push_back(name + " (" + std::to_string(counts[lower(name)]) + ")");
     return rows;
 }
 void Ui::quickSave() { rebuild(); emit(CommandType::Save); }
 void Ui::handle(Button b) {
     // Circle and dialogs are handled before dashboard shortcuts.
     if (screen == Screen::Keyboard) return;
+    if (screen == Screen::DiscardLocal) {
+        if (b == Button::Circle) { localDraft = pending.info; screen = Screen::Actions; }
+        else if (b == Button::Cross) screen = Screen::LocalInfo;
+        return;
+    }
+    if (screen == Screen::ConfirmDeleteCollection) {
+        if (b == Button::Circle) screen = Screen::Collections;
+        else if (b == Button::Cross) {
+            Command command{}; command.type = CommandType::DeleteCollection; command.source = collectionTags; command.text = collectionOriginal;
+            commands.push_back(std::move(command)); screen = Screen::Collections;
+        }
+        return;
+    }
+    if (screen == Screen::LocalInfo) {
+        if (b == Button::Circle) { screen = localDirty() ? Screen::DiscardLocal : Screen::Actions; return; }
+        if (b == Button::Up && localIndex) --localIndex;
+        if (b == Button::Down && localIndex < 4) ++localIndex;
+        if (b == Button::Cross) switch (localIndex) {
+            case 0: pickerIndex = 0; screen = Screen::PickCategory; break;
+            case 1: beginEdit(EditKind::GameLabel, 0, localDraft.label); break;
+            case 2: pickerIndex = 0; screen = Screen::PickTags; break;
+            case 3: beginEdit(EditKind::GameDescription, 0, localDraft.description); break;
+            case 4: { Command command{}; command.type = CommandType::SaveLocalInfo; command.entry = pending; command.personal = localDraft; commands.push_back(std::move(command)); break; }
+        }
+        return;
+    }
+    if (screen == Screen::PickCategory || screen == Screen::PickTags) {
+        const bool tags = screen == Screen::PickTags;
+        const auto choices = termChoices(tags, true);
+        pickerIndex = std::min(pickerIndex, choices.size());
+        if (b == Button::Circle) { screen = Screen::LocalInfo; return; }
+        if (b == Button::Triangle) { beginEdit(tags ? EditKind::GameTag : EditKind::GameCategory, 0, ""); return; }
+        if (b == Button::Up && pickerIndex) --pickerIndex;
+        if (b == Button::Down && pickerIndex < choices.size()) ++pickerIndex;
+        if (b == Button::Cross) {
+            if (!pickerIndex) { if (tags) localDraft.tags.clear(); else localDraft.category.clear(); }
+            else {
+                const auto& value = choices.at(pickerIndex - 1);
+                if (!tags) localDraft.category = value;
+                else {
+                    auto found = std::find_if(localDraft.tags.begin(), localDraft.tags.end(), [&](const std::string& tag) { return lower(tag) == lower(value); });
+                    if (found != localDraft.tags.end()) localDraft.tags.erase(found);
+                    else if (localDraft.tags.size() < MaxGameTags) localDraft.tags.push_back(value);
+                    else localNotice = status = "Maximum 16 tags per game";
+                }
+            }
+            pickerIndex = std::min(pickerIndex, termChoices(tags, true).size());
+            if (!tags) screen = Screen::LocalInfo;
+        }
+        return;
+    }
+    if (screen == Screen::Collections) {
+        if (b == Button::Circle) { screen = Screen::Options; return; }
+        if (b == Button::L1 || b == Button::R1) { collectionTags = !collectionTags; collectionIndex = 0; collectionNotice.clear(); return; }
+        const auto choices = termChoices(collectionTags);
+        collectionIndex = std::min(collectionIndex, choices.size() + 1);
+        if (b == Button::Up && collectionIndex) --collectionIndex;
+        if (b == Button::Down && collectionIndex < choices.size() + 1) ++collectionIndex;
+        if (b == Button::Triangle) { beginEdit(collectionTags ? EditKind::CreateTag : EditKind::CreateCategory, 0, ""); return; }
+        if (collectionIndex >= 2) {
+            collectionOriginal = choices.at(collectionIndex - 2);
+            if (b == Button::Square) { beginEdit(collectionTags ? EditKind::RenameTag : EditKind::RenameCategory, 0, collectionOriginal); return; }
+            if (b == Button::Options) { screen = Screen::ConfirmDeleteCollection; return; }
+        }
+        if (b == Button::Cross) {
+            if (!collectionIndex) filter = {};
+            else if (collectionTags) { filter.tag = collectionIndex == 1 ? "" : choices.at(collectionIndex - 2); filter.untagged = collectionIndex == 1; }
+            else { filter.category = collectionIndex == 1 ? "" : choices.at(collectionIndex - 2); filter.uncategorized = collectionIndex == 1; }
+            settings.grouping = collectionTags ? Grouping::Tag : Grouping::LocalCategory;
+            selected[0] = selected[1] = 0; sidebar = false; screen = Screen::Dashboard; quickSave();
+        }
+        return;
+    }
     if (screen == Screen::ConfirmExit) {
         if (b == Button::Circle) emit(CommandType::Quit);
         else if (b == Button::Cross || b == Button::Options) screen = Screen::Dashboard;
@@ -248,12 +411,13 @@ void Ui::handle(Button b) {
             case 0: emit(CommandType::Refresh); screen = Screen::Dashboard; break;
             case 1: beginEdit(EditKind::Search, 0, query); break;
             case 2: settings.layout = settings.layout == Layout::Tiles ? Layout::Summary : Layout::Tiles; quickSave(); break;
-            case 3: settings.grouping = static_cast<Grouping>((static_cast<int>(settings.grouping) + 1) % 4); quickSave(); break;
+            case 3: settings.grouping = static_cast<Grouping>((static_cast<int>(settings.grouping) + 1) % 6); quickSave(); break;
             case 4: settings.sizeSort = !settings.sizeSort; quickSave(); break;
             case 5: settings.notInstalledOnly = !settings.notInstalledOnly; quickSave(); break;
             case 6: draft = settings; settingsNotice.clear(); settingsIndex = 0; screen = Screen::Settings; break;
             case 7: screen = Screen::About; break;
             case 8: screen = Screen::ConfirmExit; break;
+            case 9: case 10: collectionTags = menuIndex == 10; collectionIndex = 0; collectionNotice.clear(); screen = Screen::Collections; break;
         }
         return;
     }
@@ -267,7 +431,7 @@ void Ui::handle(Button b) {
             case 0: beginEdit(EditKind::SourceUrl, 0, draft.sources[0].url); break;
             case 1: sourceIndex = 1; screen = Screen::Sources; break;
             case 2: draft.layout = draft.layout == Layout::Tiles ? Layout::Summary : Layout::Tiles; break;
-            case 3: draft.grouping = static_cast<Grouping>((static_cast<int>(draft.grouping) + 1) % 4); break;
+            case 3: draft.grouping = static_cast<Grouping>((static_cast<int>(draft.grouping) + 1) % 6); break;
             case 4: draft.sizeSort = !draft.sizeSort; break;
             case 5: draft.notInstalledOnly = !draft.notInstalledOnly; break;
             case 6: draft.animations = !draft.animations; break;
@@ -306,6 +470,7 @@ void Ui::handle(Button b) {
                 else screen = Screen::ConfirmUninstall;
             }
             else if (action.find("Rate game") == 0) { ratingIndex = pending.rating ? pending.rating - 1 : 0; screen = Screen::Rating; }
+            else if (action == "Edit local info") { localDraft = pending.info; localIndex = 0; localNotice.clear(); screen = Screen::LocalInfo; }
             else if (action == "Details") { detailReturn = Screen::Actions; detailScroll = 0; screen = Screen::Details; }
             else { emit(CommandType::RefreshArtwork, pending); screen = Screen::Dashboard; }
         }

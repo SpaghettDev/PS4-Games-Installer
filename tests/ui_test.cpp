@@ -138,6 +138,43 @@ int main() {
     ui.handle(Button::Circle); ui.handle(Button::R1); ui.selected[1] = 1;
     const auto remoteRows = [&] { ui.handle(Button::Triangle); return ui.actionRows(); }();
     assert(std::find(remoteRows.begin(), remoteRows.end(), "Uninstall") == remoteRows.end());
+    ui = fixture();
+    choose("Edit local info"); assert(ui.screen == Screen::LocalInfo && !ui.localDirty());
+    ui.handle(Button::Cross); assert(ui.screen == Screen::PickCategory);
+    ui.handle(Button::Triangle); assert(ui.screen == Screen::Keyboard);
+    drain(ui); ui.finishEdit("Action"); assert(ui.screen == Screen::PickCategory && ui.localDraft.category == "Action");
+    ui.handle(Button::Circle); ui.handle(Button::Down); ui.handle(Button::Cross);
+    assert(ui.editKind == EditKind::GameLabel); drain(ui); ui.finishEdit("Favorite");
+    assert(ui.localDraft.label == "Favorite" && ui.player.games.empty());
+    ui.handle(Button::Down); ui.handle(Button::Cross); assert(ui.screen == Screen::PickTags);
+    ui.handle(Button::Triangle); drain(ui); ui.finishEdit("Weekend");
+    assert(ui.localDraft.tags.size() == 1);
+    ui.handle(Button::Down); ui.handle(Button::Cross); assert(ui.localDraft.tags.empty());
+    ui.handle(Button::Cross); // Removing the last draft-only tag must clamp the picker cursor.
+    ui.handle(Button::Triangle); drain(ui); ui.finishEdit("Weekend"); ui.handle(Button::Circle);
+    ui.handle(Button::Down); ui.handle(Button::Cross); drain(ui); ui.finishEdit("My local notes");
+    assert(ui.localDraft.description == "My local notes");
+    ui.handle(Button::Circle); assert(ui.screen == Screen::DiscardLocal);
+    ui.handle(Button::Cross); assert(ui.screen == Screen::LocalInfo && ui.localDirty());
+    ui.localIndex = 4; ui.handle(Button::Cross);
+    assert(ui.take(command) && command.type == CommandType::SaveLocalInfo && command.personal->category == "Action");
+    assert(ui.screen == Screen::LocalInfo); // Stay open until the app acknowledges disk persistence.
+    ui.handle(Button::Circle); ui.handle(Button::Circle);
+    assert(ui.screen == Screen::Actions && ui.localDraft.category.empty());
+    ui.screen = Screen::Options; ui.menuIndex = 9; ui.handle(Button::Cross);
+    assert(ui.screen == Screen::Collections && !ui.collectionTags);
+    ui.handle(Button::Triangle); drain(ui); ui.finishEdit("Adventure");
+    assert(ui.take(command) && command.type == CommandType::CreateCollection && command.text == "Adventure" && command.source == 0);
+    ui.player.createTerm(false, "Adventure"); ui.collectionIndex = 2;
+    ui.handle(Button::Square); assert(ui.editKind == EditKind::RenameCategory); drain(ui); ui.finishEdit("Story games");
+    assert(ui.take(command) && command.type == CommandType::RenameCollection && command.previous == "Adventure");
+    ui.handle(Button::Options); assert(ui.screen == Screen::ConfirmDeleteCollection);
+    ui.handle(Button::Circle); assert(ui.screen == Screen::Collections && !ui.take(command));
+    ui.handle(Button::Options); ui.handle(Button::Cross);
+    assert(ui.take(command) && command.type == CommandType::DeleteCollection && command.text == "Adventure");
+    ui.handle(Button::Cross); drain(ui);
+    assert(ui.screen == Screen::Dashboard && ui.filter.category == "Adventure" && ui.settings.grouping == Grouping::LocalCategory);
+    assert(keyboardMaximum(EditKind::GameDescription) == MaxLocalDescription);
     // Large-library navigation must retain short last rows and group boundaries.
     ui = Ui(); ui.screen = Screen::Dashboard; ui.library = Library::Available;
     for (int i = 0; i < 50000; ++i) {

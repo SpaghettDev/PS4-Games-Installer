@@ -3,7 +3,7 @@
 
 namespace psgi {
 enum class Layout { Tiles, Summary };
-enum class Grouping { None, Category, Region, Letter };
+enum class Grouping { None, Category, Region, Letter, LocalCategory, Tag };
 struct Settings {
     std::vector<Source> sources{{"games", ""}};
     Layout layout = Layout::Tiles;

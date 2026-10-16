@@ -50,11 +50,18 @@ void capture(App& app, Renderer& renderer, Canvas& canvas) {
     ui.pending = *ui.current(); ui.screen = Screen::Actions; ui.menuIndex = 0; shot("20-installed-actions");
     ui.screen = Screen::ConfirmUninstall; shot("21-uninstall-confirmation");
     ui.screen = Screen::Rating; ui.ratingIndex = 3; shot("22-rating");
+    ui.localDraft = ui.pending.info; ui.localIndex = 3; ui.screen = Screen::LocalInfo; shot("24-local-info");
+    ui.pickerIndex = 1; ui.screen = Screen::PickTags; shot("25-game-tags");
     ui.library = Library::Available; ui.rebuild(); ui.pending = *ui.current();
     ui.screen = Screen::ConfirmInstall; shot("15-install-confirmation");
     ui.failedInstall = ui.pending;
     ui.installError = "PS4 refused installation (0x80990086). No matching task could be confirmed. Close the app, restart the PS4, enable GoldHEN and retry. Downloaded package kept.";
     ui.screen = Screen::InstallError; shot("23-installation-failed"); ui.installError.clear();
+    ui.collectionTags = false; ui.collectionIndex = 2; ui.screen = Screen::Collections; shot("26-categories");
+    ui.collectionTags = true; shot("27-tags");
+    ui.screen = Screen::Dashboard; ui.settings.layout = Layout::Tiles; ui.settings.grouping = Grouping::LocalCategory; ui.selected[1] = 0; ui.rebuild(); shot("28-category-view");
+    ui.settings.layout = Layout::Summary; ui.settings.grouping = Grouping::Tag; ui.rebuild(); shot("29-tag-view");
+    ui.settings.grouping = Grouping::None; ui.rebuild();
     ui.screen = Screen::About; shot("09-about");
     ui.screen = Screen::ConfirmExit; shot("10-exit");
     ui.screen = Screen::Dashboard; ui.available.clear(); ui.rebuild(); shot("11-empty");

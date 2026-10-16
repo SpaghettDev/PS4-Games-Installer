@@ -33,11 +33,11 @@ void validateEntry(const Entry& e) {
 }
 }
 std::string queueStageName(QueueStage stage) {
-    const char* names[] = {"Queued", "Checking URL", "Downloading", "Registering with PS4", "Installing", "Verifying installation", "Completed", "Failed", "Cancelled", "Cancelling", "Needs verification"};
-    const auto index = static_cast<unsigned>(stage); return index < 11 ? names[index] : "Unknown";
+    const char* names[] = {"Queued", "Checking URL", "Downloading", "Registering with PS4", "Installing", "Verifying installation", "Completed", "Failed", "Cancelled", "Cancelling"};
+    const auto index = static_cast<unsigned>(stage); return index < 10 ? names[index] : "Unknown";
 }
 bool queueActive(QueueStage stage) {
-    return stage != QueueStage::Completed && stage != QueueStage::Failed && stage != QueueStage::Cancelled && stage != QueueStage::Unconfirmed;
+    return stage != QueueStage::Completed && stage != QueueStage::Failed && stage != QueueStage::Cancelled;
 }
 QueueItem* findJob(std::vector<QueueItem>& queue, const std::string& url) {
     for (auto& job : queue) if (job.entry.url == url) return &job;
@@ -60,42 +60,29 @@ void enqueueJob(std::vector<QueueItem>& queue, const Entry& entry, uint64_t now)
     }
 }
 void verifyJob(QueueItem& job, const std::vector<Entry>& installed, uint64_t now) {
-    if (job.stage != QueueStage::Verifying && job.stage != QueueStage::Unconfirmed) return;
+    if (job.stage != QueueStage::Verifying) return;
     if (!job.verificationStarted) job.verificationStarted = now;
     const auto found = std::find_if(installed.begin(), installed.end(), [&](const Entry& e) { return !job.entry.titleId.empty() && e.titleId == job.entry.titleId; });
-    if (job.systemCompleted) {
-        // Native completion requires data, preparation and local installation copy
-        // to finish without an error. Catalog version estimates cannot override it.
-        job.stage = QueueStage::Completed; job.updated = now;
-        job.message = "PS4 reports package installation complete.";
-        if (packageKind(job.entry) == 2 || packageKind(job.entry) == 3)
-            job.message += " Check add-ons/themes in the system; no separate game tile is expected.";
-        else if (found != installed.end()) {
-            job.message += " Installed title" + (found->version.empty() ? std::string() : " v" + found->version) + " found by a fresh PS4 library scan.";
-            if (!job.entry.version.empty() && found->version != job.entry.version)
-                job.message += " Catalog version: " + job.entry.version + ".";
-        } else job.message += " Refresh Installed to check current title presence and version.";
-        return;
-    }
     bool verified = found != installed.end();
     if (verified && (packageKind(job.entry) == 1 || compareVersions(job.entry.version, job.entry.version))) {
         const auto version = compareVersions(found->version, job.entry.version);
         verified = version && *version >= 0;
     }
-    if (verified && job.previouslyPresent) {
+    if (verified && !job.systemCompleted && job.previouslyPresent) {
         const auto advanced = compareVersions(found->version, job.previousVersion);
         verified = advanced && *advanced > 0;
     }
     if (packageKind(job.entry) == 2 || packageKind(job.entry) == 3) {
         // Add-ons/themes do not get their own game tile; base-title discovery
         // cannot prove that a specific DLC is installed.
-        verified = false;
+        verified = job.systemCompleted;
+        if (verified) job.message = "PS4 reports package installation complete. Check add-ons/themes in the system; no separate game tile is expected.";
     } else if (verified) job.message = "Installed title" + (found->version.empty() ? std::string() : " v" + found->version) + " confirmed by a fresh PS4 library scan.";
     if (verified) { job.stage = QueueStage::Completed; job.updated = now; return; }
     job.message = "Transfer/task finished. Waiting for the installed title/version to appear; installation is not confirmed.";
     if (now >= job.verificationStarted && now - job.verificationStarted >= 120) {
-        job.stage = QueueStage::Unconfirmed; job.updated = now;
-        job.message = "Installation has not been verified. PS4 did not report completion and the expected title/version was not found. Refresh Installed or check PS4 Downloads; transferred bytes alone do not prove installation.";
+        job.stage = QueueStage::Failed; job.updated = now;
+        job.message = "PS4 task finished but installation could not be confirmed. Check Notifications > Downloads, GoldHEN and storage, then refresh/retry. A completed download alone is not installation.";
     }
 }
 void sampleJob(QueueItem& job, uint64_t bytes, uint64_t total, double elapsed) {
@@ -108,8 +95,7 @@ void sampleJob(QueueItem& job, uint64_t bytes, uint64_t total, double elapsed) {
 }
 std::string queueProgress(const QueueItem& job) {
     std::string out = queueStageName(job.stage);
-    if (job.stage == QueueStage::Completed) return out;
-    if (job.total) out += "  Transferred " + std::to_string(unsigned(std::min(100.0, double(job.transferred) / job.total * 100))) + "%  " + formatSize(job.transferred) + " / " + formatSize(job.total);
+    if (job.total) out += "  Data " + std::to_string(unsigned(std::min(100.0, double(job.transferred) / job.total * 100))) + "%  " + formatSize(job.transferred) + " / " + formatSize(job.total);
     if (job.bytesPerSecond && (job.stage == QueueStage::Downloading || job.stage == QueueStage::Installing)) {
         out += "  " + formatSize(job.bytesPerSecond) + "/s";
         if (job.total > job.transferred) out += "  ~" + std::to_string((job.total - job.transferred) / job.bytesPerSecond / 60 + 1) + " min";
@@ -140,7 +126,9 @@ std::vector<QueueItem> parseQueue(const std::string& text) {
             job.task = number(item, "task", 2147483647);
             if (!taskIds.insert(job.task).second) throw std::runtime_error("Duplicate queue task");
         }
-        job.stage = static_cast<QueueStage>(number(item, "stage", 10));
+        const auto stage = number(item, "stage", 10);
+        // r30 wrote a temporary unconfirmed state; resume the original verifier.
+        job.stage = stage == 10 ? QueueStage::Verifying : static_cast<QueueStage>(stage);
         job.transferred = number(item, "transferred"); job.total = number(item, "total"); job.updated = number(item, "updated");
         job.verificationStarted = number(item, "verification_started");
         const auto* completed = cJSON_GetObjectItemCaseSensitive(item, "system_completed");
@@ -182,14 +170,6 @@ std::vector<QueueItem> loadQueue(const std::string& directory) {
     if (access(path.c_str(), F_OK)) { if (errno == ENOENT) return {}; throw std::runtime_error("Cannot read queue file"); }
     auto queue = parseQueue(readFile(path));
     for (auto& job : queue) {
-        // Older releases mislabeled a verification timeout as an install error,
-        // even when BGFT had positively reported completion. Recheck only that
-        // specific historical status, preserving real registration/task failures.
-        if (job.stage == QueueStage::Failed && job.task < 0 && job.verificationStarted &&
-            job.message.find("PS4 task finished but installation could not be confirmed.") == 0) {
-            job.stage = job.systemCompleted ? QueueStage::Verifying : QueueStage::Unconfirmed;
-            job.message = "Rechecking saved installation result against PS4 completion and current library.";
-        }
         if (job.task < 0 && (job.stage == QueueStage::Checking || job.stage == QueueStage::Downloading || job.stage == QueueStage::Registering || job.stage == QueueStage::Cancelling)) {
             job.stage = QueueStage::Failed; job.message = "Interrupted when the app closed. Retry to reuse any complete staged package.";
         } else if (job.task >= 0 && job.stage == QueueStage::Cancelling) {

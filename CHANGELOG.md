@@ -1,5 +1,19 @@
 # Changelog
 
+## r31 — 2026-10-17
+
+- Restore r28 queue reporting and verification; preserve historical results instead
+  of automatically reclassifying them. Resume temporary r30 unverified records
+  through the original verifier. Native download/installation code is unchanged.
+- Fix the Triangle queue action: cancel active/waiting/owned tasks, or remove
+  inactive history without touching installed games, local records or saved packages.
+- Confirm actions against the selected package identity, preserve history on save
+  failure, and clear pending cancellation if a concurrent poll releases the task.
+- Keep menu wrapping, overflow indicators and Downloads/Collections in Options.
+- Host/native-service regressions and all 15 Python integrations passed. Built
+  and validated `PS4Game_installer-r31.pkg`; console cancellation acceptance
+  remains pending. Screenshot review and consumer documentation are updated.
+
 ## r30 — 2026-10-16
 
 - Add scrollbar thumbs and directional overflow arrows to paginated menus,

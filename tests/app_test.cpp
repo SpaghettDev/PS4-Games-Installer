@@ -19,6 +19,7 @@ std::atomic<bool> rejectInstall{false}, retainFailedStart{false};
 std::atomic<int> submissions{0}, progressMode{0};
 std::atomic<bool> blockProbe{false}, uniqueTasks{false}, failCancellation{false};
 std::atomic<int> cancellations{0};
+std::atomic<bool> blockPoll{false}, pollEntered{false};
 std::atomic<bool> failProfileRemote{false}, blockProfileHome{false}, profileHomeBlocked{false};
 std::string sourceResponse;
 std::vector<psgi::Entry> localGames;
@@ -69,6 +70,10 @@ HttpTransferInfo httpTransfer(const std::string&, const HttpSink& sink, bool ran
 }
 TaskProgress taskProgress(int task) {
     assert(task >= 45);
+    if (blockPoll) {
+        pollEntered = true;
+        while (blockPoll) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
     TaskProgress result{100, 100, progressMode == 1 ? int32_t(0x80991404u) : 0, true};
     if (progressMode == 3) result.transferred = 50;
     result.completed = progressMode == 2;
@@ -202,30 +207,67 @@ int main() {
         app.ui.handle(Button::Cross); app.ui.handle(Button::Cross);
         app.tick(15, video); settle(app, video); assert(submissions == 2);
         atomicWrite(staged, "staging fixture"); progressMode = 2;
-        waitForStatus(app, video, 19, "PS4 reports package installation complete");
-        assert(app.ui.downloads[0].stage == QueueStage::Completed && !std::filesystem::exists(staged));
+        waitForStatus(app, video, 19, "installation is not confirmed");
+        assert(app.ui.downloads[0].stage == QueueStage::Verifying && !std::filesystem::exists(staged));
         assert(readFile(directory + "/tasks.json") == "{}");
         { std::lock_guard<std::mutex> lock(requestMutex); Entry installed = app.ui.available[0]; installed.installed = true; localGames = {installed}; }
         app.ui.screen = Screen::Queue; app.ui.handle(Button::Triangle); app.tick(19, video);
-        settle(app, video);
+        waitForStatus(app, video, 19, "confirmed by a fresh");
         assert(app.ui.downloads[0].stage == QueueStage::Completed && app.ui.queued.empty());
         { std::lock_guard<std::mutex> lock(requestMutex); localGames.clear(); }
     }
-    const auto migration = directory + "/native-completion"; std::filesystem::create_directory(migration);
-    Settings migrationSettings; migrationSettings.refreshOnStart = false; saveSettings(migration, migrationSettings);
-    QueueItem oldCompletion; oldCompletion.entry.url = "http://fixture/installed.pkg"; oldCompletion.entry.name = "Already installed";
-    oldCompletion.entry.titleId = "CUSA02537"; oldCompletion.entry.version = "02.00"; oldCompletion.stage = QueueStage::Failed;
-    oldCompletion.systemCompleted = true; oldCompletion.verificationStarted = 100; oldCompletion.total = oldCompletion.transferred = 200;
-    oldCompletion.message = "PS4 task finished but installation could not be confirmed. Old timeout.";
-    saveQueue(migration, {oldCompletion});
-    const auto beforeMigration = submissions.load();
+    const auto history = directory + "/queue-history"; std::filesystem::create_directory(history);
+    Settings historySettings; historySettings.refreshOnStart = false; saveSettings(history, historySettings);
+    QueueItem historical; historical.entry.name = "Historical result"; historical.entry.url = "http://fixture/old.pkg";
+    historical.entry.titleId = "CUSA00001"; historical.stage = QueueStage::Failed; historical.systemCompleted = true;
+    historical.verificationStarted = 100; historical.message = "PS4 task finished but installation could not be confirmed. Old timeout.";
+    QueueItem other = historical; other.entry.url = "http://fixture/other.pkg"; other.stage = QueueStage::Completed;
+    saveQueue(history, {historical, other});
+    std::filesystem::create_directory(history + "/downloads");
+    const auto savedPackage = stagedPackagePath(history, historical.entry.url); atomicWrite(savedPackage, "kept package");
     {
-        App app(migration); settle(app, video);
-        assert(app.ui.downloads[0].stage == QueueStage::Completed && app.ui.queued.empty() && submissions == beforeMigration);
-        assert(loadQueue(migration)[0].stage == QueueStage::Completed);
-        assert(app.ui.downloads[0].message.find("PS4 reports package installation complete") != std::string::npos);
-        assert(app.ui.queueDetails()[3] == "PS4 task: completed; tracking released");
+        App app(history); settle(app, video);
+        assert(app.ui.downloads[0].stage == QueueStage::Failed); // Reporting rollback does not reclassify old failures.
+        const int cancelledBefore = cancellations, submittedBefore = submissions, uninstalledBefore = uninstallCalls;
+        app.ui.screen = Screen::QueueDetails; app.ui.queueIndex = 0;
+        app.ui.handle(Button::Triangle); app.ui.handle(Button::Circle); app.tick(0, video);
+        assert(app.ui.downloads.size() == 2 && loadQueue(history).size() == 2);
+        app.ui.handle(Button::Triangle); app.ui.handle(Button::Cross); app.tick(0, video);
+        assert(app.ui.downloads.size() == 1 && app.ui.downloads[0].entry.url == other.entry.url);
+        assert(loadQueue(history).size() == 1 && std::filesystem::exists(savedPackage));
+        assert(cancellations == cancelledBefore && submissions == submittedBefore);
+        // Failed writes preserve the selected history entry for retry.
+        std::filesystem::create_directory(history + "/queue.json.tmp");
+        app.ui.screen = Screen::QueueDetails; app.ui.handle(Button::Triangle); app.ui.handle(Button::Cross); app.tick(0, video);
+        assert(app.ui.downloads.size() == 1 && loadQueue(history).size() == 1);
+        std::filesystem::remove(history + "/queue.json.tmp");
+        app.ui.screen = Screen::QueueDetails; app.ui.handle(Button::Triangle); app.ui.handle(Button::Cross); app.tick(0, video);
+        assert(app.ui.downloads.empty() && loadQueue(history).empty() && app.ui.queueIndex == 0);
+        assert(uninstallCalls == uninstalledBefore && std::filesystem::exists(savedPackage));
     }
+    // A completion poll already in flight may release a task after Cancel was requested.
+    const auto cancelRace = directory + "/cancel-race"; std::filesystem::create_directory(cancelRace);
+    saveSettings(cancelRace, historySettings);
+    QueueItem finishing = historical; finishing.stage = QueueStage::Installing; finishing.task = 175;
+    finishing.systemCompleted = false; finishing.verificationStarted = 0;
+    saveQueue(cancelRace, {finishing});
+    { std::lock_guard<std::mutex> lock(requestMutex); localGames = {finishing.entry}; }
+    progressMode = 2; allowRetirement = true;
+    {
+        App app(cancelRace); settle(app, video);
+        pollEntered = false; blockPoll = true; app.tick(4, video);
+        for (unsigned i = 0; i < 200 && !pollEntered; ++i) std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        assert(pollEntered);
+        app.ui.screen = Screen::QueueDetails; app.ui.handle(Button::Triangle); app.ui.handle(Button::Cross); app.tick(4, video);
+        assert(app.ui.downloads[0].stage == QueueStage::Cancelling);
+        blockPoll = false;
+        waitForStatus(app, video, 4, "confirmed by a fresh");
+        assert(app.ui.downloads[0].stage == QueueStage::Completed && app.ui.downloads[0].task < 0);
+        app.ui.handle(Button::Triangle); app.ui.handle(Button::Cross); app.tick(4, video);
+        assert(app.ui.downloads.empty() && loadQueue(cancelRace).empty());
+    }
+    progressMode = 0;
+    { std::lock_guard<std::mutex> lock(requestMutex); localGames.clear(); }
     const auto refusal = directory + "/refusal"; std::filesystem::create_directory(refusal);
     Settings offline; offline.refreshOnStart = false; saveSettings(refusal, offline);
     atomicWrite(refusal + "/catalog.json", R"({"DATA":{"http://fixture/game.pkg":{"name":"Rejected package","title_id":"CUSA00001"}}})");
@@ -430,6 +472,17 @@ int main() {
         app.ui.handle(Button::Cross); app.tick(0, video); settle(app, video);
         assert(app.ui.downloads[0].stage == QueueStage::Installing && app.ui.downloads[0].task >= 100);
         assert(app.ui.downloads[0].backgroundTransfer);
+        {
+            // Simulate a historical confirmation racing with a new active task.
+            auto& job = app.ui.downloads[0]; const auto savedStage = job.stage; const auto savedTask = job.task;
+            job.stage = QueueStage::Failed; job.task = -1;
+            app.ui.screen = Screen::QueueDetails; app.ui.handle(Button::Triangle);
+            job.stage = savedStage; job.task = savedTask;
+            app.ui.handle(Button::Cross); app.tick(0, video);
+            assert(app.ui.downloads.size() == 2 && app.ui.downloads[0].task == savedTask);
+            assert(app.ui.featureNotice.find("Use Cancel task") != std::string::npos);
+            app.ui.screen = Screen::QueueDetails; app.ui.queueIndex = 0;
+        }
         progressMode = 3;
         waitForStatus(app, video, 4, "PS4 background download");
         assert(app.ui.downloads[0].stage == QueueStage::Downloading && loadQueue(managed)[0].backgroundTransfer);

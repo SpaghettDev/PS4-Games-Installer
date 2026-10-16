@@ -604,7 +604,7 @@ bool Renderer::featureDialog(Canvas& c, Ui& ui) {
             if (ui.downloads.empty()) c.text("Install a package from Available to add it here.", 230, 350, 29, White, 1460);
             else menu(c, ui.queueRows(), ui.queueIndex, 220, 330, 1480, 61, 7);
             c.text(ui.featureNotice.empty() ? "Downloading, installing and verifying are separate stages. Open an item for details." : ui.featureNotice, 230, 810, 21, Muted, 1460);
-            hints(c, 230, 884, {{Button::Cross, "Details"}, {Button::Triangle, "Refresh"}, {Button::Options, "Clear inactive"}, {Button::Circle, "Back"}}, 21); return true;
+            hints(c, 230, 884, {{Button::Cross, "Details"}, {Button::Triangle, "Refresh"}, {Button::Options, "Clear finished"}, {Button::Circle, "Back"}}, 21); return true;
         }
         case Screen::QueueDetails: {
             panel(c, 240, 120, 1440, 840, "Package progress and diagnostics");
@@ -615,14 +615,24 @@ bool Renderer::featureDialog(Canvas& c, Ui& ui) {
                 c.text(lines[i], 290, 265 + (i - ui.detailScroll) * 43, 24, i == 2 ? Accent : White, 1340);
             c.text(ui.featureNotice, 290, 807, 21, Accent, 1340);
             c.text("Up / Down scrolls diagnostics", 290, 849, 20, Muted, 1340);
-            hints(c, 290, 910, {{Button::Cross, "Retry failed / unverified"}, {Button::Triangle, "Cancel task"}, {Button::Circle, "Back"}}, 22); return true;
+            if (ui.downloads.empty()) hints(c, 290, 910, {{Button::Circle, "Back"}}, 22);
+            else {
+                const auto& job = ui.downloads[std::min(ui.queueIndex, ui.downloads.size() - 1)];
+                const auto action = queueActive(job.stage) || job.task >= 0 ? "Cancel task" : "Remove entry";
+                if (job.stage == QueueStage::Failed || job.stage == QueueStage::Cancelled)
+                    hints(c, 290, 910, {{Button::Cross, "Retry failed"}, {Button::Triangle, action}, {Button::Circle, "Back"}}, 22);
+                else hints(c, 290, 910, {{Button::Triangle, action}, {Button::Circle, "Back"}}, 22);
+            }
+            return true;
         }
-        case Screen::ConfirmCancelQueue:
-            panel(c, 350, 250, 1220, 570, "Cancel this package?");
-            if (!ui.downloads.empty()) c.text(ui.downloads[std::min(ui.queueIndex, ui.downloads.size() - 1)].entry.name, 400, 420, 31, White, 1120);
-            c.text("This stops this app's owned download/installation task.", 400, 493, 24, Muted, 1120);
-            c.text("Installed games and unrelated PS4 downloads are kept.", 400, 543, 24, Muted, 1120);
-            hints(c, 400, 762, {{Button::Cross, "Cancel package"}, {Button::Circle, "Keep task"}}); return true;
+        case Screen::ConfirmCancelQueue: {
+            const auto* job = findJob(ui.downloads, ui.queueActionUrl);
+            panel(c, 350, 250, 1220, 570, ui.removingQueueEntry ? "Remove this queue entry?" : "Cancel this package?");
+            if (job) c.text(job->entry.name, 400, 420, 31, White, 1120);
+            c.text(ui.removingQueueEntry ? "This removes only this inactive queue history entry." : "This stops this app's owned download/installation task.", 400, 493, 24, Muted, 1120);
+            c.text(ui.removingQueueEntry ? "Installed games, personal records and saved packages are kept." : "Installed games and unrelated PS4 downloads are kept.", 400, 543, 24, Muted, 1120);
+            hints(c, 400, 762, {{Button::Cross, ui.removingQueueEntry ? "Remove entry" : "Cancel package"}, {Button::Circle, "Keep entry"}}); return true;
+        }
         case Screen::Backups:
         case Screen::BackupFiles: {
             const bool files = ui.screen == Screen::BackupFiles;

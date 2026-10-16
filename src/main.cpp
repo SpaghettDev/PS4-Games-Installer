@@ -135,9 +135,12 @@ void capture(App& app, Renderer& renderer, Canvas& canvas) {
     ui.downloads[0] = completedSample;
     auto unknownSample = ui.downloads[5];
     ui.downloads[5].stage = QueueStage::Verifying; ui.downloads[5].systemCompleted = false; ui.downloads[5].verificationStarted = 1;
-    verifyJob(ui.downloads[5], {}, 122); ui.queueIndex = 5; ui.detailScroll = 0; shot("80-queue-needs-verification");
+    verifyJob(ui.downloads[5], {}, 2); ui.queueIndex = 5; ui.detailScroll = 0; shot("80-queue-verification");
     for (int i = 0; i < 25; ++i) ui.handle(Button::Down);
     shot("81-queue-scroll-bottom"); ui.downloads[5] = unknownSample;
+    ui.screen = Screen::QueueDetails; ui.queueIndex = 3; ui.detailScroll = 0;
+    ui.handle(Button::Triangle); shot("82-remove-old-queue-entry"); ui.handle(Button::Circle);
+    ui.queueIndex = 2; ui.handle(Button::Triangle); shot("83-cancel-active-task"); ui.handle(Button::Circle);
     ui.screen = Screen::About; shot("09-about");
     ui.screen = Screen::ConfirmExit; shot("10-exit");
     ui.screen = Screen::Dashboard; ui.available.clear(); ui.updatesOnly = true; ui.rebuild(); shot("61-updates-empty");

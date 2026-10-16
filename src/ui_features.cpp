@@ -53,9 +53,8 @@ std::vector<std::string> Ui::queueDetails() const {
     if (downloads.empty()) return {};
     const auto& job = downloads[std::min(queueIndex, downloads.size() - 1)];
     return {job.entry.name, job.entry.titleId + " / " + packageKindName(job.entry) + " / v" + (job.entry.version.empty() ? "?" : job.entry.version),
-        queueProgress(job), "PS4 task: " + (job.task >= 0 ? std::to_string(job.task) : job.systemCompleted ? std::string("completed; tracking released") :
-            job.stage == QueueStage::Unconfirmed || job.stage == QueueStage::Verifying ? std::string("no longer tracked; completion not reported") : std::string("not registered / released")),
-        job.message, "Transferred bytes: " + std::to_string(job.transferred) + " / " + std::to_string(job.total) + ". Download progress is separate from PS4 installation completion.",
+        queueProgress(job), "PS4 task: " + (job.task < 0 ? std::string("not registered / released") : std::to_string(job.task)),
+        job.message, "Transferred bytes only measure download progress. Installation needs PS4 confirmation.",
         "A failed or cancelled package can be retried with X. Triangle cancels an owned active task.", job.entry.url};
 }
 InstallRequirements Ui::requirements() const {
@@ -172,7 +171,13 @@ bool Ui::handleFeatures(Button b) {
         if (!downloads.empty()) queueIndex = std::min(queueIndex, downloads.size() - 1);
         if (screen == Screen::ConfirmCancelQueue) {
             if (b == Button::Circle) screen = Screen::QueueDetails;
-            if (b == Button::Cross && !downloads.empty()) { Command c{}; c.type = CommandType::CancelQueue; c.text = downloads[queueIndex].entry.url; commands.push_back(std::move(c)); screen = Screen::QueueDetails; }
+            if (b == Button::Cross) {
+                if (findJob(downloads, queueActionUrl)) {
+                    Command c{}; c.type = removingQueueEntry ? CommandType::RemoveQueue : CommandType::CancelQueue;
+                    c.text = queueActionUrl; commands.push_back(std::move(c));
+                    screen = removingQueueEntry ? Screen::Queue : Screen::QueueDetails;
+                } else { featureNotice = "Queue entry is no longer present"; screen = Screen::Queue; }
+            }
             return true;
         }
         if (b == Button::Circle) { screen = screen == Screen::Queue ? featureReturn : Screen::Queue; return true; }
@@ -184,8 +189,15 @@ bool Ui::handleFeatures(Button b) {
         } else if (!downloads.empty()) {
             if (b == Button::Up && detailScroll) --detailScroll;
             if (b == Button::Down) ++detailScroll;
-            if (b == Button::Cross) { Command c{}; c.type = CommandType::RetryQueue; c.text = downloads[queueIndex].entry.url; commands.push_back(std::move(c)); }
-            if (b == Button::Triangle && (queueActive(downloads[queueIndex].stage) || downloads[queueIndex].task >= 0)) screen = Screen::ConfirmCancelQueue;
+            const auto& job = downloads[queueIndex];
+            if (b == Button::Cross && (job.stage == QueueStage::Failed || job.stage == QueueStage::Cancelled)) {
+                Command c{}; c.type = CommandType::RetryQueue; c.text = job.entry.url; commands.push_back(std::move(c));
+            }
+            if (b == Button::Triangle) {
+                queueActionUrl = job.entry.url;
+                removingQueueEntry = !queueActive(job.stage) && job.task < 0;
+                screen = Screen::ConfirmCancelQueue;
+            }
         }
         return true;
     }

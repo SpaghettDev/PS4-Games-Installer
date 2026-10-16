@@ -1,5 +1,35 @@
 # Implementation progress
 
+## r31 queue cancellation and reporting rollback — 2026-10-17
+
+- User requested a working Cancel Task action and restoration of r28 reporting.
+- The old diagnostics footer offered cancellation even for inactive history with
+  no owned task, while its Triangle handler ignored that input. Triangle now opens
+  cancellation for active/waiting/owned tasks, or removal for inactive history.
+  Confirmation retains the original package URL even if queue indices change.
+- History removal saves before mutating the visible queue, preserves installed
+  games/local records/staged packages, and rejects active or newly tracked jobs.
+- A completion poll may release a task while cancellation waits; clear the pending
+  cancellation in that case so later history removal is not blocked.
+- Reverted r30 native-completion overrides, Needs verification policy, historical
+  failure migration and reporting labels. Temporary stage-10 files load into the
+  original verifier. Native installation/download code remains identical to r28.
+- Menu overflow indicators, wraparound and the three-entry sidebar are retained.
+- Full Docker `make -j4 test` passed host/native-service suites and all 15 Python
+  integrations, including cancel/retry, stable confirmation identity, inactive
+  history removal, save-failure preservation and completion/cancel race recovery.
+  Restored r28 verification expectations and historical-result preservation pass.
+- `make all` built `dist/PS4Game_installer-r31.pkg` (6,619,136 bytes).
+  `make validate` passed package hashes/signatures and packed import checks; source
+  fingerprint, manifest checksum and successful revision record match.
+- Generated all 83 desktop captures. Visually reviewed active cancellation and
+  inactive removal confirmations, failed/completed queue diagnostics and Options
+  overflow. Labels, button icons and text fit; original Data/task reporting is back.
+  Updated the consumer queue image and added both confirmation examples; README
+  image links resolve. Whitespace and tracked-file identity audits pass.
+- Console cancellation acceptance remains pending. No console tasks were modified
+  and no deployment or push was performed during development.
+
 ## r28 retest and historical queue clarification — 2026-10-16
 
 - User clarified that the Failed Data entries were historical and confirmed fresh

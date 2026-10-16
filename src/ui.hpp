@@ -16,7 +16,7 @@ void moveMenuSelection(Button button, size_t& selection, size_t count, size_t fi
 enum class Screen { Splash, Dashboard, Options, Settings, Sources, Storage, Details, Actions, Rating, LocalInfo, PickCategory, PickTags, DiscardLocal, Collections, ConfirmDeleteCollection, About, ConfirmExit, ConfirmInstall, InstallError, ConfirmUninstall, Discard, Keyboard,
     BulkMenu, ConfirmBulkClear, SavedCollections, EditSaved, ConfirmDeleteSaved, Queue, QueueDetails, ConfirmCancelQueue, Backups, BackupFiles, ConfirmRestore, SourceSetup, Packages, Cleanup, ConfirmCleanup, Diagnostics, Search, ConfirmClearSearches, JumpLetter, ServerProfiles, ConfirmDeleteProfile };
 enum class CommandType { Refresh, Save, Test, Storage, SetStorage, ClearArtwork, RefreshArtwork, Install, Uninstall, Rate, SaveLocalInfo, CreateCollection, RenameCollection, DeleteCollection, Launch, Keyboard, Quit,
-    BulkAssign, SaveSavedCollection, DeleteSavedCollection, ScanBackups, ExportBackup, RestoreBackup, TestSource, RetryQueue, CancelQueue, ClearQueue, RefreshQueue, ScanUsage, CleanStaging, ExportDiagnostics, SaveSession };
+    BulkAssign, SaveSavedCollection, DeleteSavedCollection, ScanBackups, ExportBackup, RestoreBackup, TestSource, RetryQueue, CancelQueue, ClearQueue, RefreshQueue, ScanUsage, CleanStaging, ExportDiagnostics, SaveSession, RemoveQueue };
 struct Command {
     CommandType type; Entry entry; size_t source = 0; std::string text;
     std::optional<Settings> configuration = {}; std::optional<LocalInfo> personal = {}; std::string previous = {};
@@ -82,6 +82,8 @@ public:
     std::string savedOriginal, featureNotice, packageTitle, restoreFilename, restoreDevice;
     Screen actionReturn = Screen::Dashboard, setupReturn = Screen::Settings;
     Screen installReturn = Screen::Dashboard;
+    std::string queueActionUrl;
+    bool removingQueueEntry = false;
     std::vector<QueueItem> downloads;
     std::vector<BackupDevice> backupDevices;
     Source setupSource;

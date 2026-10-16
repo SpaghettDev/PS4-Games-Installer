@@ -2,7 +2,7 @@
 #include "catalog.hpp"
 
 namespace psgi {
-enum class QueueStage { Waiting, Checking, Downloading, Registering, Installing, Verifying, Completed, Failed, Cancelled, Cancelling, Unconfirmed };
+enum class QueueStage { Waiting, Checking, Downloading, Registering, Installing, Verifying, Completed, Failed, Cancelled, Cancelling };
 struct QueueItem {
     Entry entry;
     QueueStage stage = QueueStage::Waiting;

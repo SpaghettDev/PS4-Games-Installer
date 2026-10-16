@@ -15,8 +15,8 @@ hardware test, but PS4 registration rejected the tested package. r20 corrects
 local registration paths and retry caching. r28 adds exact-content failed-task
 recovery and a single local-registration retry; the user confirmed that installation
 now works after this fix (2026-10-16). A further r28 retest confirmed fresh installs
-work correctly; the reported Failed Data entries were historical. r30 changes queue
-completion reporting and migration, with its console retest still pending.
+work correctly; the reported Failed Data entries were historical. r31 restores r28 queue reporting and fixes the Triangle action: cancel active
+tasks or remove inactive history entries. Console acceptance of this UI fix is pending.
 The application builds
 on Linux and its package validates; individual feature checks are tracked in
 [TODO.md](TODO.md).
@@ -499,32 +499,31 @@ earlier releases with unknown transfer mode retain their generic installation st
 
 The queue distinguishes **Queued**, **Checking URL**, **Downloading**, **Registering
 with PS4**, **Installing**, **Verifying installation**, **Completed**, **Failed**,
-**Cancelling**, **Cancelled** and **Needs verification**. Transfer percentages, bytes, speed and approximate
+**Cancelling** and **Cancelled**. Transfer percentages, bytes, speed and approximate
 download time are shown when available. They do not measure installation progress.
-X opens diagnostics; X in diagnostics retries a failed, cancelled or unverified item. Triangle
-offers cancellation with confirmation. Waiting items are removed from the waiting
-queue; active direct transfers are interrupted; owned PS4 tasks are stopped and
+X opens diagnostics; X in diagnostics retries a failed or cancelled item.
+
+Triangle in diagnostics offers **Cancel task** for active/waiting items or a tracked
+PS4 task. Confirm with X; O returns without cancelling. Waiting items stop waiting,
+active direct transfers are interrupted, and owned PS4 tasks are stopped and
 unregistered. A cancellation error keeps task ownership and its staging file.
-Options on the queue clears inactive history while keeping active tasks.
+For inactive history without a tracked task, Triangle offers **Remove entry**.
+Confirming removes only that queue record; installed games, local game records and
+saved packages are kept. Options on the queue clears finished history while
+keeping active tasks.
 
-A native PS4 installation-complete report marks the item **Completed**. This
-requires the transfer, preparation and local installation copy to finish without
-an error; a 100% download alone is insufficient. Catalog version estimates or
-missing/stale library metadata do not turn that native success into a failure.
-Diagnostics show the native completion and any currently detected installed
-version. DLC/themes do not need their own game tile.
+Installation reporting follows r28: after the task finishes, a fresh installed
+scan must confirm the expected base-game/update title and version. An existing
+copy alone cannot prove a new installation unless PS4 reported completion or its
+version advanced. DLC/themes use native completion because they do not get their
+own game tile. After two minutes without confirmation, the item shows **Failed**
+with diagnostics. A 100% download alone does not confirm installation.
 
-If a task disappears before reporting completion, the app checks a fresh installed
-scan for the expected title/version. An old installed copy cannot prove that a
-new task succeeded. After two minutes without proof, the item says **Needs
-verification**, with refresh and PS4 Downloads checks. A later matching scan can
-resolve it. Actual service/transfer errors still show **Failed**.
-
-On upgrade, the app rechecks old verification-timeout failures, including the
-reported “Failed Data 100%” records. Saved native completion restores **Completed**;
-unknown results remain **Needs verification**. Real task errors are preserved.
-A released task ID is labeled **completed; tracking released** when native
-completion was recorded; it does not mean registration failed.
+Historical Failed entries retain their saved result; r31 does not automatically
+reclassify them. The temporary r30 **Needs verification** state resumes the original
+verification checks when loaded. Released task IDs use the original **not registered /
+released** label. See PS4 Notifications > Downloads and the Installed library when
+checking a task's actual result.
 
 Queue/history and owned task IDs survive restart. Waiting items resume scheduling
 when the app reopens. Interrupted preflight/direct-transfer items require Retry;
@@ -532,6 +531,10 @@ complete staged packages can be reused, while partial transfers start over. Inva
 queue files are preserved and block new queue writes until repaired.
 
 ![Download queue with sample progress](docs/images/download-queue.png)
+
+![Cancel an active package task](docs/images/cancel-task.png)
+
+![Remove an inactive queue entry](docs/images/remove-queue-entry.png)
 
 The app checks the actual PKG URL with a small GET range request before submitting
 it. A 404, HTML response or invalid package signature is reported before creating

@@ -401,13 +401,14 @@ void App::tick(double elapsed, Video& video) {
                 }
                 changed = changed || previousStage != job->stage;
                 if (!progress.found || progress.retired) {
+                    pendingCancels.erase(item.first); // A poll may release the task before the cancel worker runs.
                     removeStagedPackage(directory, item.first);
                     reportedTaskErrors.erase(tasks.at(item.first));
                     tasks.erase(item.first); job->task = -1; changed = true;
                 }
             }
             // Only a fresh installed scan may confirm base-game or update presence.
-            if (receivedLocal) for (auto& job : ui.downloads) if (job.stage == QueueStage::Verifying || job.stage == QueueStage::Unconfirmed) {
+            if (receivedLocal) for (auto& job : ui.downloads) if (job.stage == QueueStage::Verifying) {
                 const auto before = job.stage; verifyJob(job, ui.installed, timestamp());
                 changed = changed || before != job.stage;
                 ui.status = job.message;
@@ -415,7 +416,7 @@ void App::tick(double elapsed, Video& video) {
             if (changed) { syncQueued(); try { saveTasks(); persistQueue(); } catch (const std::exception& e) { log(e.what()); } }
         } else if (receivedLocal) {
             bool changed = false;
-            for (auto& job : ui.downloads) if (job.stage == QueueStage::Verifying || job.stage == QueueStage::Unconfirmed) {
+            for (auto& job : ui.downloads) if (job.stage == QueueStage::Verifying) {
                 const auto before = job.stage; verifyJob(job, ui.installed, timestamp()); changed = changed || before != job.stage;
                 if (before != job.stage) ui.status = job.message;
             }
@@ -612,7 +613,7 @@ void App::tick(double elapsed, Video& video) {
                     if (cleaningStaging) throw std::runtime_error("Wait for storage cleanup before queuing packages");
                     auto* job = findJob(ui.downloads, command.text);
                     if (!job) throw std::runtime_error("Queue item no longer exists");
-                    if (job->stage != QueueStage::Failed && job->stage != QueueStage::Cancelled && job->stage != QueueStage::Unconfirmed) throw std::runtime_error("Only failed, cancelled or unverified packages can be retried");
+                    if (job->stage != QueueStage::Failed && job->stage != QueueStage::Cancelled) throw std::runtime_error("Only failed or cancelled packages can be retried");
                     if (tasks.count(command.text)) throw std::runtime_error("Cancel the existing owned PS4 task before retrying");
                     const auto required = queueRequirements(job->entry, ui);
                     auto next = ui.downloads; enqueueJob(next, job->entry, timestamp());
@@ -626,15 +627,33 @@ void App::tick(double elapsed, Video& video) {
                 case CommandType::CancelQueue: {
                     auto* job = findJob(ui.downloads, command.text);
                     if (!job) throw std::runtime_error("Queue item no longer exists");
+                    if (!queueActive(job->stage) && job->task < 0 && !tasks.count(command.text) && activeDownloadUrl != command.text) {
+                        ui.featureNotice = ui.status = "No active tracked task remains. Use Remove entry to clear this history."; break;
+                    }
                     if (command.text == activeDownloadUrl) {
                         pendingCancels.insert(command.text); job->stage = QueueStage::Cancelling; worker->cancelled = true;
                         job->message = "Cancelling direct download. Waiting for the transfer/registration worker.";
                     } else if (tasks.count(command.text)) {
                         pendingCancels.insert(command.text); job->stage = QueueStage::Cancelling; job->message = "Waiting for PS4 to release the owned task";
                     } else {
-                        job->stage = QueueStage::Cancelled; job->message = "Removed from the waiting queue. Complete staged package kept for retry.";
+                        job->stage = QueueStage::Cancelled; job->message = "Queue entry cancelled; no tracked PS4 task remains. Complete staged package kept for retry.";
                     }
                     persistQueue(); syncQueued(); ui.featureNotice = ui.status = job->message; break;
+                }
+                case CommandType::RemoveQueue: {
+                    auto* job = findJob(ui.downloads, command.text);
+                    if (!job) { ui.featureNotice = "Queue entry is no longer present"; break; }
+                    if (queueActive(job->stage) || job->task >= 0 || tasks.count(command.text) || activeDownloadUrl == command.text || pendingCancels.count(command.text))
+                        throw std::runtime_error("This package has an active or tracked task. Use Cancel task first.");
+                    auto next = ui.downloads;
+                    next.erase(std::remove_if(next.begin(), next.end(), [&](const QueueItem& item) { return item.entry.url == command.text; }), next.end());
+                    if (!queueWritable) throw std::runtime_error("queue.json needs repair; original file was kept unchanged");
+                    if (!demo) saveQueue(directory, next);
+                    ui.downloads = std::move(next);
+                    ui.queueIndex = ui.downloads.empty() ? 0 : std::min(ui.queueIndex, ui.downloads.size() - 1);
+                    if (ui.failedInstall.url == command.text) ui.installError.clear();
+                    syncQueued(); ui.featureNotice = ui.status = "Queue history entry removed. Installed games and saved packages kept.";
+                    break;
                 }
                 case CommandType::ClearQueue: {
                     auto previous = ui.downloads;
@@ -642,7 +661,7 @@ void App::tick(double elapsed, Video& video) {
                         return !queueActive(job.stage) && !tasks.count(job.entry.url) && job.task < 0;
                     }), ui.downloads.end());
                     try { persistQueue(); } catch (...) { ui.downloads = std::move(previous); throw; }
-                    ui.featureNotice = ui.status = "Inactive queue history cleared; active tasks kept"; break;
+                    ui.featureNotice = ui.status = "Finished queue history cleared; active tasks kept"; break;
                 }
                 case CommandType::RefreshQueue:
                     lastPoll = elapsed - 3; lastLocalScan = elapsed - 30;

@@ -68,20 +68,8 @@ int main() {
     const auto encoded = serializeQueue(queue); assert(parseQueue(encoded)[0].transferred == 100);
     queue[0].backgroundTransfer = true; assert(parseQueue(serializeQueue(queue))[0].backgroundTransfer);
     queue[0].stage = QueueStage::Verifying; queue[0].verificationStarted = 100; queue[0].systemCompleted = true;
-    verifyJob(queue[0], {}, 101); assert(queue[0].stage == QueueStage::Completed);
-    assert(queue[0].message.find("PS4 reports package installation complete") != std::string::npos);
-    assert(queueProgress(queue[0]) == "Completed");
-    QueueItem uncertain; uncertain.entry = entries[0]; uncertain.stage = QueueStage::Verifying; uncertain.verificationStarted = 100;
-    uncertain.transferred = uncertain.total = 200;
-    verifyJob(uncertain, {}, 101); assert(uncertain.stage == QueueStage::Verifying);
-    verifyJob(uncertain, {}, 220); assert(uncertain.stage == QueueStage::Unconfirmed && !queueActive(uncertain.stage));
-    assert(parseQueue(serializeQueue({uncertain}))[0].stage == QueueStage::Unconfirmed);
-    Entry observed = entries[0]; observed.version = entries[0].version;
-    verifyJob(uncertain, {observed}, 221); assert(uncertain.stage == QueueStage::Completed);
-    QueueItem native; native.entry = entries[0]; native.entry.version = "02.00"; native.stage = QueueStage::Verifying;
-    native.systemCompleted = true; native.previouslyPresent = true; native.previousVersion = "01.00"; observed.version = "01.00";
-    verifyJob(native, {observed}, 222); assert(native.stage == QueueStage::Completed);
-    assert(native.message.find("v01.00") != std::string::npos && native.message.find("Catalog version: 02.00") != std::string::npos);
+    verifyJob(queue[0], {}, 101); assert(queue[0].stage == QueueStage::Verifying);
+    verifyJob(queue[0], {}, 220); assert(queue[0].stage == QueueStage::Failed && queue[0].message.find("could not be confirmed") != std::string::npos);
     enqueueJob(queue, entries[1], 300); auto& update = queue.back(); update.stage = QueueStage::Verifying;
     verifyJob(update, {local}, 301); assert(update.stage == QueueStage::Verifying);
     local.version = "1.20"; verifyJob(update, {local}, 302); assert(update.stage == QueueStage::Completed);
@@ -90,6 +78,9 @@ int main() {
     enqueueJob(queue, entries[2], 400); auto& dlc = queue.back(); dlc.stage = QueueStage::Verifying;
     verifyJob(dlc, {local}, 401); assert(dlc.stage == QueueStage::Verifying);
     dlc.systemCompleted = true; verifyJob(dlc, {local}, 402); assert(dlc.stage == QueueStage::Completed && dlc.message.find("no separate game tile") != std::string::npos);
+    auto fromTemporary = parseQueue(R"({"schema":1,"jobs":[{"url":"http://nas/r30","name":"r30 entry","stage":10}]})");
+    assert(fromTemporary[0].stage == QueueStage::Verifying);
+    assert(parseQueue(serializeQueue(fromTemporary))[0].stage == QueueStage::Verifying);
     rejects([] { parseQueue(R"({"schema":2,"jobs":[]})"); });
     rejects([] { parseQueue(R"({"schema":1,"jobs":[{"url":"http://nas/a","name":"x","task":-1}]})"); });
 
@@ -112,18 +103,6 @@ int main() {
     before = readFile(root + "/local/player.json"); std::filesystem::create_directory(root + "/local/player.json.tmp");
     rejects([&] { restorePlayerBackup(root + "/local", fromUsb, 1002); }); assert(readFile(root + "/local/player.json") == before);
     saveQueue(root + "/local", parseQueue(encoded)); assert(loadQueue(root + "/local")[0].stage == QueueStage::Failed);
-    QueueItem legacy; legacy.entry = entries[0]; legacy.stage = QueueStage::Failed; legacy.verificationStarted = 100;
-    legacy.systemCompleted = true; legacy.message = "PS4 task finished but installation could not be confirmed. Old message.";
-    QueueItem actualFailure = legacy; actualFailure.entry.url += "/failure"; actualFailure.message = "Install error 0x80991404";
-    QueueItem unknownResult = legacy; unknownResult.entry.url += "/unknown"; unknownResult.systemCompleted = false;
-    saveQueue(root + "/local", {legacy, actualFailure, unknownResult});
-    auto recovered = loadQueue(root + "/local");
-    assert(recovered[0].stage == QueueStage::Verifying && recovered[1].stage == QueueStage::Failed && recovered[2].stage == QueueStage::Unconfirmed);
-    verifyJob(recovered[0], {}, 300); assert(recovered[0].stage == QueueStage::Completed);
-    Ui diagnostics; diagnostics.downloads = {recovered[0]}; diagnostics.queueIndex = 0;
-    assert(diagnostics.queueDetails()[3] == "PS4 task: completed; tracking released");
-    enqueueJob(recovered, unknownResult.entry, 301); assert(recovered[2].stage == QueueStage::Waiting);
-
 
     const auto report = inspectSource({"games", "http://nas/games.json"}, R"({"DATA":{"http://nas/a":{"name":"A","title_id":"CUSA00001"},"http://nas/b":{"name":"B"}}})");
     assert(report.success && report.games == 2 && report.missingIds == 1 && report.packages == 2);

@@ -1,18 +1,20 @@
 # Work tracker
 
-## Current implementation: menu overflow and installation result reporting
+## Current implementation: r28 reporting and queue actions
 
-- [x] Inspect historical failed queue records through read-only PS4 evidence;
-  user clarified fresh r28 installs work correctly.
-- [x] Show paginated-menu overflow with scrollbar thumbs and directional arrows.
-- [x] Move Downloads/Collections access to Options and migrate saved sidebar positions.
-- [x] Honor native installation completion and repair older verification-timeout records.
-- [x] Separate unverified task outcomes from real failures and clarify released task IDs.
-- [x] Complete regressions, native package validation, visual review, docs and commit.
-- [ ] Retest r30: menu overflow above/below, all wrap boundaries, old view migration,
-  one fresh install ending Completed and still correct after reopen, old timeout
-  migration and later verification refresh. Fresh r28 installs are confirmed;
-  the historical records do not establish a current r28 regression.
+- [x] Restore r28 completion verification, progress labels and saved-history behavior.
+- [x] Keep r29 wrapping, r30 menu scrollbars and Options-only Downloads/Collections.
+- [x] Make Triangle cancel active/waiting/owned tasks or remove inactive history.
+- [x] Confirm a stable package identity and retain records when saving fails.
+- [x] Clear pending cancellation when a concurrent poll releases its task.
+- [x] Complete host regressions, native build/validation, screenshot review and docs.
+- [x] Commit the completed r31 change.
+- [ ] Retest r31 on PS4: cancel a waiting item, direct transfer and native task;
+  confirm cancellation failure keeps ownership, retry works, and O keeps the task.
+- [ ] Retest r31: remove a historical Failed/Completed/Cancelled entry, restart,
+  and confirm installed games/local records/saved packages remain intact.
+- [ ] Retest retained menu overflow, wrap boundaries and sidebar migration.
+  Fresh r28 installs are already confirmed; no automatic history repair is included.
 
 ## Current implementation: wraparound navigation
 

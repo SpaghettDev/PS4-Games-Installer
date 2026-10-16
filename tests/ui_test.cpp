@@ -62,6 +62,28 @@ void wrapNavigation() {
         assert(cursor == menu.first && ui.screen == menu.screen);
         Command command; assert(!ui.take(command)); // Navigation never activates an entry.
     }
+    // The Triangle action works for inactive history too, and confirms a stable URL.
+    auto cancellation = fixture(); cancellation.screen = Screen::QueueDetails;
+    QueueItem old; old.entry = cancellation.available[0]; old.stage = QueueStage::Failed; old.task = -1;
+    QueueItem running = old; running.entry = cancellation.available[1]; running.stage = QueueStage::Installing; running.task = 45;
+    cancellation.downloads = {old, running};
+    cancellation.handle(Button::Triangle); assert(cancellation.screen == Screen::ConfirmCancelQueue && cancellation.removingQueueEntry);
+    cancellation.handle(Button::Circle); assert(cancellation.screen == Screen::QueueDetails);
+    Command action; assert(!cancellation.take(action));
+    cancellation.handle(Button::Triangle); std::swap(cancellation.downloads[0], cancellation.downloads[1]);
+    cancellation.handle(Button::Cross);
+    assert(cancellation.take(action) && action.type == CommandType::RemoveQueue && action.text == old.entry.url);
+    cancellation.screen = Screen::QueueDetails; cancellation.queueIndex = 0;
+    cancellation.handle(Button::Triangle); assert(!cancellation.removingQueueEntry);
+    std::swap(cancellation.downloads[0], cancellation.downloads[1]); cancellation.handle(Button::Cross);
+    assert(cancellation.take(action) && action.type == CommandType::CancelQueue && action.text == running.entry.url);
+    cancellation.queueIndex = 0; cancellation.handle(Button::Triangle); cancellation.downloads.clear(); cancellation.handle(Button::Cross);
+    assert(cancellation.screen == Screen::Queue && !cancellation.take(action));
+    for (auto stage : {QueueStage::Completed, QueueStage::Cancelled}) {
+        old.stage = stage; cancellation.downloads = {old}; cancellation.screen = Screen::QueueDetails;
+        cancellation.handle(Button::Triangle); cancellation.handle(Button::Cross);
+        assert(cancellation.take(action) && action.type == CommandType::RemoveQueue);
+    }
     // Dynamic lists may shrink or become empty while a menu is open.
     ui.screen = Screen::ServerProfiles; ui.profileIndex = 100;
     ui.draft.profiles.resize(1); ui.handle(Button::Up); assert(ui.profileIndex == 0);

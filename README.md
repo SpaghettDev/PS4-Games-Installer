@@ -14,7 +14,10 @@ complete Installed library. r19 completed direct downloads in the subsequent
 hardware test, but PS4 registration rejected the tested package. r20 corrects
 local registration paths and retry caching. r28 adds exact-content failed-task
 recovery and a single local-registration retry; the user confirmed that installation
-now works after this fix (2026-10-16). The application builds
+now works after this fix (2026-10-16). A further r28 retest confirmed fresh installs
+work correctly; the reported Failed Data entries were historical. r30 changes queue
+completion reporting and migration, with its console retest still pending.
+The application builds
 on Linux and its package validates; individual feature checks are tracked in
 [TODO.md](TODO.md).
 It requires an active homebrew environment; this app does not install GoldHEN.

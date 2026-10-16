@@ -2,14 +2,17 @@
 
 ## Current implementation: menu overflow and installation result reporting
 
-- [x] Identify the false failure from fresh read-only PS4 queue/log evidence.
+- [x] Inspect historical failed queue records through read-only PS4 evidence;
+  user clarified fresh r28 installs work correctly.
 - [x] Show paginated-menu overflow with scrollbar thumbs and directional arrows.
 - [x] Move Downloads/Collections access to Options and migrate saved sidebar positions.
 - [x] Honor native installation completion and repair older verification-timeout records.
 - [x] Separate unverified task outcomes from real failures and clarify released task IDs.
 - [x] Complete regressions, native package validation, visual review, docs and commit.
 - [ ] Retest r30: menu overflow above/below, all wrap boundaries, old view migration,
-  successful installation status, old false failures and later verification refresh.
+  one fresh install ending Completed and still correct after reopen, old timeout
+  migration and later verification refresh. Fresh r28 installs are confirmed;
+  the historical records do not establish a current r28 regression.
 
 ## Current implementation: wraparound navigation
 

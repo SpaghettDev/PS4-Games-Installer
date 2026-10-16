@@ -1,5 +1,24 @@
 # Implementation progress
 
+## r28 retest and historical queue clarification — 2026-10-16
+
+- User clarified that the Failed Data entries were historical and confirmed fresh
+  r28 installs work perfectly. The prior trace does not establish a current r28
+  reporting regression; the earlier diagnosis treated historical records too
+  broadly. Keep the trace as historical evidence and r28 hardware acceptance.
+- Compared r28 commit `d6a7414` with current HEAD: `src/install.cpp` and
+  `src/download.cpp` have no differences. Download/staging, native registration,
+  task start, failed-task recovery and cleanup code remain the tested r28 code.
+- r30 does change queue policy: explicit native completion wins over library/
+  catalog discrepancies, unknown timeouts become Needs verification, old timeout
+  records migrate, and unverified items can be retried/rechecked. This is more
+  than a label-only change and still needs console acceptance.
+- Recommend one fresh install in r30, checking Completed, current installed-title
+  presence/launch and persisted status after reopen, plus old-record migration.
+  No need to repeat unrelated setup checks solely for this clarification.
+- Corrected README/CHANGELOG/TODO and reviewed the diff with `git diff --check`.
+  Documentation-only change; no application rebuild or revision increment.
+
 ## r30 menu overflow and installation result reporting — 2026-10-16
 
 - User requested visible menu overflow, corrected successful-install queue status,
@@ -7,8 +26,9 @@
   previously confirmed PS4 11.00 + GoldHEN environment.
 - Fresh read-only FTP evidence under ignored `build/hardware-queue-20261016T204119Z/`
   records completed native tasks for CUSA10606 and CUSA02537 (`system_completed`
-  true, all transfer bytes received), later mislabeled Failed by verification.
-  The log shows the installed count reaching 18, then successful uninstall and
+  true, all transfer bytes received), stored as Failed after verification timeout.
+  The user subsequently identified these as historical entries; they do not prove
+  a current r28 regression. The log shows the installed count reaching 18, then successful uninstall and
   returning to 16. Their SFOs are no longer present; exact installed versions at
   completion cannot be established from this trace. An active direct transfer
   and a waiting job were also present; no console files/tasks were changed.

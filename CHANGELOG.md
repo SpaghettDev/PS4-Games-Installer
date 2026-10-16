@@ -12,6 +12,9 @@
 - Show completed/released task tracking clearly and omit transfer percentages
   from completed queue rows. Keep real errors and owned-task cleanup checks.
 - User confirmed uninstall works on PS4 11.00 + GoldHEN (2026-10-16).
+- Clarification: the reported Failed Data records were historical; fresh r28
+  installs are confirmed working. Native installer/download code remains unchanged
+  from r28, while r30's queue completion policy still needs console acceptance.
 - Host/native regressions, package validation and screenshot review passed.
   New r30 behavior still needs console acceptance; see PROGRESS.md and TODO.md.
 

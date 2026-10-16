@@ -27,7 +27,7 @@ TITLE_ID := PGIN00001
 CONTENT_ID := IV0000-$(TITLE_ID)_00-PS4GAMEINSTALLER
 CROSSFLAGS := --target=x86_64-pc-freebsd12-elf -fPIC -funwind-tables -D_POSIX_C_SOURCE=200809L \
     -isysroot $(SDK) -isystem $(SDK)/include -Isrc -Ithird_party/cjson -Ithird_party/stb -Ibuild/generated -O2 -g -Wall -Wextra -MMD -MP
-COMMON := catalog settings library sfo installed storage userdata ui
+COMMON := catalog settings library sfo installed storage userdata package ui
 UI_SOURCES := controller canvas artwork render app download demo video main
 CONSOLE := $(UI_SOURCES) http install console lifecycle storage_native filesystem_native
 PS4_OBJECTS := $(addprefix build/ps4/,$(addsuffix .o,$(COMMON) $(CONSOLE))) build/ps4/cJSON.o
@@ -119,7 +119,7 @@ build/host/uninstall-native-test: tests/uninstall_native_test.cpp src/console.cp
 	g++ $(HOSTFLAGS) -idirafter $(SDK)/include $(filter %.cpp %.o,$^) -o $@
 build/host/storage-native-test: tests/storage_native_test.cpp src/storage_native.cpp $(HEADERS)
 	g++ $(HOSTFLAGS) -idirafter $(SDK)/include $(filter %.cpp,$^) -o $@
-build/host/install-native-test: tests/install_native_test.cpp src/install.cpp src/catalog.cpp build/host/cJSON.o $(HEADERS)
+build/host/install-native-test: tests/install_native_test.cpp tests/package_fixture.hpp src/install.cpp src/package.cpp src/sfo.cpp src/catalog.cpp build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) -idirafter $(SDK)/include $(filter %.cpp %.o,$^) -o $@
 build/host/download-runner: tests/download_runner.cpp src/download.cpp src/http.cpp src/catalog.cpp build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) $(filter %.cpp %.o,$^) -lcurl -o $@

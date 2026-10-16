@@ -18,6 +18,7 @@ class App {
     bool quitting = false;
     double lastLocalScan = 0, lastPoll = 0;
     std::map<std::string, int> tasks;
+    std::map<int, int> reportedTaskErrors;
     void refresh(bool remote);
     void log(const std::string& message);
     void saveTasks();

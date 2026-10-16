@@ -9,9 +9,10 @@ OpenOrbis toolchain. Created by **e1z0 — (c) 2026 Vintage2000.org**.
 2026-10-16). Source URL entry through the PS4 keyboard and settings saving are
 confirmed working, remote artwork downloads work, and the reported exit crash is
 fixed. In r17 the user also confirmed game launching, analog navigation and the
-complete Installed library. Downloading still crashed in that hardware test;
-r19 addresses worker-stack usage and storage-capacity reporting and needs a new
-console download test. The application builds
+complete Installed library. r19 completed direct downloads in the subsequent
+hardware test, but PS4 registration rejected the tested package. r20 corrects
+local registration paths and retry caching; successful installation still needs
+console confirmation. The application builds
 on Linux and its package validates; individual feature checks are tracked in
 [TODO.md](TODO.md).
 It requires an active homebrew environment; this app does not install GoldHEN.
@@ -208,6 +209,16 @@ storage needs room for the staging copy plus 64 MiB reserve, even when installin
 onto Extended Storage. Installing to internal storage also needs room for the
 installed game. Enable Range support on the server to avoid this extra copy.
 
+**The download percentage measures the package copy, not installation.** After
+100%, the app still needs the PS4 to accept an installation task. A refusal opens
+an **Installation failed** dialog with the actual error; X offers Retry and O
+closes the dialog. A complete staging file is kept and reused on retry.
+For duplicate errors `0x80990086` or `0x80990015`, the app looks up the exact
+Content ID. If a matching task is found, finish or cancel that title in PS4
+Notifications > Downloads. If no matching task can be confirmed, close the app,
+fully restart the PS4, enable GoldHEN and retry. The app does not remove unrelated
+downloads to resolve a conflict.
+
 Once a task is submitted to BGFT, closing this application does not cancel it.
 Use **PS4 Notifications > Downloads** for authoritative task status,
 completion and cancellation. The app retains task IDs between launches and polls
@@ -349,7 +360,7 @@ together. An existing new directory takes precedence.
 | App closes when launching a game | Normal PS4 application switching; r19 saves the library selection before launch |
 | Download crashes with CE-34878-0 | Update to r19 for heap transfer buffers and larger worker stacks; console retesting is pending. Preserve `app.log` and the crash dump if it recurs |
 | Installation storage always shows 0 B | Update to r19 for the native capacity query, then Triangle to check again |
-| Package already queued | Manage the existing task in PS4 Notifications > Downloads |
+| Installation refused / already queued | Read the failure dialog. Manage the matching task in PS4 Downloads; if none can be confirmed, restart PS4, enable GoldHEN and retry. r20 reuses the complete package |
 | Existing-title conflict | The installed title was preserved; this app does not force removal |
 | Settings cannot save | Check free space and access to the application data directory |
 | URL is saved but Available stays empty | Read the connection result in Settings and use a direct JSON URL, such as `/games`. For `Disable redirects (0x80431001)`, update to r15 or later, which binds every HTTP operation to one client module. The user subsequently confirmed artwork downloads work. |

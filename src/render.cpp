@@ -325,6 +325,27 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
             c.text("Keep this app open while a direct-download percentage is shown.", 410, 591, 24, Muted, 1100);
             c.text(ui.pending.installed ? "An existing title will not be automatically uninstalled." : "Submitted tasks appear in PS4 Notifications > Downloads.", 410, 637, 24, Muted, 1100);
             hints(c, 410, 753, {{Button::Cross, "Confirm install"}, {Button::Circle, "Cancel"}}, 26); break;
+        case Screen::InstallError: {
+            panel(c, 330, 200, 1260, 680, "Installation failed");
+            c.text(ui.failedInstall.name, 380, 347, 33, White, 1160);
+            c.text("Downloading a package does not install the game.", 380, 410, 26, Accent, 1160);
+            std::string remaining = ui.installError;
+            int baseline = 473;
+            while (!remaining.empty() && baseline <= 737) {
+                size_t length = std::min(size_t(78), remaining.size());
+                if (length < remaining.size()) {
+                    size_t space = remaining.rfind(' ', length);
+                    if (space != std::string::npos && space > 15) length = space;
+                    while (length && (static_cast<unsigned char>(remaining[length]) & 0xc0) == 0x80) --length;
+                    if (!length) length = 1;
+                }
+                c.text(remaining.substr(0, length), 380, baseline, 25, Muted, 1160);
+                remaining.erase(0, length);
+                if (!remaining.empty() && remaining.front() == ' ') remaining.erase(0, 1);
+                baseline += 44;
+            }
+            hints(c, 380, 827, {{Button::Cross, "Retry"}, {Button::Circle, "Close"}}, 26); break;
+        }
         case Screen::ConfirmExit:
             panel(c, 495, 334, 930, 380, "Exit PS4 Games Installer?");
             c.text("Submitted PS4 installation tasks will continue.", 545, 502, 25, Muted, 830);

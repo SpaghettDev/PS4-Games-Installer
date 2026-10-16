@@ -52,6 +52,9 @@ void capture(App& app, Renderer& renderer, Canvas& canvas) {
     ui.screen = Screen::Rating; ui.ratingIndex = 3; shot("22-rating");
     ui.library = Library::Available; ui.rebuild(); ui.pending = *ui.current();
     ui.screen = Screen::ConfirmInstall; shot("15-install-confirmation");
+    ui.failedInstall = ui.pending;
+    ui.installError = "PS4 refused installation (0x80990086). No matching task could be confirmed. Close the app, restart the PS4, enable GoldHEN and retry. Downloaded package kept.";
+    ui.screen = Screen::InstallError; shot("23-installation-failed"); ui.installError.clear();
     ui.screen = Screen::About; shot("09-about");
     ui.screen = Screen::ConfirmExit; shot("10-exit");
     ui.screen = Screen::Dashboard; ui.available.clear(); ui.rebuild(); shot("11-empty");

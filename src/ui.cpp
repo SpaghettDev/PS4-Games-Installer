@@ -188,6 +188,11 @@ void Ui::handle(Button b) {
         else if (b == Button::Cross) { emit(CommandType::Install, pending); screen = Screen::Dashboard; }
         return;
     }
+    if (screen == Screen::InstallError) {
+        if (b == Button::Circle) { installError.clear(); screen = Screen::Dashboard; }
+        else if (b == Button::Cross) { pending = failedInstall; installError.clear(); screen = Screen::ConfirmInstall; }
+        return;
+    }
     if (screen == Screen::ConfirmUninstall) {
         if (b == Button::Circle) screen = Screen::Actions;
         else if (b == Button::Cross) { emit(CommandType::Uninstall, pending); screen = Screen::Dashboard; }

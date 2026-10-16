@@ -34,6 +34,13 @@ int main() {
     ui.handle(Button::Cross); ui.handle(Button::Cross);
     assert(ui.screen == Screen::Dashboard && ui.take(command) && command.type == CommandType::Install);
     assert(command.entry.url == "http://nas/b" && !ui.take(command));
+    ui.screen = Screen::InstallError; ui.installError = "Register local package: 0x80990086";
+    ui.failedInstall = command.entry; ui.handle(Button::Options);
+    assert(ui.screen == Screen::InstallError && !ui.take(command));
+    ui.handle(Button::Cross); assert(ui.screen == Screen::ConfirmInstall && ui.installError.empty() && !ui.take(command));
+    ui.handle(Button::Circle); assert(ui.screen == Screen::Dashboard);
+    ui.screen = Screen::InstallError; ui.installError = "Fixture failure"; ui.handle(Button::Circle);
+    assert(ui.screen == Screen::Dashboard && ui.installError.empty() && !ui.take(command));
     ui.handle(Button::Triangle); assert(ui.screen == Screen::Actions);
     ui.handle(Button::Down); ui.handle(Button::Cross); assert(ui.screen == Screen::Details);
     ui.handle(Button::Circle); assert(ui.screen == Screen::Actions);

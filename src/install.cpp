@@ -1,5 +1,7 @@
 #include "platform.hpp"
 #include "storage.hpp"
+#include "package.hpp"
+#include "sfo.hpp"
 #include <cstddef>
 #include <cstdio>
 #include <stdexcept>
@@ -49,6 +51,7 @@ struct Installer {
     int (*start)(int) = nullptr;
     int (*unregisterTask)(int) = nullptr;
     int (*progress)(int, Progress*) = nullptr;
+    int (*findTask)(const char*, int, int*) = nullptr;
     Installer() : heap(1024 * 1024) {
         int module = sceKernelLoadStartModule("/system/common/lib/libSceBgft.sprx", 0, nullptr, 0, nullptr, nullptr);
         if (module < 0) throw std::runtime_error("Load BGFT: " + hexCode(module));
@@ -58,6 +61,8 @@ struct Installer {
         start = symbol<decltype(start)>(module, "sceBgftServiceDownloadStartTask");
         unregisterTask = symbol<decltype(unregisterTask)>(module, "sceBgftServiceIntDownloadUnregisterTask");
         progress = symbol<decltype(progress)>(module, "sceBgftServiceDownloadGetProgress");
+        // Diagnostics must not make normal installation depend on this export.
+        if (sceKernelDlsym(module, "sceBgftServiceDownloadFindTaskByContentId", reinterpret_cast<void**>(&findTask))) findTask = nullptr;
         InitParams params{heap.data(), heap.size()};
         check(init(&params), "BGFT init");
     }
@@ -71,7 +76,7 @@ Installer& installer() {
 
 namespace psgi {
 namespace {
-int submit(const Entry& entry, int userId, const std::string& localPath) {
+int submit(const Entry& entry, int userId, const std::string& localPath, const PackageInfo* package = nullptr) {
     if (!isHttpUrl(entry.url) || entry.name.empty() || entry.name.size() >= 600)
         throw std::runtime_error("Invalid package metadata");
     const auto storage = scanInstallStorage();
@@ -81,7 +86,7 @@ int submit(const Entry& entry, int userId, const std::string& localPath) {
     DownloadParams params{};
     params.userId = userId;
     params.entitlementType = 5;
-    params.id = "";
+    params.id = package ? package->contentId.c_str() : "";
     params.contentUrl = localPath.empty() ? entry.url.c_str() : localPath.c_str();
     params.contentExUrl = "";
     params.contentName = entry.name.c_str();
@@ -92,7 +97,7 @@ int submit(const Entry& entry, int userId, const std::string& localPath) {
     params.releaseDate = params.packageType = params.packageSubType = "";
     // Ask the installer to read package metadata rather than treating catalog
     // size estimates as authoritative package headers.
-    params.packageSize = 0;
+    params.packageSize = package ? package->size : 0;
     int task = -1;
     int rc;
     if (localPath.empty()) rc = bgft.registerPkg(&params, &task);
@@ -104,15 +109,26 @@ int submit(const Entry& entry, int userId, const std::string& localPath) {
             auto initialize = symbol<int (*)()>(module, "sceAppInstUtilInitialize");
             check(initialize(), "Initialize update slot service");
             auto getSlot = symbol<int (*)(const char*, unsigned*)>(module, "sceAppInstUtilGetPrimaryAppSlot");
-            check(getSlot(entry.titleId.c_str(), &local.slot), "Read update application slot");
+            check(getSlot((package ? package->titleId : entry.titleId).c_str(), &local.slot), "Read update application slot");
         }
         rc = bgft.registerLocal(&local, &task);
     }
-    if (static_cast<uint32_t>(rc) == 0x80990088 || static_cast<uint32_t>(rc) == 0x80990015)
+    if (static_cast<uint32_t>(rc) == 0x80990088)
         throw std::runtime_error("Installed title conflict (" + hexCode(rc) + "). Existing title was kept.");
-    if (static_cast<uint32_t>(rc) == 0x80990086)
-        throw std::runtime_error("Already queued. Check PS4 Notifications > Downloads.");
-    check(rc, "Register package");
+    if (static_cast<uint32_t>(rc) == 0x80990086 || static_cast<uint32_t>(rc) == 0x80990015) {
+        std::string message = "PS4 refused installation (" + hexCode(rc) + "). ";
+        const std::string content = package ? package->contentId : entry.contentId;
+        int found = -1;
+        if (bgft.findTask && !content.empty() && bgft.findTask(content.c_str(), package && package->type == 0x1b ? 7 : 6, &found) == 0 && found >= 0) {
+            Progress state{};
+            message += "Existing download task " + std::to_string(found);
+            if (!bgft.progress(found, &state) && state.error) message += " failed: " + hexCode(state.error);
+            message += ". Finish or cancel that title in PS4 Notifications > Downloads, then retry.";
+        } else message += "No matching task could be confirmed. Close the app, restart the PS4, enable GoldHEN and retry.";
+        if (package) message += " Downloaded package kept.";
+        throw std::runtime_error(message);
+    }
+    if (rc) throw std::runtime_error(std::string(localPath.empty() ? "Register remote package" : "Register local package " + package->titleId + " at " + localPath) + ": " + hexCode(rc));
     if (task < 0) throw std::runtime_error("BGFT returned an invalid task ID");
     rc = bgft.start(task);
     if (rc) {
@@ -125,9 +141,11 @@ int submit(const Entry& entry, int userId, const std::string& localPath) {
 }
 int queueInstall(const Entry& entry, int userId) { return submit(entry, userId, ""); }
 int queueLocalInstall(const Entry& entry, const std::string& path, int userId) {
-    if (path.empty() || path.front() != '/' || path.find("..") != std::string::npos)
-        throw std::runtime_error("Invalid local package path");
-    return submit(entry, userId, path);
+    const auto systemPath = storagePackagePath(path);
+    const auto package = inspectPackage(path);
+    if (!entry.titleId.empty() && entry.titleId != package.titleId)
+        throw std::runtime_error("Downloaded package Title ID does not match the selected game");
+    return submit(entry, userId, systemPath, &package);
 }
 bool retireInactiveTask(int taskId) {
     Progress progress{};

@@ -15,6 +15,7 @@ namespace {
 std::mutex requestMutex;
 std::string lastUrl;
 std::atomic<bool> allowInstalls{false}, allowRetirement{false};
+std::atomic<bool> rejectInstall{false};
 std::atomic<int> submissions{0}, progressMode{0};
 std::vector<psgi::Entry> localGames;
 std::string launchDirectory;
@@ -49,6 +50,7 @@ void uninstallTitle(const std::string& id) {
 }
 int queueInstall(const Entry&, int) {
     if (!allowInstalls) throw std::runtime_error("PS4 required");
+    if (rejectInstall) throw std::runtime_error("PS4 refused installation (0x80990086). No matching task could be confirmed. Downloaded package kept.");
     ++submissions; return 45;
 }
 int queueLocalInstall(const Entry&, const std::string&, int) { throw std::runtime_error("PS4 required"); }
@@ -69,14 +71,16 @@ std::string httpGet(const std::string& url, size_t, const std::atomic<bool>*) {
 }
 
 using namespace psgi;
-void settle(App& app, Video& video) {
+void settleAt(App& app, Video& video, int line) {
     for (int i = 0; i < 200; ++i) {
         app.tick(0, video);
         if (!app.ui.loading && app.ui.screen != Screen::Splash) return;
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
+    std::fprintf(stderr, "Worker timeout at test line %d: screen=%d loading=%d status=%s\n", line, int(app.ui.screen), int(app.ui.loading), app.ui.status.c_str());
     assert(false && "Application worker did not finish");
 }
+#define settle(app, video) settleAt(app, video, __LINE__)
 void editUrl(App& app, Video& video, const std::string& url) {
     auto& ui = app.ui;
     ui.settingsIndex = 0; ui.handle(Button::Cross);
@@ -163,18 +167,42 @@ int main() {
         assert(app.ui.queued.size() == 1 && std::filesystem::exists(staged));
         assert(readFile(directory + "/tasks.json").find(packageUrl) != std::string::npos);
 
+        assert(app.ui.screen == Screen::InstallError);
+        app.ui.handle(Button::Circle); app.tick(8, video);
+        assert(app.ui.screen == Screen::Dashboard && app.ui.installError.empty());
+        app.ui.status = "Awaiting repeated task failure";
+        waitForStatus(app, video, 11, "cancel the failed task");
+        assert(app.ui.screen == Screen::Dashboard && app.ui.installError.empty()); // Acknowledged errors do not reopen on every poll.
         allowRetirement = true;
-        waitForStatus(app, video, 12, "failed task removed");
+        waitForStatus(app, video, 15, "failed task removed");
         assert(app.ui.queued.empty() && !std::filesystem::exists(staged));
         assert(readFile(directory + "/tasks.json") == "{}");
 
         // Retry becomes possible only after the owned task was actually retired.
         app.ui.handle(Button::Cross); app.ui.handle(Button::Cross);
-        app.tick(12, video); settle(app, video); assert(submissions == 2);
+        app.tick(15, video); settle(app, video); assert(submissions == 2);
         atomicWrite(staged, "staging fixture"); progressMode = 2;
-        waitForStatus(app, video, 16, "installation complete");
+        waitForStatus(app, video, 19, "installation complete");
         assert(app.ui.queued.empty() && !std::filesystem::exists(staged));
         assert(readFile(directory + "/tasks.json") == "{}");
+    }
+    const auto refusal = directory + "/refusal"; std::filesystem::create_directory(refusal);
+    Settings offline; offline.refreshOnStart = false; saveSettings(refusal, offline);
+    atomicWrite(refusal + "/catalog.json", R"({"DATA":{"http://fixture/game.pkg":{"name":"Rejected package","title_id":"CUSA00001"}}})");
+    {
+        App app(refusal); settle(app, video); app.ui.handle(Button::R1); rejectInstall = true;
+        app.ui.handle(Button::Cross); app.ui.handle(Button::Cross); app.tick(0, video);
+        app.ui.screen = Screen::Keyboard; settle(app, video);
+        assert(app.ui.screen == Screen::Keyboard && app.ui.installError.find("0x80990086") != std::string::npos);
+        app.ui.screen = Screen::Dashboard; app.tick(0, video);
+        assert(app.ui.screen == Screen::InstallError && app.ui.failedInstall.name == "Rejected package");
+        assert(app.ui.queued.empty() && !std::filesystem::exists(refusal + "/tasks.json"));
+        // Routine discovery must not dismiss the installation error.
+        app.tick(31, video); settle(app, video);
+        assert(app.ui.screen == Screen::InstallError && app.ui.installError.find("0x80990086") != std::string::npos);
+        app.ui.handle(Button::Cross); assert(app.ui.screen == Screen::ConfirmInstall);
+        rejectInstall = false; app.ui.handle(Button::Cross); app.tick(0, video); settle(app, video);
+        assert(app.ui.screen == Screen::Dashboard && app.ui.installError.empty() && !app.ui.queued.empty());
     }
     const auto personal = directory + "/personal"; std::filesystem::create_directory(personal);
     Settings personalSettings; personalSettings.refreshOnStart = false; saveSettings(personal, personalSettings);
@@ -232,4 +260,5 @@ int main() {
     std::filesystem::remove_all(directory);
     std::puts("Settings persistence and tracked installation progress, failed-task recovery, retry and staging cleanup passed");
     std::puts("Launch handoff/session restart, rating persistence, uninstall confirmation/history and corrupt-record protection passed");
+    std::puts("Registration refusal, persistent error/retry, IME deferral and acknowledged-task-error suppression passed");
 }

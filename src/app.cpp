@@ -177,20 +177,35 @@ void App::tick(double elapsed, Video& video) {
         if (result->local || result->remote) ui.setLibraries(std::move(result->local), std::move(result->remote));
         if (resume && (resume->available ? !ui.available.empty() : receivedLocal)) { ui.restoreView(*resume); resume.reset(); }
         if (result->kind == ResultKind::Install && result->task >= 0) {
+            reportedTaskErrors.erase(result->task);
             tasks[result->entry.url] = result->task; ui.queued.insert(result->entry.url);
             ui.rebuild();
             ui.status = "Installation queued. Manage it in PS4 Notifications > Downloads.";
             try { saveTasks(); } catch (const std::exception&) { ui.status += " Task tracking could not be saved."; }
+            log("BGFT installation task " + std::to_string(result->task) + " started for " + result->entry.titleId);
+        } else if (result->kind == ResultKind::Install) {
+            ui.installError = result->message; ui.failedInstall = result->entry;
         }
         if (result->kind == ResultKind::Poll) {
             bool changed = false;
             for (const auto& item : result->progress) {
                 if (item.second.error || item.second.completed || !item.second.found) {
-                    if (item.second.error) ui.status = "Install error " + errorCode(item.second.error) +
-                        (item.second.retired ? "; failed task removed, installation can be retried." : "; cancel the failed task in PS4 Downloads before retrying.");
+                    if (item.second.error) {
+                        ui.status = "Install error " + errorCode(item.second.error) +
+                            (item.second.retired ? "; failed task removed, installation can be retried." : "; cancel the failed task in PS4 Downloads before retrying.");
+                        const auto reported = reportedTaskErrors.find(tasks.at(item.first));
+                        if (reported == reportedTaskErrors.end() || reported->second != item.second.error ||
+                            (!ui.installError.empty() && ui.failedInstall.url == item.first)) {
+                            ui.installError = ui.status;
+                            ui.failedInstall = {}; ui.failedInstall.name = "Package installation"; ui.failedInstall.url = item.first;
+                            for (const auto& entry : ui.available) if (entry.url == item.first) { ui.failedInstall = entry; break; }
+                        }
+                        reportedTaskErrors[tasks.at(item.first)] = item.second.error;
+                    }
                     else ui.status = item.second.completed ? "PS4 installation complete." : "Task finished or removed. See PS4 Downloads for its final status.";
                     if (!item.second.found || item.second.retired) {
                         removeStagedPackage(directory, item.first);
+                        reportedTaskErrors.erase(tasks.at(item.first));
                         tasks.erase(item.first); ui.queued.erase(item.first); changed = true;
                     }
                 } else if (item.second.total) {
@@ -315,13 +330,14 @@ void App::tick(double elapsed, Video& video) {
                     if (!worker->start([this, entry, user] {
                         Result r; r.kind = ResultKind::Install; r.entry = entry;
                         int lastPercent = -1;
-                        r.task = installPackage(entry, user, directory, &worker->cancelled, [&](uint64_t bytes, uint64_t total) {
+                        try { r.task = installPackage(entry, user, directory, &worker->cancelled, [&](uint64_t bytes, uint64_t total) {
                             const int percent = total ? std::min(100.0, double(bytes) / total * 100.0) : 0;
                             if (lastPercent != percent) {
-                                worker->report("Server has no range support. Direct download: " + std::to_string(percent) + "% — keep this app open.");
+                                worker->report("Downloading package: " + std::to_string(percent) + "% — installation starts afterward. Keep app open.");
                                 lastPercent = percent;
                             }
-                        }, [this](const std::string& message) { log(message); worker->report(message); });
+                        }, [this](const std::string& message) { log(message); worker->report(message); }); }
+                        catch (const std::exception& e) { r.message = e.what(); }
                         return r;
                     })) throw std::runtime_error("Wait for the current operation, then retry installation");
                     ui.status = "Checking package URL and server range support..."; ui.loading = true; break;
@@ -329,6 +345,9 @@ void App::tick(double elapsed, Video& video) {
             }
         } catch (const std::exception& e) { ui.status = e.what(); log(ui.status); }
     }
+    // Keep installation failures visible even if a routine library scan finishes.
+    // Wait for the user to leave IME/settings rather than interrupting an edit.
+    if (!quitting && ui.screen == Screen::Dashboard && !ui.installError.empty()) ui.screen = Screen::InstallError;
     if (!demo && !quitting && bootReady && !worker->busy()) {
         if (!tasks.empty() && elapsed - lastPoll >= 3) {
             auto tracked = tasks;

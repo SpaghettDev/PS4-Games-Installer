@@ -1,5 +1,21 @@
 # Changelog
 
+## r20 — 2026-10-16
+
+- Correct local installation paths for BGFT's system namespace: translate this
+  app's `/data/...` staging paths to `/user/data/...`.
+- Validate the downloaded PKG header, Content ID, Title ID and actual 64-bit file
+  size before registration; submit the real package identity and length.
+- Reuse complete staged downloads using descriptor seeking instead of the SDK's
+  incompatible stat size field. Retrying a registration does not download again.
+- Distinguish package-download progress from PS4 installation. Show registration
+  and task errors in a persistent dialog with Retry and Close.
+- Diagnose duplicate-content errors by looking up the matching BGFT task, retaining
+  the error code and package. Never cancel unrelated tasks or remove installed games.
+- Console evidence: r19 downloaded Back to Bed completely but BGFT rejected
+  registration with `0x80990086`; no installation occurred. New registration behavior
+  still requires a hardware retest.
+
 ## r19 — 2026-10-16
 
 - Save library, search and both selected games before launching; restore by Title

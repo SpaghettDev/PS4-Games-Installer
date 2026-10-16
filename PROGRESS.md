@@ -1,5 +1,58 @@
 # Implementation progress
 
+## r20 download versus installation — 2026-10-16
+
+- Pulled current app log, saved catalog/config/task/player data, app.db, staging
+  listing, PKG header and small BGFT task metadata through the configured FTP
+  target. Read-only inspection; private evidence stays in ignored
+  `build/hardware-r19/`. No downloads, installed titles or task files were changed.
+- Reported title is Back to Bed, CUSA02537. The staging file is 245,760,000 bytes;
+  PKG header declares the same size and its Content ID matches that title. The
+  app log reaches full direct download, then reports Already queued. Its mapping
+  corresponds to registration error `0x80990086`. `tasks.json` is empty and app.db
+  has no matching title. This was a download followed by rejection, not a
+  successful installation followed by a missing home-screen icon.
+- Inspected saved BGFT task records: none contains that Title/Content ID. Do not
+  infer which unrelated task to remove from a duplicate error alone; an in-memory
+  service conflict remains possible. New diagnostics query the content-specific
+  native lookup and preserve the raw rejection code. If no matching task can be
+  confirmed, the dialog advises a full PS4 restart/GoldHEN and retry.
+- Local registrations used the app's `/data/...` path. Corrected BGFT requests
+  to the system-visible `/user/data/...` path, and read actual PKG identity/size
+  from the file before registration. Catalog Title ID mismatches and malformed or
+  truncated PKGs fail without submitting a task. This correction has compiled
+  for PS4 but has not yet established successful installation on the console.
+- The pinned SDK's stat layout reads allocation blocks as `st_size`; the retry
+  cache check therefore rejected complete packages. Switched package length
+  checks to descriptor seeking. Added a regression runner that deliberately
+  reproduces the bad stat size, and native package tests including a sparse 5 GiB
+  package. Existing complete staging files remain available for registration retry.
+- Download status now says installation follows the download. Added persistent
+  failure dialogs for registration and BGFT task errors, without interrupting an
+  open keyboard/settings edit. Retry returns through install confirmation.
+  Acknowledging an unchanged task error prevents repeated modal popups each poll.
+- Full `make test` passes, including all 15 Python integrations. New coverage
+  checks canonical storage paths, actual Content ID/size submission, truncated
+  headers, Title ID mismatches, 64-bit package sizes, duplicate lookup without
+  cancellation, cache reuse despite broken stat, refusal/retry, IME deferral and
+  acknowledged-error suppression. One earlier host application wait timed out
+  during a concurrent build; added call-site diagnostics, and five consecutive
+  application runs plus the final full suite passed afterward.
+- Built `dist/PS4Game_installer-r20.pkg`; `make validate` passes all hashes,
+  signatures and packed launcher imports. Source fingerprint and package SHA-256
+  match their records. Generated 23 r20 desktop captures and inspected the new
+  failure dialog; refreshed the README dashboard image.
+- Current source identity and whitespace audits pass. No deployment, task
+  cancellation, game removal, console installation or Git push was performed.
+  Hardware registration/installation and home-screen appearance remain pending;
+  the new code does not establish that the console's conflict has cleared.
+
+Primary references reviewed:
+
+- [BGFT system path mapping](https://github.com/Xyhlo/SSPI/blob/main/app/PkgInstallPath.cs)
+- [SDK stat ABI investigation](https://github.com/orbis-ports/orbis-compat/blob/master/include/orbis_stat.h)
+- [Content-specific BGFT task lookup](https://github.com/Xyhlo/SSPI/blob/main/app/PkgInstaller.cs)
+
 ## r19 personal library and download investigation — 2026-10-16
 
 - User confirmed r17 game launching, manipulator navigation and all installed

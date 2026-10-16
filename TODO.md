@@ -33,6 +33,9 @@
 - [x] Show star ratings, Installed / Was installed badges and library-specific footer counts.
 - [x] Replace the SDK's empty statvfs output with a native filesystem-capacity query.
 - [x] Move HTTP transfer buffers to the heap and give native background workers explicit 512 KiB stacks.
+- [x] Correct BGFT's system-visible staging path and submit validated PKG identity/size.
+- [x] Reuse complete packages despite the SDK stat size mismatch.
+- [x] Keep registration/task errors visible; distinguish downloading from installing.
 - [x] Remote artwork downloads work (user report for r16, 2026-10-16).
 - [x] Application confirmed working on real PS4 11.00 + GoldHEN (user report, 2026-10-16).
 - [ ] Complete the individual console acceptance checks below.
@@ -76,12 +79,18 @@
 - [ ] Retest r19: cancel/confirm Uninstall, then verify Was installed, rating and history survive restart.
 - [ ] Retest r19: Available footer shows the installable package count when switching libraries.
 - [ ] A package installs through BGFT and its task survives closing the application.
+- [x] r19 direct download reaches completion on hardware without the reported crash
+  in the observed Back to Bed attempts (user report and FTP log, 2026-10-16).
+- [ ] Retest r20: Back to Bed registers, installs and appears on the PS4 menu.
+  r19 BGFT rejected it with 0x80990086; no matching saved task was found.
+- [ ] Retest r20: Retry reuses the complete staged file, and a persistent dialog
+  shows an actual registration error if the system still refuses the request.
 - [ ] Storage panel detects a PS4 Extended Storage drive and updates after disconnect.
 - [ ] Install to each PS4 system destination and verify the resulting game location.
 - [ ] Retest r17: X in Installation destination changes the selected PS4 default;
   disconnect Extended Storage and verify the unavailable drive cannot be selected.
-- [ ] Retest r19: download after worker-stack repairs; r17 crashed with CE-34878-0.
-  Fetch logs/dump when configured FTP target is reachable to confirm the exact fault.
+- [ ] Continue large-package/repeated-transfer stability checks after r19's stack repair;
+  no r17 crash dump was available to establish its exact fault.
 - [ ] Retest r19: internal/external capacities are correct, including disconnect and full/unknown states.
 - [ ] Clear failed r16 downloads once, then install through the direct fallback,
   observe progress, retry an error, and verify staging cleanup.

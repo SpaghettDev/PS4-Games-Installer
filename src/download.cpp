@@ -10,10 +10,11 @@ namespace psgi {
 namespace {
 bool packageMagic(const std::string& bytes) { return bytes == std::string("\x7f" "CNT", 4); }
 bool completeFile(const std::string& path, uint64_t expected) {
-    struct stat st{};
-    if (!expected || stat(path.c_str(), &st) || !S_ISREG(st.st_mode) || uint64_t(st.st_size) != expected) return false;
+    if (!expected) return false;
     FILE* file = std::fopen(path.c_str(), "rb");
     if (!file) return false;
+    const bool matches = !fseeko(file, 0, SEEK_END) && ftello(file) >= 0 && uint64_t(ftello(file)) == expected && !fseeko(file, 0, SEEK_SET);
+    if (!matches) { std::fclose(file); return false; }
     char bytes[4]; const size_t count = std::fread(bytes, 1, sizeof(bytes), file); std::fclose(file);
     return count == 4 && packageMagic(std::string(bytes, 4));
 }
@@ -43,13 +44,13 @@ int installPackage(const Entry& entry, int userId, const std::string& directory,
         if (note) note("Range supported; registering remote package with BGFT");
         return queueInstall(entry, userId);
     }
-    if (note) note("Range unavailable; staging package in internal storage");
-    progress(0, probe.length);
+    if (note) note("Downloading package to internal storage before installation");
 
     const std::string folder = directory + "/downloads";
     if (mkdir(folder.c_str(), 0700) && errno != EEXIST) throw std::runtime_error("Cannot create package staging directory");
     const std::string path = stagedPackagePath(directory, entry.url), part = path + ".part";
     if (!completeFile(path, probe.length)) {
+        progress(0, probe.length);
         FILE* file = std::fopen(part.c_str(), "wb");
         if (!file) throw std::runtime_error("Cannot write package staging file");
         uint64_t received = 0, expected = 0;
@@ -76,9 +77,9 @@ int installPackage(const Entry& entry, int userId, const std::string& directory,
             const int closed = std::fclose(file); file = nullptr;
             if (closed || rename(part.c_str(), path.c_str())) throw std::runtime_error("Cannot save downloaded package");
         } catch (...) { if (file) std::fclose(file); unlink(part.c_str()); throw; }
-    }
+    } else if (note) note("Reusing complete downloaded package; no new download needed");
     if (cancelled && *cancelled) throw std::runtime_error("Download cancelled");
-    if (note) note("Download complete; registering staged package with BGFT");
+    if (note) note("Download complete. Requesting PS4 installation; not installed yet.");
     return queueLocalInstall(entry, path, userId);
 }
 }

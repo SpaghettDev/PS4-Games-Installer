@@ -3,6 +3,16 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <cstring>
+
+// Reproduce the pinned PS4 SDK's misleading st_size for cached packages.
+extern "C" int stat(const char* path, struct stat* result) noexcept {
+    const int rc = fstatat(AT_FDCWD, path, result, 0);
+    if (!rc && std::strstr(path, "/downloads/")) result->st_size = result->st_blocks;
+    return rc;
+}
 
 namespace {
 std::string mode, directory, url;
@@ -14,15 +24,16 @@ uint64_t freeSpace(const std::string&) { return mode == "space" ? 1024 : 1000000
 int queueInstall(const Entry& e, int user) { assert(user == 123 && e.url == url); ++remoteCalls; return 91; }
 int queueLocalInstall(const Entry& e, const std::string& path, int user) {
     assert(user == 123 && e.url == url && path == stagedPackagePath(directory, url));
-    const auto size = std::filesystem::file_size(path); assert(size == 1024 * 1024 + 4);
-    std::ifstream file(path, std::ios::binary); std::string magic(4, '\0'); file.read(&magic[0], 4);
+    std::ifstream file(path, std::ios::binary | std::ios::ate); const auto size = file.tellg();
+    assert(size == 1024 * 1024 + 4); file.seekg(0);
+    std::string magic(4, '\0'); file.read(&magic[0], 4);
     assert(magic == std::string("\x7f" "CNT", 4));
     char chunk[8192]; size_t read = 4;
     while (file) { file.read(chunk, sizeof(chunk)); const auto n = file.gcount();
         for (int i = 0; i < n; ++i) assert(chunk[i] == char((read + i) % 251));
         read += n;
     }
-    assert(read == size); ++localCalls; return 92;
+    assert(std::streamoff(read) == size); ++localCalls; return 92;
 }
 }
 int main(int argc, char** argv) {

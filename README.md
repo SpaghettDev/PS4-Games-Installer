@@ -11,10 +11,9 @@ confirmed working, remote artwork downloads work, and the reported exit crash is
 fixed. In r17 the user also confirmed game launching, analog navigation and the
 complete Installed library. r19 completed direct downloads in the subsequent
 hardware test, but PS4 registration rejected the tested package. r20 corrects
-local registration paths and retry caching. Fresh logs confirmed an old failed
-BGFT task still blocks registration; r28 adds exact-content failed-task recovery
-and a single local-registration retry. Successful installation still needs
-console confirmation. The application builds
+local registration paths and retry caching. r28 adds exact-content failed-task
+recovery and a single local-registration retry; the user confirmed that installation
+now works after this fix (2026-10-16). The application builds
 on Linux and its package validates; individual feature checks are tracked in
 [TODO.md](TODO.md).
 It requires an active homebrew environment; this app does not install GoldHEN.
@@ -530,7 +529,8 @@ active tasks and tasks identified only by remote catalog metadata are kept.
 If release fails, the dialog shows that error and keeps the package. Finish or
 cancel the matching entry in PS4 Notifications > Downloads, then retry. If no
 matching task can be confirmed, close the app, fully restart the PS4, enable
-GoldHEN and retry. This recovery still needs verification on PS4 hardware.
+GoldHEN and retry. The reported failed-task installation case is confirmed working
+on PS4 hardware with r28; the remaining task-state scenarios are tracked in TODO.md.
 
 Once a task is submitted to BGFT, closing this application does not cancel it.
 Use this app's queue or **PS4 Notifications > Downloads** for task details and

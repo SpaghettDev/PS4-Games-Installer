@@ -8,7 +8,8 @@
 - Keep active/unknown tasks and installed titles; preserve the downloaded package
   on refusal and report cleanup errors. Preserve ownership of a newly registered
   task when starting it and cleanup both fail. Host regressions and native package
-  validation passed; console acceptance remains pending.
+  validation passed. User confirmed the reported installation failure is resolved
+  on PS4 11.00 + GoldHEN after r28 (2026-10-16); other task-state checks remain open.
 
 ## Console installation investigation — 2026-10-16
 

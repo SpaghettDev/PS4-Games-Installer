@@ -6,8 +6,10 @@
 - [x] Recheck and release only failed exact-content tasks identified by a local PKG.
 - [x] Retry local registration once while preserving staging and new task ownership.
 - [x] Complete host regressions, native build/package validation and local commit.
-- [ ] Retest r28 on PS4: Back to Bed releases failed task 268435469, reuses the
-  saved package, installs and appears on the PS4 menu; active tasks stay intact.
+- [x] Reported installation failure resolved after r28 (user confirmation on
+  PS4 11.00 + GoldHEN, 2026-10-16).
+- [ ] Separately verify r28's active-task preservation, resumed/changed task
+  handling and cleanup-error recovery on hardware; inspect post-fix task logs.
 
 ## Current implementation: faster browsing and server profiles
 
@@ -150,14 +152,13 @@
 - [ ] Retest r19: rate 1–5 stars, refresh/restart and confirm ratings remain by Title ID.
 - [ ] Retest r19: cancel/confirm Uninstall, then verify Was installed, rating and history survive restart.
 - [ ] Retest r19: Available footer shows the installable package count when switching libraries.
-- [ ] A package installs through BGFT and its task survives closing the application.
+- [x] Package installation works after r28 (user confirmation, 2026-10-16).
+- [ ] A submitted installation task survives closing the application.
 - [x] r19 direct download reaches completion on hardware without the reported crash
   in the observed Back to Bed attempts (user report and FTP log, 2026-10-16).
-- [ ] Retest r20: Back to Bed registers, installs and appears on the PS4 menu.
-  Latest console logs still reject local registration with 0x80990086: exact
-  Content ID lookup reports failed task 268435469 / 0x80991404. Retest r28's
-  failed-task recovery with the saved package; task provenance and successful
-  installation remain unconfirmed.
+- [x] Resolve the reported local-registration refusal 0x80990086 with failed
+  task 268435469 / 0x80991404; user confirms installation works after r28
+  (2026-10-16). No post-fix task log was collected for internal-state verification.
 - [ ] Retest r20: Retry reuses the complete staged file, and a persistent dialog
   shows an actual registration error if the system still refuses the request.
 - [ ] Storage panel detects a PS4 Extended Storage drive and updates after disconnect.

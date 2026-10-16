@@ -1,5 +1,17 @@
 # Implementation progress
 
+## r28 installation hardware confirmation — 2026-10-16
+
+- User confirmed installation now works after r28, resolving the reported
+  0x80990086 refusal and existing failed-task 0x80991404 case on the previously
+  confirmed PS4 11.00 + GoldHEN environment.
+- Updated README, CHANGELOG and installation acceptance checks. This is user
+  confirmation, not a new FTP trace: no post-fix task log was retrieved, and
+  task-ID transitions, active-task preservation, cleanup errors, task survival
+  after application exit and storage destinations remain separate checks.
+- Documentation-only update; reviewed the diff and ran `git diff --check`.
+  No application change, package rebuild or revision increment was needed.
+
 ## r28 failed native-task recovery — 2026-10-16
 
 - User reports the same exact-content task 268435469 / 0x80991404 still blocks

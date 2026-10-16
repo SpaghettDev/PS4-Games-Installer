@@ -31,9 +31,7 @@ extern "C" int32_t sceLncUtilLaunchApp(const char* title, const char* args[], Ln
     assert(ready && std::strcmp(title, "CUSA00001") == 0 && args == nullptr);
     assert(param && param->size == sizeof(*param) && param->user_id == 123);
     assert(param->app_opt == 0 && param->crash_report == 0);
-    // Bit 1 skips launch checks; bit 2 preserves the existing update-check bypass.
-    // No reboot-patch or VR override may be requested during ordinary game launch.
-    assert(static_cast<unsigned>(param->LaunchAppCheck_flag) == 3u);
+    assert(param->LaunchAppCheck_flag == LaunchApp_SkipSystemUpdate);
     if (scenario == "launch-failure") return static_cast<int32_t>(0x80940010u);
     // A successful launch may return a positive app ID, not just zero.
     return scenario == "zero-result" ? 0 : 0x60000001;
@@ -89,5 +87,5 @@ int main() {
     mode("zero-result"); psgi::launchTitle("CUSA00001");
     mode("success"); psgi::launchTitle("CUSA00001");
     assert(loads == 8 && launches == 4);
-    std::puts("Native launcher direct-handoff flags, parameters, initialization, errors and retry passed");
+    std::puts("Native launcher service, parameters, initialization, errors and retry passed");
 }

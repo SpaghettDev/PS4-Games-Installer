@@ -80,9 +80,7 @@ void launchTitle(const std::string& id) {
     LncAppParam param{};
     param.size = sizeof(param);
     param.user_id = user;
-    // Request the application handoff without the shell launch confirmation.
-    // App::tick saves the library position and launch record before this call.
-    param.LaunchAppCheck_flag = static_cast<LaunchApp_Flag>(LaunchApp_SkipLaunch | LaunchApp_SkipSystemUpdate);
+    param.LaunchAppCheck_flag = LaunchApp_SkipSystemUpdate;
     int result = sceLncUtilLaunchApp(id.c_str(), nullptr, &param);
     if (result < 0) {
         char message[180];

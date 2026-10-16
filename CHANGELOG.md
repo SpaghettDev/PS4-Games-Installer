@@ -1,5 +1,15 @@
 # Changelog
 
+## r34 — 2026-10-17
+
+- Revert r33's skip-launch-check flag after the user reported a console crash on
+  game launch. Restore the exact r32 launcher and native test expectations, using
+  only the original skip-system-update flag and the normal PS4 close confirmation.
+- Keep r32 verification/launch-access fixes, queue actions and the documentation
+  reorganization with its screenshot gallery.
+- Native launcher/uninstall and App regressions passed; r34 package built and
+  validated. Console launch retest remains pending.
+
 ## Documentation — 2026-10-17
 
 - Reduce README from 793 to 114 lines, keeping program description, setup and
@@ -13,7 +23,7 @@
 - Validate local links/anchors, JSON examples and gallery markup. Documentation
   only; the successful application revision remains r33.
 
-## r33 — 2026-10-17
+## r33 — 2026-10-17 (withdrawn)
 
 - Request direct game handoff with the SDK skip-launch-check flag, retaining the
   existing system-update-check bypass. Intended to suppress the PS4 prompt asking
@@ -21,7 +31,8 @@
 - Preserve session/launch-record saving before handoff and error handling if launch
   fails. No queue, download, installer or renderer changes.
 - Native launch/uninstall and App session regressions passed; r33 package built
-  and validated. Console confirmation remains pending.
+  and validated. Subsequent hardware feedback reports a console crash on launch;
+  the prompt bypass is reverted in r34.
 
 ## r32 — 2026-10-17
 

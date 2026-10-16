@@ -154,8 +154,10 @@ source entry/settings saving, artwork, complete installed discovery, analog
 navigation, game launching, installation after r28, uninstall and the exit-crash
 fix. These confirmations do not establish acceptance of every later change.
 
-In particular, r32 verification recovery and r33 suppression of the launch-close
-prompt have separate acceptance checks in [TODO.md](TODO.md). A validated PKG,
+r33 introduced a reported console crash when bypassing the launch-close prompt;
+r34 restores the r32 native launch call and its normal confirmation. Keep the
+skip-launch-check flag disabled. r34 launch acceptance and r32 verification checks
+are tracked in [TODO.md](TODO.md). A validated PKG,
 host tests and desktop captures do not establish PS4 service behavior, USB behavior
 or console frame rate. Record the exact revision, firmware and observed result
 when testing on hardware; keep historical failures separate from current evidence.

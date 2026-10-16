@@ -9,16 +9,15 @@
 - [x] Validate links, gallery markup, JSON examples and unchanged package inputs.
 - [x] Update progress/changelog and commit documentation without a package revision.
 
-## Current implementation: r33 direct game handoff
+## Current implementation: r34 launch regression rollback
 
-- [x] Inspect the native launch parameters and pinned SDK/reverse-engineered flags.
-- [x] Request skip-launch-check together with the existing skip-system-update flag.
-- [x] Validate launcher/uninstall/session regressions and the native package.
-- [x] Update consumer docs and commit the successful revision.
-- [ ] Retest r33 on PS4 11.00 + GoldHEN: X on an installed game launches without
-  the close-installer confirmation, then reopening restores the selected game.
-- [ ] Retest launch failure (missing/disconnected game storage) retains the app and
-  displays the native error without changing the successful-launch count.
+- [x] Record the reported r33 console crash when launching a game.
+- [x] Restore the exact r32 native launch adapter and regression-test expectations.
+- [x] Keep r32 verification fixes and the revised consumer/expert/development manuals.
+- [x] Run launcher/uninstall/session regressions and build/validate r34.
+- [x] Commit the successful revision and updated progress/changelog.
+- [ ] Retest r34 on PS4 11.00 + GoldHEN: accept the normal close-installer dialog,
+  launch the game without crashing the console, then reopen at the saved selection.
 
 ## Current implementation: r32 verification and launch recovery
 

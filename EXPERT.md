@@ -218,11 +218,9 @@ before navigating again.
 The loading splash is visible while startup runs, with no artificial delay.
 The PS4 keyboard uses X to select a character or its Done button, and O to cancel.
 
-r33 requests a direct game handoff without the usual close-application confirmation,
-using the [OpenOrbis skip-launch-check flag](https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/blob/master/include/orbis/_types/sys_service.h).
-This still lets the PS4 close PS4 Games
-Installer while switching applications. Prompt suppression on PS4 11.00 + GoldHEN
-needs console acceptance.
+Launching a game uses the PS4's normal application-switching checks, including
+its confirmation to close PS4 Games Installer. Confirm that dialog to continue.
+The r33 attempt to bypass it was reverted in r34 after a reported console crash.
 The app saves both libraries' selections, the active library and search before
 handing off to the game. Reopening returns to that selection, even if a refresh
 has reordered the titles. If the title has disappeared, it selects the nearest

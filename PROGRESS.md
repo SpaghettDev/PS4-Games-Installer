@@ -1,5 +1,29 @@
 # Implementation progress
 
+## r34 rollback of launch-prompt bypass — 2026-10-17
+
+- User reports that r33 crashes the PS4 on game launch and explicitly requests
+  reverting the application-close prompt change. Treat r33 as withdrawn.
+- Restored `src/console.cpp` and `tests/launch_native_test.cpp` byte-for-byte from
+  r32 commit `79c15fb`. The launch call again requests only SkipSystemUpdate (2),
+  leaving PS4's normal application-close confirmation enabled.
+- Keep the r32 verification/installed-launch fixes, r31 queue actions and all
+  consumer/expert/development documentation and Screenshots/ captures. Corrected
+  the manuals and acceptance tracker to reflect the rollback and console report.
+- Native adapter tests can validate the parameters/error paths but did not detect
+  r33's actual firmware behavior. Console launch acceptance remains explicit.
+- Native launcher/uninstall regressions passed after rebuilding the restored
+  adapter. App session/launch/history, r32 verification recovery and queue
+  cancellation regressions also passed. Packaged input fingerprint matches r32
+  exactly; no unrelated application changes are included.
+- `make all` built `dist/PS4Game_installer-r34.pkg` (6,619,136 bytes).
+  `make validate` passed package hashes/signatures and packed launcher imports;
+  source fingerprint, manifest checksum and revision record match.
+- Corrected the expert/development manuals and checked local document references.
+  Whitespace and tracked identity audits pass; local commit includes revision.json.
+  No renderer/menu changes, console actions, deployment or push performed.
+  r34 console launch acceptance remains pending.
+
 ## Consumer README and separate manuals — 2026-10-17
 
 - User requested a shorter consumer README, separate expert/development manuals,

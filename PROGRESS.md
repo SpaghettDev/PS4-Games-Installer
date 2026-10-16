@@ -1,5 +1,38 @@
 # Implementation progress
 
+## r28 failed native-task recovery — 2026-10-16
+
+- User reports the same exact-content task 268435469 / 0x80991404 still blocks
+  installation with 0x80990086, and requested upstream installation research.
+- Reviewed upstream C# direct-download/local-install call sites and the native
+  bridge at commit `61b00ce423be9d7bdee3e6951962536269dd0b00`. Both local and web
+  installs use the same native BGFT APIs already used here; upstream provides no
+  failed-task recovery for 0x80990086. Its local generic-error return precedes the
+  special duplicate notice, and other conflict branches uninstall the title.
+  Kept installed titles intact rather than adopting that uninstall behavior.
+- Added bounded recovery for a refused local registration: actual PKG identity and
+  subtype must locate a task whose progress reports an error. Repeat the identity
+  lookup and progress check immediately before unregistering; retry registration
+  once using the retained file and application slot. Active/unknown tasks and
+  remote-only identities cannot trigger cleanup. No console tasks were modified
+  during implementation or reference research.
+- Added native-service regressions for orphan recovery, both duplicate codes,
+  active tasks, lookup/progress failures, identity changes/resumption, cleanup
+  errors, repeated conflict, second-registration/start failure, retained new task
+  ownership, update subtype/slot and refusal of remote-only cleanup.
+- Full Docker `make -j4 test` passed all host/native-service suites and 15 Python
+  integrations, including the new recovery cases. FTP deployment tests used only
+  their localhost fixture; no package was deployed to the console.
+- `make all` built `dist/PS4Game_installer-r28.pkg`; `make validate` passed package
+  hashes/signatures and packed imports. Source fingerprint, revision and manifest
+  checksum match the final artifact. Source identity and whitespace audits pass.
+- Updated consumer recovery instructions, CHANGELOG and TODO. This changes the
+  installer backend only; no render/layout changes or new screenshots. PS4
+  installation success and the new native recovery path remain unconfirmed.
+
+Reference:
+https://github.com/ItsJokerZz/UnityOrbisBridge/blob/61b00ce423be9d7bdee3e6951962536269dd0b00/source/plugin/source/pkg.cpp
+
 ## Installation refusal investigated from console logs — 2026-10-16
 
 - Pulled current app log, queue/task journals, staging listing and targeted BGFT

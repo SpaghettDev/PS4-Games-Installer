@@ -100,37 +100,54 @@ int submit(const Entry& entry, int userId, const std::string& localPath, const P
     // Ask the installer to read package metadata rather than treating catalog
     // size estimates as authoritative package headers.
     params.packageSize = package ? package->size : 0;
-    int task = -1;
-    int rc;
-    if (localPath.empty()) rc = bgft.registerPkg(&params, &task);
-    else {
-        StorageDownloadParams local{}; local.params = params;
-        if (entry.category == "updates") {
-            int module = sceKernelLoadStartModule("/system/common/lib/libSceAppInstUtil.sprx", 0, nullptr, 0, nullptr, nullptr);
-            if (module < 0) check(module, "Load update slot service");
-            auto initialize = symbol<int (*)()>(module, "sceAppInstUtilInitialize");
-            check(initialize(), "Initialize update slot service");
-            auto getSlot = symbol<int (*)(const char*, unsigned*)>(module, "sceAppInstUtilGetPrimaryAppSlot");
-            check(getSlot((package ? package->titleId : entry.titleId).c_str(), &local.slot), "Read update application slot");
+    StorageDownloadParams local{}; local.params = params;
+    if (!localPath.empty() && entry.category == "updates") {
+        int module = sceKernelLoadStartModule("/system/common/lib/libSceAppInstUtil.sprx", 0, nullptr, 0, nullptr, nullptr);
+        if (module < 0) check(module, "Load update slot service");
+        auto initialize = symbol<int (*)()>(module, "sceAppInstUtilInitialize");
+        check(initialize(), "Initialize update slot service");
+        auto getSlot = symbol<int (*)(const char*, unsigned*)>(module, "sceAppInstUtilGetPrimaryAppSlot");
+        check(getSlot(package->titleId.c_str(), &local.slot), "Read update application slot");
+    }
+    int task = -1, rc = 0;
+    for (unsigned attempt = 0; attempt < 2; ++attempt) {
+        task = -1;
+        rc = localPath.empty() ? bgft.registerPkg(&params, &task) : bgft.registerLocal(&local, &task);
+        if (static_cast<uint32_t>(rc) == 0x80990088)
+            throw SubmissionFailure("Installed title conflict (" + hexCode(rc) + "). Existing title was kept.", true);
+        if (static_cast<uint32_t>(rc) == 0x80990086 || static_cast<uint32_t>(rc) == 0x80990015) {
+            std::string message = "PS4 refused installation (" + hexCode(rc) + "). ";
+            const std::string content = package ? package->contentId : entry.contentId;
+            const int subtype = package && package->type == 0x1b ? 7 : 6;
+            int found = -1;
+            if (bgft.findTask && !content.empty() && bgft.findTask(content.c_str(), subtype, &found) == 0 && found >= 0) {
+                Progress state{};
+                const bool failed = !bgft.progress(found, &state) && state.error;
+                message += "Existing download task " + std::to_string(found);
+                if (failed) message += " failed: " + hexCode(state.error);
+                // A validated local PKG is our identity authority. Recover a failed
+                // exact-content task left by an earlier installer, without adopting
+                // it as owned or stopping an active download. Recheck immediately
+                // before release, then register once more with the same local file.
+                if (!attempt && package && failed) {
+                    int current = -1;
+                    Progress latest{};
+                    if (!bgft.findTask(content.c_str(), subtype, &current) && current == found &&
+                        !bgft.progress(current, &latest) && latest.error) {
+                        const int cleanup = bgft.unregisterTask(current);
+                        if (cleanup) throw SubmissionFailure(message + ". Could not release the failed matching task: " + hexCode(cleanup) +
+                            ". Cancel that title in PS4 Downloads, then retry. Downloaded package kept.", false);
+                        continue;
+                    }
+                }
+                message += ". Finish or cancel that title in PS4 Notifications > Downloads, then retry.";
+            } else message += "No matching task could be confirmed. Close the app, restart the PS4, enable GoldHEN and retry.";
+            if (package) message += " Downloaded package kept.";
+            throw SubmissionFailure(message, false);
         }
-        rc = bgft.registerLocal(&local, &task);
+        if (rc) throw SubmissionFailure(std::string(localPath.empty() ? "Register remote package" : "Register local package " + package->titleId + " at " + localPath) + ": " + hexCode(rc), true);
+        break;
     }
-    if (static_cast<uint32_t>(rc) == 0x80990088)
-        throw SubmissionFailure("Installed title conflict (" + hexCode(rc) + "). Existing title was kept.", true);
-    if (static_cast<uint32_t>(rc) == 0x80990086 || static_cast<uint32_t>(rc) == 0x80990015) {
-        std::string message = "PS4 refused installation (" + hexCode(rc) + "). ";
-        const std::string content = package ? package->contentId : entry.contentId;
-        int found = -1;
-        if (bgft.findTask && !content.empty() && bgft.findTask(content.c_str(), package && package->type == 0x1b ? 7 : 6, &found) == 0 && found >= 0) {
-            Progress state{};
-            message += "Existing download task " + std::to_string(found);
-            if (!bgft.progress(found, &state) && state.error) message += " failed: " + hexCode(state.error);
-            message += ". Finish or cancel that title in PS4 Notifications > Downloads, then retry.";
-        } else message += "No matching task could be confirmed. Close the app, restart the PS4, enable GoldHEN and retry.";
-        if (package) message += " Downloaded package kept.";
-        throw SubmissionFailure(message, false);
-    }
-    if (rc) throw SubmissionFailure(std::string(localPath.empty() ? "Register remote package" : "Register local package " + package->titleId + " at " + localPath) + ": " + hexCode(rc), true);
     if (task < 0) throw std::runtime_error("BGFT returned an invalid task ID");
     rc = bgft.start(task);
     if (rc) {

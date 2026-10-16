@@ -1,5 +1,15 @@
 # Changelog
 
+## r28 — 2026-10-16
+
+- Recover local installation blocked by an old failed BGFT task, including the
+  reported 0x80990086 / 0x80991404 case. Identify it from the validated PKG Content
+  ID/subtype, recheck its identity/error, release it and retry registration once.
+- Keep active/unknown tasks and installed titles; preserve the downloaded package
+  on refusal and report cleanup errors. Preserve ownership of a newly registered
+  task when starting it and cleanup both fail. Host regressions and native package
+  validation passed; console acceptance remains pending.
+
 ## Console installation investigation — 2026-10-16
 
 - Confirm from fresh console logs that the complete Back to Bed package is

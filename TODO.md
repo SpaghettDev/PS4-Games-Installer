@@ -1,5 +1,14 @@
 # Work tracker
 
+## Current implementation: failed native-task recovery
+
+- [x] Compare upstream native installer flow and duplicate-conflict handling.
+- [x] Recheck and release only failed exact-content tasks identified by a local PKG.
+- [x] Retry local registration once while preserving staging and new task ownership.
+- [x] Complete host regressions, native build/package validation and local commit.
+- [ ] Retest r28 on PS4: Back to Bed releases failed task 268435469, reuses the
+  saved package, installs and appears on the PS4 menu; active tasks stay intact.
+
 ## Current implementation: faster browsing and server profiles
 
 - [x] L2/R2 page jumps and a letter picker for the current filtered view.
@@ -146,9 +155,9 @@
   in the observed Back to Bed attempts (user report and FTP log, 2026-10-16).
 - [ ] Retest r20: Back to Bed registers, installs and appears on the PS4 menu.
   Latest console logs still reject local registration with 0x80990086: exact
-  Content ID lookup reports failed task 268435469 / 0x80991404. Cancel the
-  matching failed PS4 Downloads entry if visible, then retry the saved package;
-  task provenance and successful installation remain unconfirmed.
+  Content ID lookup reports failed task 268435469 / 0x80991404. Retest r28's
+  failed-task recovery with the saved package; task provenance and successful
+  installation remain unconfirmed.
 - [ ] Retest r20: Retry reuses the complete staged file, and a persistent dialog
   shows an actual registration error if the system still refuses the request.
 - [ ] Storage panel detects a PS4 Extended Storage drive and updates after disconnect.

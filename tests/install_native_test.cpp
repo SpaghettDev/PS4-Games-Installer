@@ -28,9 +28,14 @@ struct Progress {
 std::string mode, expectedUrl, expectedIcon;
 int registrations = 0, starts = 0, removals = 0;
 int stops = 0;
+std::string recovery;
+int retryCalls = 0, lookupCalls = 0, progressCalls = 0, recoveryRemovals = 0;
+int expectedSubtype = 6;
+int recoveredTaskStarted = -1;
+
 bool local = false;
 bool update = false;
-std::string expectedContent;
+std::string expectedContent, expectedLookupContent;
 int init(Init* p) { assert(p->heap && p->size == 1024 * 1024); return 0; }
 int registerPkg(Params* p, int* task) {
     ++registrations;
@@ -39,6 +44,13 @@ int registerPkg(Params* p, int* task) {
     assert(std::strcmp(p->id, expectedContent.c_str()) == 0);
     assert(std::strcmp(p->icon, expectedIcon.c_str()) == 0 && std::strcmp(p->name, "Test game") == 0);
     *task = 45;
+    if (!recovery.empty()) {
+        ++retryCalls;
+        if (retryCalls == 1 || recovery == "repeat-conflict" || recovery == "cleanup-error" || recovery == "active" || recovery == "lookup-error" || recovery == "progress-error" || recovery == "changed-task" || recovery == "resumed" || recovery == "recheck-error")
+            return static_cast<int32_t>(recovery == "alternate-code" ? 0x80990015u : 0x80990086u);
+        if (recovery == "retry-error") return -9;
+        *task = 46; return 0;
+    }
     if (mode == "conflict") return static_cast<int32_t>(0x80990088u);
     if (mode == "duplicate" || mode == "duplicate-found") return static_cast<int32_t>(0x80990086u);
     return 0;
@@ -46,11 +58,17 @@ int registerPkg(Params* p, int* task) {
 int registerLocal(Local* p, int* task) { assert(local && p->slot == (update ? 3u : 0u)); return registerPkg(&p->params, task); }
 int initApp() { return 0; }
 int getSlot(const char* id, unsigned* slot) { assert(std::strcmp(id, "CUSA00001") == 0); *slot = 3; return 0; }
-int start(int task) { assert(task == 45); ++starts; return mode == "start-error" || mode == "start-retained" ? -3 : 0; }
-int unregisterTask(int task) { assert(task == 45); ++removals; return mode == "remove-error" || mode == "start-retained" ? -4 : 0; }
+int start(int task) { if (!recovery.empty()) { assert(task == 46); recoveredTaskStarted = task; return recovery == "retry-start-error" || recovery == "retry-start-retained" ? -3 : 0; } assert(task == 45); ++starts; return mode == "start-error" || mode == "start-retained" ? -3 : 0; }
+int unregisterTask(int task) { if (!recovery.empty()) { assert(task == 45 || (task == 46 && (recovery == "retry-start-error" || recovery == "retry-start-retained"))); ++recoveryRemovals; return recovery == "cleanup-error" || (task == 46 && recovery == "retry-start-retained") ? -4 : 0; } assert(task == 45); ++removals; return mode == "remove-error" || mode == "start-retained" ? -4 : 0; }
 int stop(int task) { assert(task == 45); ++stops; return mode == "stop-error" ? -6 : 0; }
 int progress(int task, Progress* p) {
     assert(task == 45); *p = {};
+    if (!recovery.empty()) {
+        ++progressCalls;
+        if (recovery == "progress-error" || (recovery == "recheck-error" && progressCalls > 1)) return -5;
+        if (recovery != "active" && !(recovery == "resumed" && progressCalls > 1)) p->error = static_cast<int32_t>(0x80991404u);
+        return 0;
+    }
     if (mode == "missing") return static_cast<int32_t>(0x80990019u);
     if (mode == "progress-error") return -5;
     if (mode == "failed" || mode == "remove-error") p->error = static_cast<int32_t>(0x80991404u);
@@ -60,7 +78,13 @@ int progress(int task, Progress* p) {
     return 0;
 }
 int findTask(const char* content, int subtype, int* task) {
-    assert(std::strcmp(content, expectedContent.c_str()) == 0 && subtype == 6);
+    assert(std::strcmp(content, (expectedLookupContent.empty() ? expectedContent : expectedLookupContent).c_str()) == 0 && subtype == expectedSubtype);
+    if (!recovery.empty()) {
+        ++lookupCalls;
+        if (recovery == "lookup-error") { *task = -1; return -5; }
+        *task = recovery == "changed-task" && lookupCalls > 1 ? 47 : 45;
+        return 0;
+    }
     *task = mode == "duplicate-found" ? 45 : -1; return *task < 0 ? static_cast<int32_t>(0x80990019u) : 0;
 }
 template<class F> void rejects(F job, const char* text) {
@@ -157,5 +181,54 @@ int main() {
     bool released = false;
     try { queueInstall(entry, 123); } catch (const SubmissionFailure& error) { released = error.storageReleased && error.retainedTask < 0; }
     assert(released);
+    // Reproduce an orphaned failed remote task blocking a complete local PKG.
+    local = true; mode.clear(); expectedIcon.clear();
+    char recoveryDir[] = "/tmp/psgi-recovery-XXXXXX"; assert(mkdtemp(recoveryDir));
+    expectedUrl = std::string(recoveryDir) + "/test.pkg";
+    expectedContent = "IV0000-CUSA00001_00-1234567890123456";
+    writePackageFixture(expectedUrl);
+    auto scenario = [&](const char* name) {
+        recovery = name; retryCalls = lookupCalls = progressCalls = recoveryRemovals = 0; recoveredTaskStarted = -1;
+    };
+    for (const char* code : {"failed", "alternate-code"}) {
+        scenario(code);
+        assert(queueLocalInstall(entry, expectedUrl, 123) == 46);
+        assert(retryCalls == 2 && recoveryRemovals == 1 && recoveredTaskStarted == 46 && stops == 2);
+    }
+    for (const char* unsafe : {"active", "lookup-error", "progress-error", "changed-task", "resumed", "recheck-error"}) {
+        scenario(unsafe);
+        rejects([&] { queueLocalInstall(entry, expectedUrl, 123); }, "PS4 refused installation");
+        assert(recoveryRemovals == 0 && retryCalls == 1 && recoveredTaskStarted == -1);
+    }
+    scenario("cleanup-error");
+    rejects([&] { queueLocalInstall(entry, expectedUrl, 123); }, "Could not release the failed matching task: 0xFFFFFFFC");
+    assert(recoveryRemovals == 1 && retryCalls == 1 && recoveredTaskStarted == -1);
+    scenario("repeat-conflict");
+    rejects([&] { queueLocalInstall(entry, expectedUrl, 123); }, "Downloaded package kept");
+    assert(recoveryRemovals == 1 && retryCalls == 2 && recoveredTaskStarted == -1);
+    scenario("retry-error");
+    released = false;
+    try { queueLocalInstall(entry, expectedUrl, 123); } catch (const SubmissionFailure& error) { released = error.storageReleased && error.retainedTask < 0; }
+    assert(released && recoveryRemovals == 1 && retryCalls == 2);
+    scenario("retry-start-error");
+    rejects([&] { queueLocalInstall(entry, expectedUrl, 123); }, "registration removed");
+    assert(recoveryRemovals == 2 && recoveredTaskStarted == 46);
+    scenario("retry-start-retained"); retained = false;
+    try { queueLocalInstall(entry, expectedUrl, 123); } catch (const SubmissionFailure& error) { retained = !error.storageReleased && error.retainedTask == 46; }
+    assert(retained && recoveryRemovals == 2 && recoveredTaskStarted == 46);
+    // Update packages use their native subtype and primary app slot on both registrations.
+    writePackageFixture(expectedUrl);
+    FILE* patch = std::fopen(expectedUrl.c_str(), "r+b"); assert(patch);
+    assert(!fseeko(patch, 0x77, SEEK_SET) && std::fputc(0x1b, patch) != EOF && !std::fclose(patch));
+    update = true; entry.category = "updates"; expectedSubtype = 7;
+    scenario("failed"); assert(queueLocalInstall(entry, expectedUrl, 123) == 46 && recoveryRemovals == 1 && retryCalls == 2);
+    update = false; entry.category = "games"; expectedSubtype = 6;
+    // Remote metadata alone is insufficient authority to release someone else's task.
+    local = false; expectedUrl = entry.url; expectedIcon = entry.coverUrl;
+    scenario("failed"); expectedContent.clear(); expectedLookupContent = entry.contentId = "IV0000-CUSA00001_00-1234567890123456";
+    rejects([&] { queueInstall(entry, 123); }, "Existing download task 45 failed: 0x80991404");
+    assert(recoveryRemovals == 0 && retryCalls == 1);
+    unlink((std::string(recoveryDir) + "/test.pkg").c_str()); rmdir(recoveryDir);
+    std::puts("Failed exact-content local task recovery, active-task preservation, bounded retries and update slots passed");
     std::puts("BGFT remote/local registration, URL preservation, conflicts, retry cleanup and completion checks passed");
 }

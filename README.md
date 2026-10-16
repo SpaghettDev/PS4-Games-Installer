@@ -11,7 +11,9 @@ confirmed working, remote artwork downloads work, and the reported exit crash is
 fixed. In r17 the user also confirmed game launching, analog navigation and the
 complete Installed library. r19 completed direct downloads in the subsequent
 hardware test, but PS4 registration rejected the tested package. r20 corrects
-local registration paths and retry caching; successful installation still needs
+local registration paths and retry caching. Fresh logs confirmed an old failed
+BGFT task still blocks registration; r28 adds exact-content failed-task recovery
+and a single local-registration retry. Successful installation still needs
 console confirmation. The application builds
 on Linux and its package validates; individual feature checks are tracked in
 [TODO.md](TODO.md).
@@ -521,10 +523,14 @@ installed game. Enable Range support on the server to avoid this extra copy.
 an **Installation failed** dialog with the actual error; X offers Retry and O
 closes the dialog. A complete staging file is kept and reused on retry.
 For duplicate errors `0x80990086` or `0x80990015`, the app looks up the exact
-Content ID. If a matching task is found, finish or cancel that title in PS4
-Notifications > Downloads. If no matching task can be confirmed, close the app,
-fully restart the PS4, enable GoldHEN and retry. The app does not remove unrelated
-downloads to resolve a conflict.
+Content ID. When installing a validated local PKG, it can release an old failed
+task for that exact package and retry registration once, including tasks left by
+an earlier revision. It rechecks the identity and failed state before release;
+active tasks and tasks identified only by remote catalog metadata are kept.
+If release fails, the dialog shows that error and keeps the package. Finish or
+cancel the matching entry in PS4 Notifications > Downloads, then retry. If no
+matching task can be confirmed, close the app, fully restart the PS4, enable
+GoldHEN and retry. This recovery still needs verification on PS4 hardware.
 
 Once a task is submitted to BGFT, closing this application does not cancel it.
 Use this app's queue or **PS4 Notifications > Downloads** for task details and
@@ -535,9 +541,10 @@ its task is removed or BGFT confirms installation/copy completion and unregister
 the task. Reopen the app to reconcile tasks and release these copies. Registration
 errors keep a complete staging file so retrying does not download it again.
 
-**Upgrading from r16:** cancel old failed downloads in PS4 Notifications > Downloads
-once before retrying. r16 discarded their tracking IDs; the app cannot safely
-remove tasks it no longer owns.
+**Upgrading from r16:** r28 can recover failed tasks even when the earlier revision
+lost their tracking IDs, provided the complete local PKG identifies the exact
+content and PS4 confirms the task is still failed. Other old entries may still
+need cancellation in PS4 Notifications > Downloads before retrying.
 
 Existing-title conflicts are reported without automatically uninstalling a game.
 To remove an installed game, select it in Installed and choose **Triangle >

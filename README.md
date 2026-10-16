@@ -209,6 +209,14 @@ URLs live in `config.json`; profile backups and diagnostic exports omit them.
 | O | Close a window or go back |
 | O on the main dashboard | Open exit confirmation; press O again to exit, X to stay |
 
+Up/Down wraps through every selectable menu: Up on the first entry selects the
+last, and Down on the last selects the first. This includes the sidebar, settings,
+actions, ratings, category/tag pickers, source/profile lists, downloads and USB
+pickers. Summary game lists wrap first/last; tile grids wrap top/bottom rows,
+keeping the column where possible and choosing the nearest tile in a short row.
+Left at the first tile column still opens the sidebar. L2/R2 page jumps and
+scrolling game-detail text retain their page/scroll boundaries.
+
 Selecting Exit from Options opens the same Circle confirmation. Settings are saved
 only when Save settings is selected; Circle offers to discard unsaved edits.
 Quick view/group/sort/filter changes in Options are saved immediately. **Sort**

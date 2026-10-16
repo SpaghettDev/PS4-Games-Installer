@@ -12,7 +12,108 @@ Ui fixture() {
     ui.setLibraries(std::vector<Entry>{local}, remote);
     return ui;
 }
+void wrapNavigation() {
+    auto ui = fixture();
+    ui.library = Library::Available; ui.rebuild(); ui.pending = ui.available.front();
+    ui.draft = ui.settings;
+    ui.draft.sources = {{"games", "http://nas/games"}, {"updates", "http://nas/updates"}, {"dlc", "http://nas/dlc"}};
+    addServerProfile(ui.draft, "Home"); addServerProfile(ui.draft, "Away");
+    ui.player.createTerm(false, "Action"); ui.player.createTerm(false, "Adventure");
+    ui.player.createTerm(true, "Co-op"); ui.player.createTerm(true, "Weekend");
+    ui.recentSearches = {"Alpha", "Beta"};
+    QueueItem first; first.entry = ui.pending; ui.downloads = {first, first, first};
+    ui.backupDevices = {{"/mnt/usb0", {"one.json", "two.json", "three.json"}}, {"/mnt/usb1", {}}};
+    ui.packageTitle = ui.pending.titleId;
+    Entry patch = ui.pending; patch.category = "updates"; patch.url = "http://nas/patch"; ui.available.push_back(patch); ui.rebuild();
+    struct Menu { Screen screen; size_t Ui::*cursor; size_t count, first = 0; };
+    const Menu menus[] = {
+        {Screen::Options, &Ui::menuIndex, ui.options().size()},
+        {Screen::Settings, &Ui::settingsIndex, ui.settingRows().size()},
+        {Screen::Sources, &Ui::sourceIndex, ui.draft.sources.size(), 1},
+        {Screen::Storage, &Ui::storageIndex, 2},
+        {Screen::Actions, &Ui::menuIndex, ui.actionRows().size()},
+        {Screen::Rating, &Ui::ratingIndex, 6},
+        {Screen::LocalInfo, &Ui::localIndex, ui.localRows().size()},
+        {Screen::PickCategory, &Ui::pickerIndex, ui.termChoices(false, true).size() + 1},
+        {Screen::PickTags, &Ui::pickerIndex, ui.termChoices(true, true).size() + 1},
+        {Screen::Collections, &Ui::collectionIndex, ui.collectionRows().size()},
+        {Screen::BulkMenu, &Ui::bulkIndex, ui.bulkRows().size()},
+        {Screen::SavedCollections, &Ui::savedIndex, ui.savedRows().size()},
+        {Screen::EditSaved, &Ui::savedEditIndex, ui.savedEditRows().size()},
+        {Screen::Queue, &Ui::queueIndex, ui.downloads.size()},
+        {Screen::Backups, &Ui::backupIndex, ui.backupDevices.size()},
+        {Screen::BackupFiles, &Ui::backupFileIndex, ui.backupDevices.front().files.size()},
+        {Screen::Diagnostics, &Ui::backupIndex, ui.backupDevices.size()},
+        {Screen::SourceSetup, &Ui::setupIndex, 3},
+        {Screen::Packages, &Ui::packageIndex, ui.packageRows().size()},
+        {Screen::Search, &Ui::searchIndex, ui.searchRows().size()},
+        {Screen::JumpLetter, &Ui::jumpIndex, ui.letters().size()},
+        {Screen::ServerProfiles, &Ui::profileIndex, ui.profileRows().size()}
+    };
+    for (const auto& menu : menus) {
+        ui.screen = menu.screen; ui.backupIndex = 0;
+        auto& cursor = ui.*menu.cursor;
+        cursor = menu.first;
+        ui.handle(Button::Up); assert(cursor == menu.first + menu.count - 1);
+        ui.handle(Button::Down); assert(cursor == menu.first);
+        for (size_t i = 0; i < menu.count; ++i) ui.handle(Button::Down);
+        assert(cursor == menu.first);
+        for (size_t i = 0; i < menu.count; ++i) ui.handle(Button::Up);
+        assert(cursor == menu.first && ui.screen == menu.screen);
+        Command command; assert(!ui.take(command)); // Navigation never activates an entry.
+    }
+    // Dynamic lists may shrink or become empty while a menu is open.
+    ui.screen = Screen::ServerProfiles; ui.profileIndex = 100;
+    ui.draft.profiles.resize(1); ui.handle(Button::Up); assert(ui.profileIndex == 0);
+    ui.draft.profiles.clear(); ui.handle(Button::Down); assert(ui.profileIndex == 0);
+    ui.screen = Screen::Queue; ui.downloads.clear(); ui.queueIndex = 100;
+    ui.handle(Button::Up); ui.handle(Button::Down); assert(ui.queueIndex == 0);
+    ui.screen = Screen::Diagnostics; ui.backupDevices.clear(); ui.backupIndex = 100;
+    ui.handle(Button::Down); assert(ui.backupIndex == 0);
+    ui.screen = Screen::PickTags; ui.player = {}; ui.localDraft = {}; ui.pickerIndex = 0;
+    ui.handle(Button::Up); ui.handle(Button::Down); assert(ui.pickerIndex == 0);
+    // Additional sources omit the primary source, and still contain Add when empty.
+    ui.screen = Screen::Sources; ui.draft.sources.resize(1); ui.sourceIndex = 1;
+    ui.handle(Button::Up); ui.handle(Button::Down); assert(ui.sourceIndex == 1);
+    ui.draft.sources.push_back({"dlc", "http://nas/dlc"}); ui.sourceIndex = 1;
+    ui.handle(Button::Up); assert(ui.sourceIndex == 2);
+    ui.handle(Button::Triangle); // Add row must not delete the primary or last source.
+    assert(ui.draft.sources.size() == 2);
+    ui.handle(Button::Down); ui.handle(Button::Triangle); assert(ui.draft.sources.size() == 1);
+    ui.handle(Button::Up); assert(ui.sourceIndex == 1);
+    ui = fixture(); ui.sidebar = true; ui.sidebarIndex = 0;
+    ui.handle(Button::Up); assert(ui.sidebarIndex == 4 && ui.sidebar);
+    ui.handle(Button::Down); assert(ui.sidebarIndex == 0 && ui.library == Library::Installed);
+    ui.sidebarIndex = 4; ui.handle(Button::Up); assert(ui.sidebarIndex == 3 && ui.sidebar);
+    ui.handle(Button::Cross); assert(ui.screen == Screen::Queue);
+    ui.handle(Button::Circle); assert(ui.screen == Screen::Dashboard && ui.sidebarIndex == 3);
+    // A ragged final tile row wraps vertically and clamps to its nearest column.
+    ui = {}; ui.screen = Screen::Dashboard; ui.library = Library::Available;
+    std::vector<Entry> games;
+    for (int i = 0; i < 13; ++i) { Entry game; game.name = "Game " + std::to_string(100 + i); game.url = "http://nas/" + std::to_string(i); games.push_back(game); }
+    ui.setLibraries({}, games); ui.settings.grouping = Grouping::None; ui.rebuild();
+    ui.selected[1] = 0; ui.handle(Button::Up); assert(ui.position() == 12);
+    ui.handle(Button::Down); assert(ui.position() == 0);
+    ui.selected[1] = 3; ui.handle(Button::Up); assert(ui.position() == 12);
+    ui.handle(Button::Left); assert(ui.sidebar); // Left at a row start still reaches the sidebar.
+    ui.handle(Button::Right); assert(!ui.sidebar);
+    ui.settings.layout = Layout::Summary; ui.selected[1] = 0; ui.rebuild();
+    ui.handle(Button::Up); assert(ui.position() == 12);
+    ui.handle(Button::Down); assert(ui.position() == 0);
+    games.resize(1); ui.setLibraries({}, games);
+    for (Layout layout : {Layout::Tiles, Layout::Summary}) {
+        ui.settings.layout = layout; ui.rebuild(); ui.handle(Button::Up); ui.handle(Button::Down); assert(ui.position() == 0);
+    }
+    games.clear(); ui.setLibraries({}, games); ui.handle(Button::Up); ui.handle(Button::Down); assert(ui.position() == 0);
+    // Directional navigation cannot confirm destructive dialogs.
+    for (Screen screen : {Screen::ConfirmExit, Screen::ConfirmUninstall, Screen::ConfirmCancelQueue, Screen::ConfirmRestore}) {
+        ui.screen = screen; ui.handle(Button::Up); ui.handle(Button::Down);
+        Command command; assert(ui.screen == screen && !ui.take(command));
+    }
+    std::puts("Wraparound navigation passed for 22 menus, sidebar, ragged tiles, summary, shrinking/empty lists and confirmation guards");
+}
 int main() {
+    wrapNavigation();
     Command command;
     auto ui = fixture();
     ui.handle(Button::Cross);
@@ -223,7 +324,8 @@ int main() {
     }
     ui.settings.grouping = Grouping::Category; ui.rebuild();
     assert(ui.visible.size() == 50000 && ui.tileRows().size() == 12500);
-    ui.selected[1] = 49999; ui.handle(Button::Down); assert(ui.position() == 49999);
+    ui.selected[1] = 49999; ui.handle(Button::Down); assert(ui.position() == 3);
+    ui.handle(Button::Up); assert(ui.position() == 49999);
     ui.handle(Button::Up); assert(ui.position() == 49995);
     ui.pending.name = std::string(300, static_cast<char>(0x80));
     assert(!ui.details().empty()); // Invalid metadata must not trap dialog wrapping.

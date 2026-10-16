@@ -74,8 +74,7 @@ bool Ui::handleBrowsing(Button b) {
         if (b==Button::Circle) { screen=jumpReturn; return true; }
         const auto choices=letters(); if (choices.empty()) return true;
         jumpIndex=std::min(jumpIndex,choices.size()-1);
-        if (b==Button::Up && jumpIndex) --jumpIndex;
-        if (b==Button::Down && jumpIndex+1<choices.size()) ++jumpIndex;
+        moveMenuSelection(b, jumpIndex, choices.size());
         if (b==Button::L2) jumpIndex=jumpIndex>=9 ? jumpIndex-9 : 0;
         if (b==Button::R2) jumpIndex=std::min(jumpIndex+9,choices.size()-1);
         if (b==Button::Cross) for (size_t i=0;i<visible.size();++i) if (initial(entries()[visible[i].index].name)==choices[jumpIndex].first) {
@@ -91,8 +90,7 @@ bool Ui::handleBrowsing(Button b) {
         }
         if (b==Button::Circle) { screen=Screen::Options; return true; }
         searchIndex=std::min(searchIndex,searchRows().size()-1);
-        if (b==Button::Up && searchIndex) --searchIndex;
-        if (b==Button::Down && searchIndex+1<searchRows().size()) ++searchIndex;
+        moveMenuSelection(b, searchIndex, searchRows().size());
         if (b==Button::Triangle) beginEdit(EditKind::Search,0,query);
         if (b==Button::Square && !recentSearches.empty()) screen=Screen::ConfirmClearSearches;
         if (b==Button::Cross) {
@@ -112,8 +110,7 @@ bool Ui::handleBrowsing(Button b) {
         }
         if (b==Button::Circle) { screen=sameSettings(settings,draft) ? profileReturn : Screen::Settings; if (screen==Screen::Settings) settingsNotice="Select Save settings to keep profile/source changes."; return true; }
         if (!draft.profiles.empty()) profileIndex=std::min(profileIndex,draft.profiles.size()-1);
-        if (b==Button::Up && profileIndex) --profileIndex;
-        if (b==Button::Down && profileIndex+1<draft.profiles.size()) ++profileIndex;
+        moveMenuSelection(b, profileIndex, draft.profiles.size());
         if (b==Button::Triangle) beginEdit(EditKind::ProfileName,0,"");
         else if (!draft.profiles.empty()) {
             if (b==Button::Square) beginEdit(EditKind::RenameProfile,profileIndex,draft.profiles[profileIndex].name);

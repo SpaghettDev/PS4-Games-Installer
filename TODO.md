@@ -1,5 +1,14 @@
 # Work tracker
 
+## Current implementation: wraparound navigation
+
+- [x] Share Up/Down wrapping across all selectable menus and the sidebar.
+- [x] Wrap Summary lists and tile rows while preserving sidebar access.
+- [x] Cover menu boundaries, shrinking/empty lists, ragged grids and native stick input.
+- [x] Complete host tests, native package validation, screenshots and local commit.
+- [ ] Retest r29 on PS4: Up at first / Down at last in menus, paginated pickers,
+  source/profile lists, sidebar and both game layouts, including held-stick repeat.
+
 ## Current implementation: failed native-task recovery
 
 - [x] Compare upstream native installer flow and duplicate-conflict handling.

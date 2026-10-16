@@ -114,6 +114,14 @@ void capture(App& app, Renderer& renderer, Canvas& canvas) {
     ui.screen=Screen::ConfirmDeleteProfile;ui.profileIndex=1;shot("66-delete-profile");
     ui.screen=Screen::Settings;ui.settingsIndex=16;shot("67-settings-profiles");
     ui.settings=ui.draft;ui.screen=Screen::Dashboard;ui.settings.layout=Layout::Tiles;ui.selected[1]=0;ui.rebuild();ui.pageJump(true);shot("68-page-jump");
+    ui.screen = Screen::Options; ui.menuIndex = 0; ui.handle(Button::Up); shot("70-options-wrap-last");
+    ui.handle(Button::Down); shot("71-options-wrap-first");
+    ui.screen = Screen::Settings; ui.settingsIndex = 0; ui.handle(Button::Up); shot("72-settings-wrap-last");
+    ui.screen = Screen::Dashboard; ui.settings.layout = Layout::Summary; ui.selected[1] = 0; ui.rebuild();
+    ui.handle(Button::Up); shot("73-summary-wrap-last");
+    ui.sidebar = true; ui.sidebarIndex = 0; ui.handle(Button::Up); shot("74-sidebar-wrap-last");
+    ui.sidebar = false; ui.settings.layout = Layout::Tiles; ui.selected[1] = 0; ui.rebuild();
+    ui.handle(Button::Up); shot("75-tiles-wrap-last");
     ui.screen = Screen::About; shot("09-about");
     ui.screen = Screen::ConfirmExit; shot("10-exit");
     ui.screen = Screen::Dashboard; ui.available.clear(); ui.updatesOnly = true; ui.rebuild(); shot("61-updates-empty");

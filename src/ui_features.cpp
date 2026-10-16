@@ -74,8 +74,7 @@ bool Ui::handleFeatures(Button b) {
     if (screen == Screen::Diagnostics) {
         if (b == Button::Circle) screen = maintenanceReturn;
         if (b == Button::Triangle) emit(CommandType::ScanBackups);
-        if (b == Button::Up && backupIndex) --backupIndex;
-        if (b == Button::Down && backupIndex + 1 < backupDevices.size()) ++backupIndex;
+        moveMenuSelection(b, backupIndex, backupDevices.size());
         if (b == Button::Cross && !backupDevices.empty()) {
             backupIndex = std::min(backupIndex, backupDevices.size() - 1);
             Command c{}; c.type = CommandType::ExportDiagnostics; c.text = backupDevices[backupIndex].path; commands.push_back(std::move(c));
@@ -101,8 +100,7 @@ bool Ui::handleFeatures(Button b) {
             return true;
         }
         if (b == Button::Circle) { screen = Screen::Dashboard; return true; }
-        if (b == Button::Up && bulkIndex) --bulkIndex;
-        if (b == Button::Down && bulkIndex + 1 < bulkRows().size()) ++bulkIndex;
+        moveMenuSelection(b, bulkIndex, bulkRows().size());
         if (b == Button::Cross) {
             if (bulkIndex <= 3 && markedTitles.empty()) { featureNotice = "Select at least one game with X first"; return true; }
             if (bulkIndex <= 2) { bulkOperation = bulkIndex; beginAssignment(bulkIndex != 0, true); }
@@ -116,8 +114,7 @@ bool Ui::handleFeatures(Button b) {
     if (screen == Screen::SavedCollections) {
         if (b == Button::Circle) { screen = featureReturn; return true; }
         savedIndex = std::min(savedIndex, savedRows().size() - 1);
-        if (b == Button::Up && savedIndex) --savedIndex;
-        if (b == Button::Down && savedIndex + 1 < savedRows().size()) ++savedIndex;
+        moveMenuSelection(b, savedIndex, savedRows().size());
         if (b == Button::Triangle || (b == Button::Square && savedIndex >= 4)) {
             savedOriginal.clear(); featureNotice.clear(); savedEditIndex = 0;
             if (b == Button::Square) { savedDraft = player.collections.at(savedIndex - 4); savedOriginal = savedDraft.name; }
@@ -145,8 +142,7 @@ bool Ui::handleFeatures(Button b) {
     }
     if (screen == Screen::EditSaved) {
         if (b == Button::Circle) { screen = Screen::SavedCollections; featureNotice.clear(); return true; }
-        if (b == Button::Up && savedEditIndex) --savedEditIndex;
-        if (b == Button::Down && savedEditIndex < 9) ++savedEditIndex;
+        moveMenuSelection(b, savedEditIndex, savedEditRows().size());
         if (b != Button::Cross && b != Button::Left && b != Button::Right) return true;
         const int step = b == Button::Left ? -1 : 1;
         auto cycle = [&](unsigned& value, unsigned count) { value = (int(value) + int(count) + step) % count; };
@@ -180,8 +176,7 @@ bool Ui::handleFeatures(Button b) {
         }
         if (b == Button::Circle) { screen = screen == Screen::Queue ? featureReturn : Screen::Queue; return true; }
         if (screen == Screen::Queue) {
-            if (b == Button::Up && queueIndex) --queueIndex;
-            if (b == Button::Down && queueIndex + 1 < downloads.size()) ++queueIndex;
+            moveMenuSelection(b, queueIndex, downloads.size());
             if (b == Button::Options) emit(CommandType::ClearQueue);
             if (b == Button::Triangle) emit(CommandType::RefreshQueue);
             if ((b == Button::Cross || b == Button::Square) && !downloads.empty()) { detailScroll = 0; screen = Screen::QueueDetails; }
@@ -203,24 +198,21 @@ bool Ui::handleFeatures(Button b) {
         if (backupDevices.empty()) return true;
         backupIndex = std::min(backupIndex, backupDevices.size() - 1);
         if (screen == Screen::Backups) {
-            if (b == Button::Up && backupIndex) --backupIndex;
-            if (b == Button::Down && backupIndex + 1 < backupDevices.size()) ++backupIndex;
+            moveMenuSelection(b, backupIndex, backupDevices.size());
             if (b == Button::Cross) { Command c{}; c.type = CommandType::ExportBackup; c.text = backupDevices[backupIndex].path; commands.push_back(std::move(c)); }
             if (b == Button::Square) { backupFileIndex = 0; screen = Screen::BackupFiles; }
         } else {
             const auto& files = backupDevices[backupIndex].files;
             if (files.empty()) return true;
             backupFileIndex = std::min(backupFileIndex, files.size() - 1);
-            if (b == Button::Up && backupFileIndex) --backupFileIndex;
-            if (b == Button::Down && backupFileIndex + 1 < files.size()) ++backupFileIndex;
+            moveMenuSelection(b, backupFileIndex, files.size());
             if (b == Button::Cross) { restoreDevice = backupDevices[backupIndex].path; restoreFilename = files[backupFileIndex]; screen = Screen::ConfirmRestore; }
         }
         return true;
     }
     if (screen == Screen::SourceSetup) {
         if (b == Button::Circle) { screen = setupReturn; return true; }
-        if (b == Button::Up && setupIndex) --setupIndex;
-        if (b == Button::Down && setupIndex < 2) ++setupIndex;
+        moveMenuSelection(b, setupIndex, 3);
         if (b == Button::Triangle || (b == Button::Cross && setupIndex == 0)) beginEdit(EditKind::SetupUrl, 0, setupSource.url);
         else if (b == Button::Square || (b == Button::Cross && setupIndex == 1)) { if (!sourceTesting) testSetupSource(); }
         else if (b == Button::Cross && setupIndex == 2) {
@@ -236,8 +228,7 @@ bool Ui::handleFeatures(Button b) {
         const auto related = relatedPackages(available, packageTitle);
         if (related.empty()) return true;
         packageIndex = std::min(packageIndex, related.size() - 1);
-        if (b == Button::Up && packageIndex) --packageIndex;
-        if (b == Button::Down && packageIndex + 1 < related.size()) ++packageIndex;
+        moveMenuSelection(b, packageIndex, related.size());
         if (b == Button::Cross || b == Button::Square || b == Button::Triangle) {
             pending = available[related[packageIndex]];
             if (b == Button::Cross) {

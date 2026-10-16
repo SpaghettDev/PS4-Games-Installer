@@ -11,6 +11,8 @@
 
 namespace psgi {
 enum class Button { Up, Down, Left, Right, Cross, Circle, Square, Triangle, Options, L1, R1, L2, R2 };
+// Selectable lists wrap at both ends; first supports lists with reserved rows.
+void moveMenuSelection(Button button, size_t& selection, size_t count, size_t first = 0);
 enum class Screen { Splash, Dashboard, Options, Settings, Sources, Storage, Details, Actions, Rating, LocalInfo, PickCategory, PickTags, DiscardLocal, Collections, ConfirmDeleteCollection, About, ConfirmExit, ConfirmInstall, InstallError, ConfirmUninstall, Discard, Keyboard,
     BulkMenu, ConfirmBulkClear, SavedCollections, EditSaved, ConfirmDeleteSaved, Queue, QueueDetails, ConfirmCancelQueue, Backups, BackupFiles, ConfirmRestore, SourceSetup, Packages, Cleanup, ConfirmCleanup, Diagnostics, Search, ConfirmClearSearches, JumpLetter, ServerProfiles, ConfirmDeleteProfile };
 enum class CommandType { Refresh, Save, Test, Storage, SetStorage, ClearArtwork, RefreshArtwork, Install, Uninstall, Rate, SaveLocalInfo, CreateCollection, RenameCollection, DeleteCollection, Launch, Keyboard, Quit,

@@ -95,6 +95,8 @@ void nativeSamplesAndUi() {
     ui.settings.layout = Layout::Summary; ui.rebuild();
     auto before = ui.position(); move(128, 255); assert(ui.position() == before + 1);
     ui.handle(Button::Options); move(128, 255); assert(ui.menuIndex == 1);
+    ui.menuIndex = 0; move(128, 0); assert(ui.menuIndex == ui.options().size() - 1);
+    move(128, 255); assert(ui.menuIndex == 0);
     ui.menuIndex = 6; ui.handle(Button::Cross); move(128, 255); assert(ui.settingsIndex == 1);
     ui.handle(Button::Circle); ui.handle(Button::Circle); // Settings -> Options -> Dashboard.
     ui.handle(Button::Square); assert(ui.screen == Screen::Details);

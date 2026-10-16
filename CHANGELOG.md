@@ -1,5 +1,17 @@
 # Changelog
 
+## r29 — 2026-10-16
+
+- Wrap Up/Down selection between the first and last entries in all menus,
+  including sidebar, options, settings, actions, ratings, categories/tags,
+  collections, downloads, USB pickers, source setup, letters and server profiles.
+- Wrap Summary game lists and top/bottom tile rows, keeping the column where
+  possible across short/grouped rows. Keep the sidebar reachable with Left.
+- Handle empty, single-entry and changing lists without invalid selections;
+  retain primary-source protection in the additional-source picker.
+- Host/native regressions, PS4 package validation and desktop screenshot review
+  passed. Console acceptance of wraparound navigation remains pending.
+
 ## r28 — 2026-10-16
 
 - Recover local installation blocked by an old failed BGFT task, including the

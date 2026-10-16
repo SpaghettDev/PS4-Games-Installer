@@ -1,5 +1,36 @@
 # Implementation progress
 
+## r29 wraparound navigation — 2026-10-16
+
+- User requested Up from the first menu entry to select the last, and Down from
+  the last to select the first, throughout the application.
+- Added shared bounded list navigation and applied it to all 22 selectable menu
+  screens plus the sidebar. Additional sources start at row 1 to protect the
+  primary source; the Add row participates in wrapping. Storage wraps both rows
+  while retaining unavailable-drive installation checks.
+- Summary lists wrap first/last. Tile rows wrap top/bottom while preserving the
+  column when available and clamping to a short destination row. Left from the
+  first tile column still reaches the sidebar; detail text and L2/R2 page jumps
+  retain their existing boundaries.
+- Added real-Ui regressions for every menu boundary/full cycle, singleton and
+  empty/shrinking lists, source deletion/add-row protection, ragged tiles, sidebar
+  return and confirmation guards. Native pad tests cover stick wrap in Options.
+  Added six captures driven by actual boundary inputs for visual review.
+- Targeted Ui/controller suites passed, then the full Docker `make -j4 test`
+  passed all host/native-service suites and 15 Python integrations. Existing
+  installer recovery regressions remain green. FTP test uploads used only their
+  localhost fixture; no console deployment was performed.
+- `make all` built `dist/PS4Game_installer-r29.pkg` (6,619,136 bytes).
+  `make validate` passed package hashes/signatures and packed imports; revision,
+  source fingerprint and manifest checksum match the final package.
+- Generated all 75 desktop captures at r29. Visually inspected the six new
+  boundary-driven captures: Options last/first pages, Settings last page, Summary
+  last entry, sidebar last entry and final tile row. Highlights, page changes,
+  footer controls and selected artwork remain correct and readable.
+- Updated consumer navigation instructions, CHANGELOG and TODO. Identity and
+  whitespace audits pass. Console wraparound acceptance remains pending; no
+  console deployment or remote push was made.
+
 ## r28 installation hardware confirmation — 2026-10-16
 
 - User confirmed installation now works after r28, resolving the reported

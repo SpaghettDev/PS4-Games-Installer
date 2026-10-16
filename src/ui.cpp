@@ -5,6 +5,13 @@
 #include <stdexcept>
 
 namespace psgi {
+void moveMenuSelection(Button button, size_t& selection, size_t count, size_t first) {
+    if (!count) { selection = first; return; }
+    const auto last = first + count - 1;
+    selection = std::clamp(selection, first, last);
+    if (button == Button::Up) selection = selection == first ? last : selection - 1;
+    if (button == Button::Down) selection = selection == last ? first : selection + 1;
+}
 std::string layoutName(Layout layout) { return layout == Layout::Tiles ? "Tiles" : "Summary list"; }
 std::string groupName(Grouping group) {
     const char* names[] = {"None", "Catalog category", "Region", "First letter", "Local category", "Local tag", "Game / Title ID"};
@@ -337,8 +344,7 @@ void Ui::handle(Button b) {
     }
     if (screen == Screen::LocalInfo) {
         if (b == Button::Circle) { screen = localDirty() ? Screen::DiscardLocal : Screen::Actions; return; }
-        if (b == Button::Up && localIndex) --localIndex;
-        if (b == Button::Down && localIndex < 4) ++localIndex;
+        moveMenuSelection(b, localIndex, localRows().size());
         if (b == Button::Cross) switch (localIndex) {
             case 0: pickerIndex = 0; screen = Screen::PickCategory; break;
             case 1: beginEdit(EditKind::GameLabel, 0, localDraft.label); break;
@@ -359,8 +365,7 @@ void Ui::handle(Button b) {
         }
         if (quickAssignment && tags && b == Button::Square) { saveLocalDraft(); return; }
         if (b == Button::Triangle) { beginEdit(tags ? EditKind::GameTag : EditKind::GameCategory, 0, ""); return; }
-        if (b == Button::Up && pickerIndex) --pickerIndex;
-        if (b == Button::Down && pickerIndex < choices.size()) ++pickerIndex;
+        moveMenuSelection(b, pickerIndex, choices.size() + 1);
         if (b == Button::Cross) {
             localNotice.clear();
             if (!pickerIndex) { if (tags) localDraft.tags.clear(); else localDraft.category.clear(); }
@@ -384,8 +389,7 @@ void Ui::handle(Button b) {
         if (b == Button::L1 || b == Button::R1) { collectionTags = !collectionTags; collectionIndex = 0; collectionNotice.clear(); return; }
         const auto choices = termChoices(collectionTags);
         collectionIndex = std::min(collectionIndex, choices.size() + 1);
-        if (b == Button::Up && collectionIndex) --collectionIndex;
-        if (b == Button::Down && collectionIndex < choices.size() + 1) ++collectionIndex;
+        moveMenuSelection(b, collectionIndex, choices.size() + 2);
         if (b == Button::Triangle) { beginEdit(collectionTags ? EditKind::CreateTag : EditKind::CreateCategory, 0, ""); return; }
         if (collectionIndex >= 2) {
             collectionOriginal = choices.at(collectionIndex - 2);
@@ -433,8 +437,7 @@ void Ui::handle(Button b) {
     }
     if (screen == Screen::Rating) {
         if (b == Button::Circle) { screen = Screen::Actions; return; }
-        if (b == Button::Up && ratingIndex) --ratingIndex;
-        if (b == Button::Down && ratingIndex < 5) ++ratingIndex;
+        moveMenuSelection(b, ratingIndex, 6);
         if (b == Button::Cross) {
             commands.push_back({CommandType::Rate, pending, ratingIndex < 5 ? ratingIndex + 1 : 0, ""});
             screen = Screen::Actions;
@@ -456,8 +459,7 @@ void Ui::handle(Button b) {
     if (screen == Screen::About) return;
     if (screen == Screen::Storage) {
         if (b == Button::Triangle) emit(CommandType::Storage);
-        if (b == Button::Up) storageIndex = 0;
-        if (b == Button::Down) storageIndex = 1;
+        moveMenuSelection(b, storageIndex, 2);
         if (b == Button::Cross) {
             if (!storageChecked || storage.destination == InstallDestination::Unknown) {
                 status = "Check storage before changing the destination"; return;
@@ -475,8 +477,7 @@ void Ui::handle(Button b) {
         return;
     }
     if (screen == Screen::Options) {
-        if (b == Button::Up && menuIndex) --menuIndex;
-        if (b == Button::Down && menuIndex + 1 < options().size()) ++menuIndex;
+        moveMenuSelection(b, menuIndex, options().size());
         if (b != Button::Cross) return;
         switch (menuIndex) {
             case 0: emit(CommandType::Refresh); screen = Screen::Dashboard; break;
@@ -503,8 +504,7 @@ void Ui::handle(Button b) {
         return;
     }
     if (screen == Screen::Settings) {
-        if (b == Button::Up && settingsIndex) --settingsIndex;
-        if (b == Button::Down && settingsIndex + 1 < settingRows().size()) ++settingsIndex;
+        moveMenuSelection(b, settingsIndex, settingRows().size());
         if (b != Button::Cross && b != Button::Left && b != Button::Right) return;
         if (b != Button::Cross && (settingsIndex < 2 || (settingsIndex > 7 && settingsIndex != 13))) return;
         settingsNotice.clear();
@@ -530,12 +530,11 @@ void Ui::handle(Button b) {
         return;
     }
     if (screen == Screen::Sources) {
+        moveMenuSelection(b, sourceIndex, draft.sources.empty() ? 1 : draft.sources.size(), draft.sources.empty() ? 0 : 1);
         if (b == Button::Square && sourceIndex < draft.sources.size()) {
             setupSourceIndex = sourceIndex; setupSource = draft.sources[sourceIndex]; setupReturn = Screen::Sources;
             sourceReport = {}; featureNotice.clear(); setupIndex = 0; screen = Screen::SourceSetup; return;
         }
-        if (b == Button::Up && sourceIndex > 1) --sourceIndex;
-        if (b == Button::Down && sourceIndex < draft.sources.size()) ++sourceIndex;
         if (b == Button::Triangle && sourceIndex < draft.sources.size()) {
             draft.sources.erase(draft.sources.begin() + sourceIndex); return;
         }
@@ -549,8 +548,7 @@ void Ui::handle(Button b) {
     }
     if (screen == Screen::Actions) {
         auto actions = actionRows();
-        if (b == Button::Up && menuIndex) --menuIndex;
-        if (b == Button::Down && menuIndex + 1 < actions.size()) ++menuIndex;
+        moveMenuSelection(b, menuIndex, actions.size());
         if (b == Button::Cross) {
             auto action = actions[menuIndex];
             if (action == "Launch game") { emit(CommandType::Launch, pending); screen = Screen::Dashboard; }
@@ -575,8 +573,7 @@ void Ui::handle(Button b) {
         library = library == Library::Installed ? Library::Available : Library::Installed; updatesOnly = false; sidebarIndex = int(library); rebuild(); return;
     }
     if (sidebar) {
-        if (b == Button::Up && sidebarIndex) --sidebarIndex;
-        if (b == Button::Down && sidebarIndex < 4) ++sidebarIndex;
+        moveMenuSelection(b, sidebarIndex, 5);
         if (sidebarIndex < 3) {
             library = sidebarIndex ? Library::Available : Library::Installed; updatesOnly = sidebarIndex == 2;
         }
@@ -599,8 +596,7 @@ void Ui::handle(Button b) {
         } else if (b == Button::Triangle) { pending = *e; menuIndex = 0; actionReturn = Screen::Dashboard; screen = Screen::Actions; }
         else if (b == Button::Square) { pending = *e; detailReturn = Screen::Dashboard; detailScroll = 0; screen = Screen::Details; }
         else if (settings.layout == Layout::Summary) {
-            if (b == Button::Up && position()) --selected[static_cast<int>(library)];
-            if (b == Button::Down && position() + 1 < visible.size()) ++selected[static_cast<int>(library)];
+            moveMenuSelection(b, selected[static_cast<int>(library)], visible.size());
             if (b == Button::Left) { sidebar = true; sidebarIndex = updatesOnly ? 2 : size_t(library); }
         } else {
             const auto& rows = tileRows();
@@ -610,8 +606,10 @@ void Ui::handle(Button b) {
                 if (col == 0) { sidebar = true; sidebarIndex = updatesOnly ? 2 : size_t(library); } else --selected[static_cast<int>(library)];
             }
             if (b == Button::Right && col + 1 < rows[row].items.size()) ++selected[static_cast<int>(library)];
-            if (b == Button::Up && row) selected[static_cast<int>(library)] = rows[row-1].items[std::min(col, rows[row-1].items.size()-1)];
-            if (b == Button::Down && row + 1 < rows.size()) selected[static_cast<int>(library)] = rows[row+1].items[std::min(col, rows[row+1].items.size()-1)];
+            if (b == Button::Up || b == Button::Down) {
+                moveMenuSelection(b, row, rows.size());
+                selected[static_cast<int>(library)] = rows[row].items[std::min(col, rows[row].items.size()-1)];
+            }
         }
     } else if (b == Button::Left) { sidebar = true; sidebarIndex = updatesOnly ? 2 : size_t(library); }
 }

@@ -1,5 +1,15 @@
 # Changelog
 
+## r33 — 2026-10-17
+
+- Request direct game handoff with the SDK skip-launch-check flag, retaining the
+  existing system-update-check bypass. Intended to suppress the PS4 prompt asking
+  to close this installer; console acceptance is pending.
+- Preserve session/launch-record saving before handoff and error handling if launch
+  fails. No queue, download, installer or renderer changes.
+- Native launch/uninstall and App session regressions passed; r33 package built
+  and validated. Console confirmation remains pending.
+
 ## r32 — 2026-10-17
 
 - Fix completed base-game installations timing out when the catalog version differs

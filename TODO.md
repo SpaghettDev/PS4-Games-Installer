@@ -1,5 +1,16 @@
 # Work tracker
 
+## Current implementation: r33 direct game handoff
+
+- [x] Inspect the native launch parameters and pinned SDK/reverse-engineered flags.
+- [x] Request skip-launch-check together with the existing skip-system-update flag.
+- [x] Validate launcher/uninstall/session regressions and the native package.
+- [x] Update consumer docs and commit the successful revision.
+- [ ] Retest r33 on PS4 11.00 + GoldHEN: X on an installed game launches without
+  the close-installer confirmation, then reopening restores the selected game.
+- [ ] Retest launch failure (missing/disconnected game storage) retains the app and
+  displays the native error without changing the successful-launch count.
+
 ## Current implementation: r32 verification and launch recovery
 
 - [x] Inspect current queue/log evidence and external installed SFO through read-only FTP.

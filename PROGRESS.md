@@ -1,5 +1,33 @@
 # Implementation progress
 
+## r33 game launch handoff without close confirmation — 2026-10-17
+
+- User reports a PS4 dialog asking to close PS4 Games Installer when launching a
+  game and requests a handoff without that confirmation.
+- The current native adapter requests only SkipSystemUpdate (2). The pinned SDK
+  defines SkipLaunch (1), also named SkipLaunchCheck in the original ABI research:
+  https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/blob/master/include/orbis/_types/sys_service.h
+  https://github.com/LightningMods/PS4-daemon-writeup/blob/main/writeup.md
+- Request SkipLaunch | SkipSystemUpdate (3), preserving the foreground user,
+  initialization/packed imports, zero options, error propagation and saved session
+  before the native call. This is intended to suppress the close confirmation;
+  firmware behavior still needs console acceptance. No self-exit race or separate
+  process termination was added, and installer/queue behavior is unchanged.
+- Reviewed Itemzflow launch reference at commit
+  `9126e4788eb8a9d9657b8096ec7e25eb3bc9ab8d` under ignored build/reference-review;
+  no reference implementation was copied or added as a dependency.
+- Rebuilt native launcher/uninstall tests against the pinned SDK; both passed,
+  including the exact combined flags, user/init failures, native launch failure,
+  retry and positive app-ID returns. Existing App session/launch/history, r32
+  verification recovery and queue cancellation regressions passed.
+- `make all` built `dist/PS4Game_installer-r33.pkg` (6,619,136 bytes).
+  `make validate` passed hashes/signatures and packed launcher import checks;
+  source fingerprint, manifest checksum and revision record match.
+- Updated consumer docs/changelog/TODO and committed the successful revision.
+  Whitespace and tracked identity audits pass. No renderer/menu change or desktop
+  dialog simulation; the PS4 confirmation cannot be validated through screenshots.
+  Console acceptance is pending; no console actions, deployment or push performed.
+
 ## r32 installed base verification and launch recovery — 2026-10-17
 
 - User reported a completed installation stuck in Verifying, blocking launch, then

@@ -1,5 +1,32 @@
 # Implementation progress
 
+## Installation refusal investigated from console logs — 2026-10-16
+
+- Pulled current app log, queue/task journals, staging listing and targeted BGFT
+  metadata over the configured private FTP connection, read-only. Evidence is
+  ignored under `build/hardware-install-20261016T155942Z/`; no console files,
+  tasks or installed titles were changed. Installed app revision is unconfirmed.
+- The latest two Back to Bed (`CUSA02537`, catalog version `01.01`) attempts reuse
+  the complete 245,760,000-byte staged package and fail during local BGFT
+  registration with `0x80990086`. Exact Content ID lookup reports existing task
+  `268435469` (`0x1000000D`), whose progress error is `0x80991404`.
+- Queue contains one Failed entry without an owned task ID; `tasks.json` is empty.
+  Preserve the complete package and do not automatically unregister that task.
+  The 40 saved `/user/bgft/task/*/d0.pdb` records contain no matching Title ID;
+  numeric suffix `0000000d` belongs to an unrelated disc title. No matching saved
+  notification was found. The existing task's original URL/provenance is therefore
+  unconfirmed; do not identify it solely by a directory-number suffix.
+- Confirmed in source that the requested disk-first flow already exists: packages
+  from the current non-Range server are saved under the application's `downloads`
+  directory and handed to the native installer using `/user/data/...`. Repeating
+  the download will not resolve the reported existing-task conflict.
+- Next hardware check: cancel the failed Back to Bed entry through PS4
+  Notifications > Downloads if present, then retry the retained local package.
+  If no matching entry is visible, close the app, restart the console, enable
+  GoldHEN and retry. Successful registration/installation remains unverified.
+- Documentation-only update; reviewed evidence and source call flow, and ran
+  `git diff --check`. No application changes, package build or revision increment.
+
 ## r27 faster browsing and named server profiles — 2026-10-16
 
 - User requested suggestions 4 and 6: page/letter navigation, remembered searches,

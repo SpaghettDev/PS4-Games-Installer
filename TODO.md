@@ -145,7 +145,10 @@
 - [x] r19 direct download reaches completion on hardware without the reported crash
   in the observed Back to Bed attempts (user report and FTP log, 2026-10-16).
 - [ ] Retest r20: Back to Bed registers, installs and appears on the PS4 menu.
-  r19 BGFT rejected it with 0x80990086; no matching saved task was found.
+  Latest console logs still reject local registration with 0x80990086: exact
+  Content ID lookup reports failed task 268435469 / 0x80991404. Cancel the
+  matching failed PS4 Downloads entry if visible, then retry the saved package;
+  task provenance and successful installation remain unconfirmed.
 - [ ] Retest r20: Retry reuses the complete staged file, and a persistent dialog
   shows an actual registration error if the system still refuses the request.
 - [ ] Storage panel detects a PS4 Extended Storage drive and updates after disconnect.

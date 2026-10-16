@@ -1,5 +1,13 @@
 # Changelog
 
+## Console installation investigation — 2026-10-16
+
+- Confirm from fresh console logs that the complete Back to Bed package is
+  already saved locally and reused. Installation is refused with 0x80990086;
+  exact Content ID lookup reports existing failed task 268435469 / 0x80991404.
+  Record the unresolved native-task conflict and manual recovery check without
+  deleting console tasks or rebuilding the application.
+
 ## r27 — 2026-10-16
 
 - Add L2/R2 page jumps in both layouts, native/SDL trigger bindings and desktop

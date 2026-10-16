@@ -103,6 +103,17 @@ void capture(App& app, Renderer& renderer, Canvas& canvas) {
     ui.screen = Screen::Diagnostics; ui.featureNotice.clear(); shot("59-usb-diagnostics");
     ui.featureNotice = "Diagnostics saved: PS4-Games-Installer-diagnostics-1792152000-0.json"; shot("60-diagnostics-exported");
     ui.featureNotice.clear(); ui.settings.sort = SortField::Name; ui.settings.descending = false; ui.rebuild();
+    ui.screen=Screen::Search;ui.recentSearches={"DOOM","Weekend","CUSA10008","Adventure"};ui.searchIndex=2;shot("62-recent-searches");
+    ui.screen=Screen::ConfirmClearSearches;shot("63-clear-searches");
+    ui.screen=Screen::JumpLetter;ui.jumpIndex=3;shot("64-jump-letter");
+    ui.jumpIndex=0;ui.handle(Button::R2);shot("69-jump-letter-next-page");
+    ui.draft=ui.settings;ui.draft.sources={{"games","http://192.168.1.10:3000/games"},{"updates","http://192.168.1.10:3000/updates"},{"dlc","http://192.168.1.10:3000/dlc"}};
+    addServerProfile(ui.draft,"Home NAS");ui.draft.sources={{"games","http://192.168.1.20:3000/games"}};addServerProfile(ui.draft,"Second server");
+    ui.draft.sources={{"games","https://library.example.org/games"}};addServerProfile(ui.draft,"Remote library");useServerProfile(ui.draft,0);
+    ui.screen=Screen::ServerProfiles;ui.profileIndex=0;ui.browseNotice="";shot("65-server-profiles");
+    ui.screen=Screen::ConfirmDeleteProfile;ui.profileIndex=1;shot("66-delete-profile");
+    ui.screen=Screen::Settings;ui.settingsIndex=16;shot("67-settings-profiles");
+    ui.settings=ui.draft;ui.screen=Screen::Dashboard;ui.settings.layout=Layout::Tiles;ui.selected[1]=0;ui.rebuild();ui.pageJump(true);shot("68-page-jump");
     ui.screen = Screen::About; shot("09-about");
     ui.screen = Screen::ConfirmExit; shot("10-exit");
     ui.screen = Screen::Dashboard; ui.available.clear(); ui.updatesOnly = true; ui.rebuild(); shot("61-updates-empty");

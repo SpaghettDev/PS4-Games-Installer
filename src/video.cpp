@@ -32,6 +32,8 @@ psgi::ControllerState readController(void* handle) {
     };
     for (const auto& binding : bindings)
         if (SDL_GameControllerGetButton(controller, binding.first)) state.buttons |= psgi::buttonMask(binding.second);
+    if (SDL_GameControllerGetAxis(controller,SDL_CONTROLLER_AXIS_TRIGGERLEFT)>20000) state.buttons |= psgi::buttonMask(Button::L2);
+    if (SDL_GameControllerGetAxis(controller,SDL_CONTROLLER_AXIS_TRIGGERRIGHT)>20000) state.buttons |= psgi::buttonMask(Button::R2);
     return state;
 }
 }
@@ -118,6 +120,8 @@ std::vector<Button> Video::input(Ui& ui) {
                 case SDLK_s: if (!repeated) buttons.push_back(Button::Square); break;
                 case SDLK_t: if (!repeated) buttons.push_back(Button::Triangle); break;
                 case SDLK_TAB: if (!repeated) buttons.push_back(Button::Options); break;
+                case SDLK_PAGEUP: if (!repeated) buttons.push_back(Button::L2); break;
+                case SDLK_PAGEDOWN: if (!repeated) buttons.push_back(Button::R2); break;
                 case SDLK_q: if (!repeated) buttons.push_back(Button::L1); break;
                 case SDLK_e: if (!repeated) buttons.push_back(Button::R1); break;
             }

@@ -23,7 +23,7 @@ struct Result {
     int task = -1;
     uint64_t freeBytes = 0;
     std::optional<InstallStorage> storage;
-    std::string message;
+    std::string message, catalogKey;
     std::map<std::string, TaskProgress> progress;
     std::optional<SourceReport> sourceReport;
     bool backgroundTransfer = false;
@@ -91,7 +91,7 @@ App::App(const std::string& data, bool preview)
     saved = ui.settings; ui.draft = saved;
     try { ui.player = loadPlayerData(directory); }
     catch (const std::exception& e) { playerWritable = false; log(std::string("Local records kept unchanged: ") + e.what()); }
-    try { resume = loadViewState(directory); }
+    try { resume = loadViewState(directory); ui.recentSearches=resume->recentSearches; }
     catch (const std::exception& e) { log(std::string("Saved position: ") + e.what()); }
     if (demo) {
         auto entries = demoLibrary();
@@ -127,8 +127,15 @@ App::App(const std::string& data, bool preview)
         ui.loading = false; bootReady = true; initialScan = false;
         return;
     }
-    try { ui.available = parseCatalog(readFile(directory + "/catalog.json", CacheLimit), "", CacheLimit); }
-    catch (const std::exception&) { /* A missing/corrupt offline cache is not fatal. */ }
+    try { ui.available = parseCatalog(readFile(catalogCachePath(directory,ui.settings),CacheLimit),"",CacheLimit); }
+    catch (const std::exception&) {
+        // Adopt the old single cache only for an existing unprofiled setup.
+        if (ui.settings.profiles.empty() && access((directory+"/catalog-cache-v1").c_str(),F_OK) && errno==ENOENT) try {
+            const auto legacy=readFile(directory+"/catalog.json",CacheLimit); ui.available=parseCatalog(legacy,"",CacheLimit);
+            atomicWrite(catalogCachePath(directory,ui.settings),legacy);
+        } catch (const std::exception&) {}
+    }
+    try { atomicWrite(directory+"/catalog-cache-v1","1\n"); } catch (const std::exception& e) { log(std::string("Catalog cache migration marker: ")+e.what()); }
     bool validQueueFile = false;
     try { ui.downloads = loadQueue(directory); validQueueFile = !access((directory + "/queue.json").c_str(), F_OK); }
     catch (const std::exception& e) { queueWritable = false; log(std::string("Queue file kept unchanged: ") + e.what()); }
@@ -246,7 +253,7 @@ void App::refresh(bool remote) {
     if (demo) { ui.status = "Desktop preview library refreshed"; return; }
     Settings settings = ui.settings;
     bool started = worker->start([this, remote, settings] {
-        Result result;
+        Result result; result.catalogKey=catalogCachePath("",settings);
         result.kind = remote ? ResultKind::Remote : ResultKind::Local;
         if (!remote) {
             result.local = scanInstalled(); result.freeBytes = freeSpace("/user");
@@ -266,7 +273,7 @@ void App::refresh(bool remote) {
         result.message = std::to_string(combined.size()) + " remote packages loaded";
         std::string cached = serializeCatalog(combined);
         if (cached.size() <= CacheLimit) {
-            try { atomicWrite(directory + "/catalog.json", cached); }
+            try { atomicWrite(catalogCachePath(directory,settings), cached); }
             catch (const std::exception&) { result.message += " (offline cache could not be saved)"; }
         } else result.message += " (library exceeds offline cache limit)";
         result.remote = std::move(combined);
@@ -289,6 +296,13 @@ void App::tick(double elapsed, Video& video) {
     if (!result) result = monitor->take();
     if (result) {
         ui.loading = worker->busy();
+        if (result->remote && result->catalogKey!=catalogCachePath("",ui.settings)) {
+            result->remote.reset(); result->message="Catalog settings changed; refreshing the selected server.";
+        }
+        if (result->remote) {
+            try { const auto cached=serializeCatalog(*result->remote); if (cached.size()<=CacheLimit) atomicWrite(directory+"/catalog.json",cached); }
+            catch (const std::exception&) {} // Compatibility cache is optional; keyed cache is authoritative.
+        }
         ui.status = result->message;
         if (initialScan) { initialScan = false; bootReady = true; }
         if (result->local) { lastLocalScan = elapsed; ui.freeBytes = result->freeBytes; }
@@ -422,8 +436,13 @@ void App::tick(double elapsed, Video& video) {
                     try { video.startKeyboard(ui); }
                     catch (...) { ui.finishEdit({}); throw; }
                     break;
+                case CommandType::SaveSession:
+                    resume.reset();
+                    try { savePosition(); }
+                    catch (const std::exception& e) { ui.browseNotice=std::string("Could not save browsing history: ")+e.what(); throw; }
+                    break;
                 case CommandType::Save: {
-                    Settings next = command.configuration.value();
+                    Settings next = command.configuration.value(); syncActiveProfile(next);
                     bool changedSource = next.sources.size() != saved.sources.size();
                     for (size_t i = 0; !changedSource && i < next.sources.size(); ++i)
                         changedSource = next.sources[i].url != saved.sources[i].url || next.sources[i].category != saved.sources[i].category;
@@ -433,7 +452,14 @@ void App::tick(double elapsed, Video& video) {
                         ui.settingsNotice = std::string("Save failed: ") + e.what();
                         throw;
                     }
-                    ui.settings = saved = next; ui.draft = saved; ui.rebuild();
+                    ui.settings = saved = next; ui.draft = saved;
+                    if (changedSource) {
+                        ui.available.clear(); ui.markedTitles.clear();
+                        for (auto& local:ui.installed) { local.url.clear(); local.coverUrl.clear(); local.description.clear(); local.minFirmware.clear(); local.release.clear(); local.latestVersion.clear(); local.size=0; }
+                        try { ui.available=parseCatalog(readFile(catalogCachePath(directory,next),CacheLimit),"",CacheLimit); } catch (const std::exception&) {}
+                        unlink((directory+"/catalog.json").c_str());
+                    }
+                    ui.rebuild();
                     ui.settingsNotice = "Saved to " + directory + "/config.json";
                     ui.status = "Settings saved";
                     try { savePosition(); } catch (const std::exception& e) { log(e.what()); }

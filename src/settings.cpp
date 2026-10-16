@@ -1,5 +1,6 @@
 #include "settings.hpp"
 #include "cJSON.h"
+#include "text.hpp"
 #include <algorithm>
 #include <cerrno>
 #include <cstdio>
@@ -23,18 +24,16 @@ bool boolean(const cJSON* root, const char* key, bool fallback) {
     if (!cJSON_IsBool(item)) throw std::runtime_error(std::string("Invalid setting: ") + key);
     return cJSON_IsTrue(item);
 }
+std::string profileName(const std::string& value) {
+    auto name=value; const auto start=name.find_first_not_of(" \t\r\n"), end=name.find_last_not_of(" \t\r\n");
+    name=start==std::string::npos ? "" : name.substr(start,end-start+1);
+    if (name.empty() || name.size()>64) throw std::runtime_error("Use a profile name of 1-64 bytes");
+    toUtf16(name);
+    for (unsigned char c:name) if (c<32 || c==127) throw std::runtime_error("Profile names cannot contain control characters");
+    return name;
 }
-Settings parseSettings(const std::string& text) {
-    if (text.size() > MaxCatalogBytes || text.find('\0') != std::string::npos)
-        throw std::runtime_error("Invalid settings data");
-    Json root(cJSON_ParseWithLengthOpts(text.c_str(), text.size() + 1, nullptr, true), cJSON_Delete);
-    if (!root || !cJSON_IsObject(root.get())) throw std::runtime_error("Invalid settings JSON");
-    auto* schema = cJSON_GetObjectItem(root.get(), "schema");
-    if (schema && (!cJSON_IsNumber(schema) || schema->valuedouble != 1)) throw std::runtime_error("Unsupported settings version");
-    Settings s;
-    s.sources.clear();
-    const cJSON* prefs = cJSON_GetObjectItem(root.get(), "preferences");
-    const cJSON* urls = cJSON_GetObjectItem(prefs ? prefs : root.get(), "content_urls");
+std::vector<Source> readSources(const cJSON* urls) {
+    std::vector<Source> sources;
     if (!cJSON_IsObject(urls)) throw std::runtime_error("Settings need content_urls");
     for (const cJSON* item = urls->child; item; item = item->next) {
         std::string category = lower(item->string);
@@ -45,13 +44,44 @@ Settings parseSettings(const std::string& text) {
         if (cJSON_IsString(item)) url = item->valuestring;
         else if (!cJSON_IsNull(item)) throw std::runtime_error("Invalid catalog URL");
         if (!url.empty() && !isHttpUrl(url)) throw std::runtime_error("Use a direct http:// or https:// catalog URL");
-        for (const auto& source : s.sources) if (source.category == category) throw std::runtime_error("Duplicate source category");
-        s.sources.push_back({category, url});
-        if (s.sources.size() > 32) throw std::runtime_error("Maximum 32 catalog sources");
+        for (const auto& source : sources) if (source.category == category) throw std::runtime_error("Duplicate source category");
+        sources.push_back({category, url});
+        if (sources.size() > 32) throw std::runtime_error("Maximum 32 catalog sources");
     }
-    if (std::none_of(s.sources.begin(), s.sources.end(), [](const Source& source) { return source.category == "games"; }))
-        s.sources.insert(s.sources.begin(), {"games", ""});
-    else std::stable_partition(s.sources.begin(), s.sources.end(), [](const Source& source) { return source.category == "games"; });
+    if (std::none_of(sources.begin(), sources.end(), [](const Source& source) { return source.category == "games"; }))
+        sources.insert(sources.begin(), {"games", ""});
+    else std::stable_partition(sources.begin(), sources.end(), [](const Source& source) { return source.category == "games"; });
+    if (sources.size()>32) throw std::runtime_error("Maximum 32 catalog sources including games");
+    return sources;
+}
+void writeSources(cJSON* object, const std::vector<Source>& sources) {
+    auto* urls=cJSON_AddObjectToObject(object,"content_urls");
+    for (const auto& source:sources) cJSON_AddStringToObject(urls,source.category.c_str(),source.url.c_str());
+}
+
+}
+Settings parseSettings(const std::string& text) {
+    if (text.size() > MaxCatalogBytes || text.find('\0') != std::string::npos)
+        throw std::runtime_error("Invalid settings data");
+    Json root(cJSON_ParseWithLengthOpts(text.c_str(), text.size() + 1, nullptr, true), cJSON_Delete);
+    if (!root || !cJSON_IsObject(root.get())) throw std::runtime_error("Invalid settings JSON");
+    auto* schema = cJSON_GetObjectItem(root.get(), "schema");
+    if (schema && (!cJSON_IsNumber(schema) || schema->valuedouble != 1)) throw std::runtime_error("Unsupported settings version");
+    Settings s;
+    const cJSON* prefs = cJSON_GetObjectItem(root.get(), "preferences");
+    s.sources = readSources(cJSON_GetObjectItem(prefs ? prefs : root.get(), "content_urls"));
+    const auto* profiles = cJSON_GetObjectItemCaseSensitive(root.get(), "server_profiles");
+    if (profiles && !cJSON_IsArray(profiles)) throw std::runtime_error("Invalid server profiles");
+    if (profiles) for (const auto* item = profiles->child; item; item = item->next) {
+        if (!cJSON_IsObject(item) || s.profiles.size() >= MaxServerProfiles) throw std::runtime_error("Maximum 16 server profiles");
+        const auto name = profileName(stringField(item, "name"));
+        if (std::any_of(s.profiles.begin(),s.profiles.end(),[&](const ServerProfile& p){return lower(p.name)==lower(name);})) throw std::runtime_error("Duplicate server profile name");
+        s.profiles.push_back({name,readSources(cJSON_GetObjectItemCaseSensitive(item,"content_urls"))});
+    }
+    const auto* active = cJSON_GetObjectItemCaseSensitive(root.get(), "active_profile");
+    if (active && !cJSON_IsString(active)) throw std::runtime_error("Invalid active server profile");
+    s.activeProfile = stringField(root.get(), "active_profile");
+    syncActiveProfile(s);
     auto layout = stringField(root.get(), "layout");
     if (!layout.empty() && layout != "tiles" && layout != "summary") throw std::runtime_error("Invalid layout");
     s.layout = layout == "summary" ? Layout::Summary : Layout::Tiles;
@@ -77,11 +107,17 @@ Settings parseSettings(const std::string& text) {
     return s;
 }
 
-std::string serializeSettings(const Settings& s) {
+std::string serializeSettings(const Settings& input) {
+    auto s=input; syncActiveProfile(s);
     Json root(cJSON_CreateObject(), cJSON_Delete);
     cJSON_AddNumberToObject(root.get(), "schema", 1);
-    auto* urls = cJSON_AddObjectToObject(root.get(), "content_urls");
-    for (const auto& source : s.sources) cJSON_AddStringToObject(urls, source.category.c_str(), source.url.c_str());
+    writeSources(root.get(),s.sources);
+    cJSON_AddStringToObject(root.get(),"active_profile",s.activeProfile.c_str());
+    auto* profiles=cJSON_AddArrayToObject(root.get(),"server_profiles");
+    for (const auto& profile:s.profiles) {
+        auto* item=cJSON_CreateObject(); cJSON_AddItemToArray(profiles,item);
+        cJSON_AddStringToObject(item,"name",profile.name.c_str()); writeSources(item,profile.sources);
+    }
     cJSON_AddStringToObject(root.get(), "layout", s.layout == Layout::Tiles ? "tiles" : "summary");
     const char* groups[] = {"none", "category", "region", "letter", "local_category", "tag", "title"};
     cJSON_AddStringToObject(root.get(), "grouping", groups[static_cast<int>(s.grouping)]);
@@ -97,6 +133,47 @@ std::string serializeSettings(const Settings& s) {
     std::unique_ptr<char, decltype(&cJSON_free)> out(cJSON_Print(root.get()), cJSON_free);
     if (!out) throw std::runtime_error("Settings allocation failed");
     return out.get();
+}
+void syncActiveProfile(Settings& s) {
+    if (s.activeProfile.empty()) return;
+    for (auto& profile:s.profiles) if (lower(profile.name)==lower(s.activeProfile)) {
+        s.activeProfile=profile.name; profile.sources=s.sources; return;
+    }
+    throw std::runtime_error("Active server profile does not exist");
+}
+void addServerProfile(Settings& s, const std::string& value) {
+    const auto name=profileName(value);
+    if (s.profiles.size()>=MaxServerProfiles) throw std::runtime_error("Maximum 16 server profiles");
+    if (std::any_of(s.profiles.begin(),s.profiles.end(),[&](const ServerProfile& p){return lower(p.name)==lower(name);})) throw std::runtime_error("That server profile name already exists");
+    auto next=s; next.profiles.push_back({name,next.sources}); next.activeProfile=name;
+    s=parseSettings(serializeSettings(next));
+}
+void useServerProfile(Settings& s, size_t index) {
+    if (index>=s.profiles.size()) throw std::runtime_error("Server profile no longer exists");
+    auto next=s; syncActiveProfile(next); next.sources=next.profiles[index].sources; next.activeProfile=next.profiles[index].name;
+    s=parseSettings(serializeSettings(next));
+}
+void renameServerProfile(Settings& s, size_t index, const std::string& value) {
+    if (index>=s.profiles.size()) throw std::runtime_error("Server profile no longer exists");
+    const auto name=profileName(value);
+    for (size_t i=0;i<s.profiles.size();++i) if (i!=index && lower(s.profiles[i].name)==lower(name)) throw std::runtime_error("That server profile name already exists");
+    auto next=s;
+    if (lower(next.activeProfile)==lower(next.profiles[index].name)) next.activeProfile=name;
+    next.profiles[index].name=name; s=parseSettings(serializeSettings(next));
+}
+void deleteServerProfile(Settings& s, size_t index) {
+    if (index>=s.profiles.size()) throw std::runtime_error("Server profile no longer exists");
+    auto next=s;
+    if (lower(next.activeProfile)==lower(next.profiles[index].name)) next.activeProfile.clear();
+    next.profiles.erase(next.profiles.begin()+index); s=parseSettings(serializeSettings(next));
+}
+std::string catalogCachePath(const std::string& directory, const Settings& s) {
+    uint64_t hash=14695981039346656037ULL;
+    for (const auto& source:s.sources) for (const auto& part:{source.category,source.url}) {
+        for (unsigned char c:part) { hash^=c; hash*=1099511628211ULL; }
+        hash^=0; hash*=1099511628211ULL;
+    }
+    char name[40]; std::snprintf(name,sizeof(name),"/catalog-%016llx.json",static_cast<unsigned long long>(hash)); return directory+name;
 }
 bool sameSettings(const Settings& a, const Settings& b) { return serializeSettings(a) == serializeSettings(b); }
 std::string sortName(SortField field) {

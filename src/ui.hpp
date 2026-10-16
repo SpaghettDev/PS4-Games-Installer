@@ -10,11 +10,11 @@
 #include <optional>
 
 namespace psgi {
-enum class Button { Up, Down, Left, Right, Cross, Circle, Square, Triangle, Options, L1, R1 };
+enum class Button { Up, Down, Left, Right, Cross, Circle, Square, Triangle, Options, L1, R1, L2, R2 };
 enum class Screen { Splash, Dashboard, Options, Settings, Sources, Storage, Details, Actions, Rating, LocalInfo, PickCategory, PickTags, DiscardLocal, Collections, ConfirmDeleteCollection, About, ConfirmExit, ConfirmInstall, InstallError, ConfirmUninstall, Discard, Keyboard,
-    BulkMenu, ConfirmBulkClear, SavedCollections, EditSaved, ConfirmDeleteSaved, Queue, QueueDetails, ConfirmCancelQueue, Backups, BackupFiles, ConfirmRestore, SourceSetup, Packages, Cleanup, ConfirmCleanup, Diagnostics };
+    BulkMenu, ConfirmBulkClear, SavedCollections, EditSaved, ConfirmDeleteSaved, Queue, QueueDetails, ConfirmCancelQueue, Backups, BackupFiles, ConfirmRestore, SourceSetup, Packages, Cleanup, ConfirmCleanup, Diagnostics, Search, ConfirmClearSearches, JumpLetter, ServerProfiles, ConfirmDeleteProfile };
 enum class CommandType { Refresh, Save, Test, Storage, SetStorage, ClearArtwork, RefreshArtwork, Install, Uninstall, Rate, SaveLocalInfo, CreateCollection, RenameCollection, DeleteCollection, Launch, Keyboard, Quit,
-    BulkAssign, SaveSavedCollection, DeleteSavedCollection, ScanBackups, ExportBackup, RestoreBackup, TestSource, RetryQueue, CancelQueue, ClearQueue, RefreshQueue, ScanUsage, CleanStaging, ExportDiagnostics };
+    BulkAssign, SaveSavedCollection, DeleteSavedCollection, ScanBackups, ExportBackup, RestoreBackup, TestSource, RetryQueue, CancelQueue, ClearQueue, RefreshQueue, ScanUsage, CleanStaging, ExportDiagnostics, SaveSession };
 struct Command {
     CommandType type; Entry entry; size_t source = 0; std::string text;
     std::optional<Settings> configuration = {}; std::optional<LocalInfo> personal = {}; std::string previous = {};
@@ -24,7 +24,7 @@ struct Command {
     std::optional<Source> candidate = {};
 };
 struct TileRow { std::string group; std::vector<size_t> items; };
-enum class EditKind { SourceUrl, SourceCategory, Search, GameCategory, GameLabel, GameTag, GameDescription, CreateCategory, CreateTag, RenameCategory, RenameTag, SavedName, SavedQuery, SetupUrl };
+enum class EditKind { SourceUrl, SourceCategory, Search, GameCategory, GameLabel, GameTag, GameDescription, CreateCategory, CreateTag, RenameCategory, RenameTag, SavedName, SavedQuery, SetupUrl, ProfileName, RenameProfile };
 size_t keyboardMaximum(EditKind kind);
 std::string keyboardTitle(EditKind kind);
 
@@ -41,6 +41,8 @@ class Ui {
     void beginAssignment(bool tags, bool bulk = false);
     void testSetupSource();
     size_t uniqueShown = 0, installable = 0;
+    bool handleBrowsing(Button button);
+    void applySearch(const std::string& text);
 public:
     Settings settings, draft;
     PlayerData player;
@@ -62,6 +64,10 @@ public:
     size_t storageIndex = 0;
     std::string status = "Loading your library...", query, keyboardText;
     std::string settingsNotice;
+    std::vector<std::string> recentSearches;
+    size_t searchIndex = 0, jumpIndex = 0, profileIndex = 0;
+    Screen jumpReturn = Screen::Options, profileReturn = Screen::Settings;
+    std::string browseNotice;
     LocalInfo localDraft;
     size_t localIndex = 0, pickerIndex = 0, collectionIndex = 0;
     bool collectionTags = false;
@@ -117,6 +123,11 @@ public:
     std::vector<std::string> queueRows() const;
     std::vector<std::string> queueDetails() const;
     InstallRequirements requirements() const;
+    std::vector<std::string> searchRows() const;
+    std::vector<std::pair<char,size_t>> letters() const;
+    std::vector<std::string> letterRows() const;
+    std::vector<std::string> profileRows() const;
+    void pageJump(bool forward);
     bool localDirty() const { return !sameInfo(localDraft, pending.info); }
 };
 std::string layoutName(Layout layout);

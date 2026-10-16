@@ -43,6 +43,7 @@ struct ViewState {
     bool available = false, sidebar = false, updatesOnly = false;
     size_t sidebarIndex = 0;
     std::string query;
+    std::vector<std::string> recentSearches;
     LocalFilter filter;
     LibraryCursor cursor[2];
 };

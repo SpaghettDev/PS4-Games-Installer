@@ -1,5 +1,46 @@
 # Implementation progress
 
+## r27 faster browsing and named server profiles — 2026-10-16
+
+- User requested suggestions 4 and 6: page/letter navigation, remembered searches,
+  and named server profiles. Queue controls/backups/undo/badges are outside this change.
+- Adding L2/R2 page controls, a letter picker, bounded persistent search history,
+  profile source-set drafts and isolated caches with stale-fetch protection.
+
+- Implemented page jumps, filtered-view letter counts/picker and 12 recent searches
+  with deduplication, explicit clear/cancel and immediate session persistence.
+- Added native digital L2/R2 and SDL trigger mapping, plus desktop Page Up/Down.
+  Existing controller/IME suppression tests pass with both trigger bindings.
+- Added 16 complete-source profiles in Settings, save-copy/rename/delete/use drafts,
+  explicit Save/discard and shared local records/queue state. Legacy settings load.
+- Added keyed source caches, legacy-cache adoption, immediate source-cache selection
+  and rejection of stale catalog results. Old remote enrichment is cleared from
+  installed entries when changing sources; owned transfers keep their saved URLs.
+- Corrected misleading indentation in two new test loops before the full build.
+  Generated 68 captures and inspected Search, Jump to letter, Profiles and page
+  navigation. Native compilation/import checks pass. Corrected an invalid URL
+  fixture in the new profile tests. The full host suite passed, including all 15
+  Python integrations, native adapters, source-switch rollback, offline caches,
+  session persistence and stale-fetch rejection.
+- Final review added a one-time legacy-cache migration marker and an App regression
+  for externally edited source URLs, preventing repeat adoption under a new server.
+  The complete suite passed again after this fix, and r26 built/validated.
+- Final page-boundary review found the nine-row letter picker skipped eight items.
+  Matched its page stride to nine, added a regression and a second-page capture.
+  Browsing/App/controller regressions passed after this correction; native compile
+  and packed import validation passed. Inspected the corrected second-page capture.
+- Built `dist/PS4Game_installer-r27.pkg` (6,619,136 bytes). `make validate` passes
+  package signatures/hashes and packed imports; source fingerprint, manifest hash
+  and revision match the final artifact. r26 was an intermediate build before the
+  picker pagination correction; it was not deployed.
+- Regenerated all 69 captures at r27, inspected profile selection, expanded Settings,
+  page navigation and both letter pages, and refreshed the consumer images. Added
+  README examples/screens for profiles, recent searches and the letter picker;
+  all README image links resolve.
+- CHANGELOG and TODO record implementation and validation. Identity/whitespace
+  audits pass. New PS4 controller/profile acceptance remains unchecked in TODO;
+  no console deployment or remote push was made.
+
 ## r25 navigation and maintenance improvements — 2026-10-16
 
 - User authorized suggestions 1–6. Implementing sidebar shortcuts, sorting,

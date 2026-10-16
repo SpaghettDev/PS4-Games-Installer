@@ -25,6 +25,8 @@ std::string keyboardTitle(EditKind kind) {
         case EditKind::SavedQuery: return "Collection search words";
         case EditKind::SourceCategory: return "Catalog source category";
         case EditKind::Search: return "Search library";
+        case EditKind::ProfileName: return "New server profile name";
+        case EditKind::RenameProfile: return "Rename server profile";
         case EditKind::GameLabel: return "Local game label";
         case EditKind::GameDescription: return "Local game description";
         case EditKind::GameTag: case EditKind::CreateTag: return "New local tag";
@@ -99,6 +101,7 @@ void Ui::setLibraries(std::optional<std::vector<Entry>> local, std::optional<std
 }
 ViewState Ui::captureView() const {
     ViewState state; state.available = library == Library::Available; state.query = query; state.sidebar = sidebar;
+    state.recentSearches = recentSearches;
     state.filter = filter; state.updatesOnly = updatesOnly; state.sidebarIndex = sidebarIndex;
     for (size_t i = 0; i < 2; ++i) {
         const auto which = i ? Library::Available : Library::Installed;
@@ -116,6 +119,7 @@ ViewState Ui::captureView() const {
 }
 void Ui::restoreView(const ViewState& state) {
     library = state.available ? Library::Available : Library::Installed; query = state.query; sidebar = state.sidebar;
+    recentSearches = state.recentSearches;
     filter = state.filter; updatesOnly = state.updatesOnly; sidebarIndex = state.sidebarIndex;
     rebuild();
     for (size_t i = 0; i < 2; ++i) {
@@ -175,6 +179,15 @@ void Ui::beginEdit(EditKind kind, size_t index, const std::string& text) {
 void Ui::finishEdit(const std::optional<std::string>& text) {
     screen = keyboardReturn;
     if (!text) return;
+    if (editKind == EditKind::ProfileName || editKind == EditKind::RenameProfile) {
+        try {
+            if (editKind == EditKind::ProfileName) { addServerProfile(draft,*text); profileIndex=draft.profiles.size()-1; }
+            else renameServerProfile(draft,editSource,*text);
+            browseNotice = "Profile updated in draft. Return to Settings and Save settings to keep it.";
+        } catch (const std::exception& e) { browseNotice=e.what(); }
+        return;
+    }
+    if (editKind == EditKind::Search) { applySearch(*text); return; }
     if (editKind == EditKind::SavedName || editKind == EditKind::SavedQuery || editKind == EditKind::SetupUrl) {
         try {
             if (editKind == EditKind::SavedName) savedDraft.name = localName(*text);
@@ -211,7 +224,6 @@ void Ui::finishEdit(const std::optional<std::string>& text) {
         } catch (const std::exception& e) { localNotice = collectionNotice = status = e.what(); }
         return;
     }
-    if (editKind == EditKind::Search) { query = *text; rebuild(); return; }
     if (editKind == EditKind::SourceUrl) {
         if (!text->empty() && !isHttpUrl(*text)) { settingsNotice = status = "Invalid URL. Use http:// or https:// with no spaces."; return; }
         draft.sources.at(editSource).url = *text;
@@ -232,7 +244,7 @@ std::vector<std::string> Ui::options() const {
         "View: " + layoutName(settings.layout), "Group: " + groupName(settings.grouping),
         "Sort: " + sortName(settings.sort),
         settings.notInstalledOnly ? "Available: Not installed" : "Available: All packages", "Settings", "About", "Exit", "Browse local categories", "Browse local tags",
-        bulkMode ? "Organize selected games" : "Select multiple games", "Download queue", "Saved collections", "USB backup / restore", "Connection setup helper", settings.descending ? "Order: Descending" : "Order: Ascending", "Storage cleanup", "Export diagnostics to USB"};
+        bulkMode ? "Organize selected games" : "Select multiple games", "Download queue", "Saved collections", "USB backup / restore", "Connection setup helper", settings.descending ? "Order: Descending" : "Order: Ascending", "Storage cleanup", "Export diagnostics to USB", "Jump to letter", "Server profiles"};
 }
 std::vector<std::string> Ui::settingRows() const {
     return {"Games JSON URL", "Other catalog sources", "View: " + layoutName(draft.layout),
@@ -240,7 +252,7 @@ std::vector<std::string> Ui::settingRows() const {
         draft.notInstalledOnly ? "Available: Not installed" : "Available: All packages",
         draft.animations ? "Background animation: On" : "Background animation: Off",
         draft.refreshOnStart ? "Refresh on startup: On" : "Refresh on startup: Off",
-        "Test connection", "Clear artwork cache", "Save settings", "Installation destination", "Connection setup helper", draft.descending ? "Order: Descending" : "Order: Ascending", "Storage cleanup", "Export diagnostics to USB"};
+        "Test connection", "Clear artwork cache", "Save settings", "Installation destination", "Connection setup helper", draft.descending ? "Order: Descending" : "Order: Ascending", "Storage cleanup", "Export diagnostics to USB", "Server profiles"};
 }
 std::vector<std::string> Ui::actionRows() const {
     std::vector<std::string> rows;
@@ -308,6 +320,7 @@ void Ui::saveLocalDraft() {
 void Ui::handle(Button b) {
     // Circle and dialogs are handled before dashboard shortcuts.
     if (screen == Screen::Keyboard) return;
+    if (handleBrowsing(b)) return;
     if (handleFeatures(b)) return;
     if (screen == Screen::DiscardLocal) {
         if (b == Button::Circle) { localDraft = pending.info; screen = Screen::Actions; }
@@ -467,7 +480,7 @@ void Ui::handle(Button b) {
         if (b != Button::Cross) return;
         switch (menuIndex) {
             case 0: emit(CommandType::Refresh); screen = Screen::Dashboard; break;
-            case 1: beginEdit(EditKind::Search, 0, query); break;
+            case 1: searchIndex=0; browseNotice.clear(); screen=Screen::Search; break;
             case 2: settings.layout = settings.layout == Layout::Tiles ? Layout::Summary : Layout::Tiles; quickSave(); break;
             case 3: settings.grouping = static_cast<Grouping>((static_cast<int>(settings.grouping) + 1) % 7); quickSave(); break;
             case 4: settings.sort = static_cast<SortField>((int(settings.sort) + 1) % 5); settings.descending = settings.sort != SortField::Name; quickSave(); break;
@@ -483,6 +496,8 @@ void Ui::handle(Button b) {
             case 15: draft = settings; setupSourceIndex = 0; setupSource = draft.sources[0]; setupReturn = Screen::Options; sourceReport = {}; featureNotice.clear(); setupIndex = 0; screen = Screen::SourceSetup; break;
             case 16: settings.descending = !settings.descending; quickSave(); break;
             case 17: maintenanceReturn = Screen::Options; screen = Screen::Cleanup; featureNotice.clear(); emit(CommandType::ScanUsage); break;
+            case 19: jumpIndex=0; jumpReturn=Screen::Options; screen=Screen::JumpLetter; break;
+            case 20: draft=settings; profileIndex=0; profileReturn=Screen::Options; browseNotice.clear(); screen=Screen::ServerProfiles; break;
             case 18: maintenanceReturn = Screen::Options; screen = Screen::Diagnostics; featureNotice.clear(); emit(CommandType::ScanBackups); break;
         }
         return;
@@ -509,6 +524,7 @@ void Ui::handle(Button b) {
             case 12: setupSourceIndex = 0; setupSource = draft.sources[0]; setupReturn = Screen::Settings; sourceReport = {}; featureNotice.clear(); setupIndex = 0; screen = Screen::SourceSetup; break;
             case 13: draft.descending = !draft.descending; break;
             case 14: maintenanceReturn = Screen::Settings; screen = Screen::Cleanup; featureNotice.clear(); emit(CommandType::ScanUsage); break;
+            case 16: profileIndex=0; profileReturn=Screen::Settings; browseNotice.clear(); screen=Screen::ServerProfiles; break;
             case 15: maintenanceReturn = Screen::Settings; screen = Screen::Diagnostics; featureNotice.clear(); emit(CommandType::ScanBackups); break;
         }
         return;

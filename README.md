@@ -31,6 +31,9 @@ It requires an active homebrew environment; this app does not install GoldHEN.
   local category, tag or game/Title ID, or none. Sort by name, size, local rating,
   last launch here or first recorded install, in either direction; optionally hide
   installed remote titles.
+- Jump pages with L2/R2, jump to a letter, and reuse recent searches without typing.
+- Keep named server profiles for complete catalog source sets and switch between
+  them with their own offline caches.
 - Edit catalog URLs with the PS4 on-screen keyboard, test connectivity, and save
   settings from the app. No FTP configuration is needed for normal setup.
 - View detailed metadata, search the current library, and use an offline catalog
@@ -151,6 +154,40 @@ the catalog only; each package URL is checked separately when installing. A vali
 empty catalog is accepted and explicitly reported as empty. Settings also retains
 the ordinary URL editor and Test connection for offline/manual configuration.
 
+## Named server profiles
+
+Open **Options > Server profiles**, also available in Settings. A profile stores
+all catalog URLs together: Games, Updates, DLC and any additional sources. Up to
+16 profiles can be named, renamed and removed on the PS4.
+
+1. Configure your current sources, then open Server profiles and press Triangle
+   (**Save copy**). Name the profile, for example **Home NAS**.
+2. Press O to return to Settings and select **Save settings**.
+3. To add another server, save another named copy, return to Settings, edit that
+   copy's Games/other URLs, then Save settings. The first profile keeps its URLs.
+4. To switch, highlight a profile and press X (**Use**). This selects it in the
+   Settings draft; **Save settings** applies the switch without retyping URLs.
+
+Triangle copies the current draft URLs to a new profile; existing profile names
+cannot be overwritten by this action. Square renames the highlighted profile.
+Options offers confirmed deletion. Changes stay in the draft until Save settings;
+O from Settings offers to discard them. Deleting the selected profile keeps its
+current URLs as Custom sources. Profiles change sources; display preferences,
+personal Title ID records and existing download jobs stay shared.
+
+The dashboard shows the active profile name. Switching loads the cache belonging
+to that source set and refreshes it. If that server is offline, its cached list
+remains available; when it has no cache, Available is empty. A response finishing
+from a previously selected source cannot replace the newly selected library.
+An ongoing package download keeps its original URL; a requested catalog refresh
+waits for that transfer worker. PS4 background tasks continue independently.
+
+Existing settings work without profiles. Their legacy offline cache is adopted
+for the current sources on the first launch of this revision. Profiles and their
+URLs live in `config.json`; profile backups and diagnostic exports omit them.
+
+![Named server profiles with sample sources](docs/images/server-profiles.png)
+
 ## Controls
 
 | Button | Action |
@@ -161,6 +198,8 @@ the ordinary URL editor and Test connection for offline/manual configuration.
 | X on the sidebar | Browse games or open Downloads / Collections |
 | Right on the sidebar | Return to games |
 | L1 / R1 | Switch Installed / Available |
+| L2 / R2 while browsing games | Previous / next page |
+| Square with the sidebar focused | Jump to letter in the current view |
 | X on Installed | Launch the game |
 | X on Available | Install confirmation, or actions for an installed title |
 | Triangle | Game actions: launch/install, details, artwork, Assign category, Assign tags, rating, Edit local info and Uninstall for installed games; Up/Down scrolls all actions |
@@ -191,6 +230,35 @@ The app saves both libraries' selections, the active library and search before
 handing off to the game. Reopening returns to that selection, even if a refresh
 has reordered the titles. If the title has disappeared, it selects the nearest
 remaining position. A failed position save is shown before launching.
+
+## Faster browsing and remembered searches
+
+**L2 / R2** moves between pages: two tile rows, or eight summary rows. It keeps the
+column/row position when possible and stops at the first/last page. These controls
+work in Installed, Available and Updates, including grouped and filtered views.
+The desktop keyboard equivalents are **Page Up / Page Down**.
+
+Open **Options > Jump to letter**, or focus the sidebar and press Square. Only
+initials present in the current view appear, with entry counts. X selects the
+first visible name beginning with that letter; the current sort, grouping and
+filters stay. `#` collects numbers, symbols and names outside A-Z. L2/R2 pages
+through the picker, and O returns without changing selection.
+
+**Options > Search** now lists New search, Clear current search and up to 12 recent
+terms, newest first. X reuses a term immediately. Triangle opens the keyboard;
+O cancels typing. Accepted nonempty terms are deduplicated and remembered across
+restart. Search terms can contain up to 128 UTF-8 bytes. Clearing the current
+search keeps its history and your other filters. Square offers confirmed history
+clearing; it keeps the current search and saved collections.
+
+Search history is local to this PS4 and shared between libraries/server profiles.
+It is stored with the browsing session, separate from personal-record backups,
+server catalogs and diagnostic exports. A failed session write shows an error;
+current in-memory browsing remains available, but may not survive restart.
+
+![Recent searches with sample terms](docs/images/recent-searches.png)
+
+![Jump to letter in the current view](docs/images/jump-letter.png)
 
 ## Local ratings and history
 
@@ -607,17 +675,20 @@ Interactive preview uses the same UI and renderer with a sample library and disa
 PS4 launch/install operations. It forwards your X11 socket and XAUTHORITY when set;
 ensure those environment variables identify your current desktop session.
 Keyboard controls: arrows = D-pad, Enter/X = Cross, Escape/O = Circle, S = Square,
-T = Triangle, Tab = Options, Q/E = L1/R1. Enter accepts text; Escape cancels it.
+T = Triangle, Tab = Options, Q/E = L1/R1, Page Up/Page Down = L2/R2.
+Enter accepts text; Escape cancels it.
 An SDL-compatible controller can also navigate the preview.
 
 ## Data and troubleshooting
 
 The console stores its files under `/data/PS4-Game-Installer/`:
 
-- `config.json`: saved sources and display preferences; see config.example.json.
-- `catalog.json`: last successful remote catalog snapshot.
+- `config.json`: saved sources, named server profiles and display preferences; see config.example.json.
+- `catalog-<source-key>.json`: offline catalog for a particular set of source URLs.
+- `catalog.json`: compatibility copy of the latest accepted catalog; adopted once for legacy settings.
+- `catalog-cache-v1`: marker preventing legacy-cache adoption after later URL changes.
 - `player.json`: personal Title ID records and saved collection rules (schema 3).
-- `session.json`: library selections, Updates mode, sidebar focus, search and active filter rules.
+- `session.json`: library selections, Updates mode, sidebar focus, search/history and active filter rules.
 - `queue.json`: waiting/active/finished items, base dependencies, progress and task ownership.
 - `tasks.json`: compatibility copy of submitted task IDs from earlier releases.
 - `player-before-restore-*.json`: recovery copies made before USB restores.

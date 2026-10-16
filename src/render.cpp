@@ -35,7 +35,7 @@ void buttonIcon(Canvas& c, Button button, int x, int baseline, int width) {
             }
             break;
         default: {
-            const std::string label = button == Button::Options ? "OPTIONS" : "L1 / R1";
+            const std::string label = button == Button::Options ? "OPTIONS" : button == Button::L2 ? "L2 / R2" : "L1 / R1";
             c.text(label, x + (width - c.textWidth(label, 13)) / 2, top + 23, 13, White);
             break;
         }
@@ -44,7 +44,7 @@ void buttonIcon(Canvas& c, Button button, int x, int baseline, int width) {
 void hints(Canvas& c, int x, int baseline,
            std::initializer_list<std::pair<Button, std::string>> items, int size = 23) {
     for (const auto& item : items) {
-        const int width = item.first == Button::Options || item.first == Button::L1 ? 80 : 36;
+        const int width = item.first == Button::Options || item.first == Button::L1 || item.first == Button::L2 ? 80 : 36;
         buttonIcon(c, item.first, x, baseline, width);
         c.text(item.second, x + width + 10, baseline, size, White);
         x += width + 10 + c.textWidth(item.second, size) + 32;
@@ -156,6 +156,7 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
     c.image(*placeholder, 54, 52, 58, 58);
     c.text("PS4 Games Installer", 132, 94, 39, White);
     c.text(PSGI_VERSION, 508, 127, 18, Muted);
+    if (!ui.settings.activeProfile.empty()) c.text("Server: "+ui.settings.activeProfile,580,127,18,Accent,950);
     c.text(ui.freeBytes ? shortSize(ui.freeBytes) + " free" : "Your PS4 library", 1500, 94, 25, Muted, 350);
     c.rectangle(54, 151, 1812, 1, 0x638aad, 65);
 
@@ -255,8 +256,8 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
     c.text(ui.librarySummary(), 70, 1000, 22, White, 620);
     c.text(ui.status, 720, 1000, 21, ui.loading ? Accent : Muted, 1130);
     hints(c, 70, 1045, {{Button::Cross, ui.bulkMode ? "Mark game" : ui.library == Library::Installed ? "Launch" : "Install"},
-        {Button::Square, "Details"}, {Button::Triangle, "Actions"}, {Button::Options, "Menu"},
-        {Button::Circle, ui.bulkMode ? "End selection" : "Back / Exit"}, {Button::L1, "Library"}}, 22);
+        {Button::Square, ui.sidebar ? "Jump to letter" : "Details"}, {Button::Triangle, "Actions"}, {Button::Options, "Menu"},
+        {Button::Circle, ui.bulkMode ? "End selection" : "Back / Exit"}, {Button::L1, "Library"}, {Button::L2, "Page"}}, 22);
 
     if (featureDialog(c, ui)) return;
     switch (ui.screen) {
@@ -477,6 +478,41 @@ bool Renderer::featureDialog(Canvas& c, Ui& ui) {
         return lines;
     };
     switch (ui.screen) {
+        case Screen::Search:
+            panel(c,300,110,1320,850,"Search library");
+            c.text("Current: "+(ui.query.empty() ? std::string("All games") : ui.query),350,248,24,Accent,1220);
+            menu(c,ui.searchRows(),ui.searchIndex,340,320,1240,53,8);
+            c.text("Recent searches are remembered on this PS4. Search keeps your other filters.",350,778,22,Muted,1220);
+            c.text(ui.browseNotice,350,822,21,Accent,1220);
+            hints(c,350,906,{{Button::Cross,"Select"},{Button::Triangle,"Type search"},{Button::Square,"Clear history"},{Button::Circle,"Back"}},21); return true;
+        case Screen::ConfirmClearSearches:
+            panel(c,350,260,1220,550,"Clear recent searches?");
+            c.text("This removes the remembered search terms from this PS4.",400,424,27,White,1120);
+            c.text("Your current search and saved collections stay.",400,489,24,Muted,1120);
+            hints(c,400,748,{{Button::Cross,"Clear history"},{Button::Circle,"Cancel"}}); return true;
+        case Screen::JumpLetter:
+            panel(c,390,100,1140,880,"Jump to letter");
+            c.text("Jump within the current filtered view; sorting and grouping stay.",440,245,23,Muted,1040);
+            if (ui.letterRows().empty()) c.text("No titles in this view. Clear your search or filters first.",440,350,26,White,1040);
+            else menu(c,ui.letterRows(),ui.jumpIndex,430,320,1060,54,9);
+            c.text("# includes numbers, symbols and names outside A-Z.",440,846,22,Muted,1040);
+            hints(c,440,923,{{Button::Cross,"Jump"},{Button::L2,"Page"},{Button::Circle,"Back"}},22); return true;
+        case Screen::ServerProfiles:
+            panel(c,270,100,1380,880,"Server profiles");
+            c.text("Selected in draft: "+(ui.draft.activeProfile.empty() ? std::string("Custom sources") : ui.draft.activeProfile),320,243,26,Accent,1280);
+            c.text("Each profile remembers all Games / Updates / DLC catalog URLs.",320,287,23,Muted,1280);
+            if (ui.draft.profiles.empty()) c.text("Press Triangle to save your current URLs as a named profile.",320,385,27,White,1280);
+            else menu(c,ui.profileRows(),ui.profileIndex,310,365,1300,54,6);
+            c.text("Use selects a profile in Settings. Save settings applies your changes.",320,741,22,Muted,1280);
+            c.text(ui.browseNotice,320,789,21,Accent,1280);
+            hints(c,320,866,{{Button::Cross,"Use"},{Button::Triangle,"Save copy"},{Button::Square,"Rename"},{Button::Options,"Delete"}},22);
+            hints(c,320,927,{{Button::Circle,"Back"}},22); return true;
+        case Screen::ConfirmDeleteProfile:
+            panel(c,350,250,1220,570,"Delete server profile?");
+            if (ui.profileIndex<ui.draft.profiles.size()) c.text(ui.draft.profiles[ui.profileIndex].name,400,417,31,White,1120);
+            c.text("Only the saved profile is removed. Current URLs and queued tasks stay.",400,486,24,Muted,1120);
+            c.text("Return to Settings and Save settings to keep the change.",400,541,24,Muted,1120);
+            hints(c,400,759,{{Button::Cross,"Delete profile"},{Button::Circle,"Cancel"}}); return true;
         case Screen::Cleanup: {
             panel(c, 300, 130, 1320, 820, "Storage cleanup");
             c.text("Artwork cache: " + shortSize(ui.usage.artwork), 350, 290, 30, White, 1220);

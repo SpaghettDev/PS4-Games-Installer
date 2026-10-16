@@ -1,5 +1,13 @@
 # Work tracker
 
+## Current implementation: faster browsing and server profiles
+
+- [x] L2/R2 page jumps and a letter picker for the current filtered view.
+- [x] Remembered searches with controller selection and confirmed history clearing.
+- [x] Named profiles for complete catalog source sets, with create/rename/delete and explicit Save.
+- [x] Separate offline caches and rejection of results from previously selected sources.
+- [x] Host tests, native package validation, screenshots, consumer docs and local commit for r27.
+
 ## Current implementation: navigation and maintenance
 
 - [x] Sidebar Downloads, Collections and Updates shortcuts with correct back navigation.
@@ -98,6 +106,12 @@
   and the config-file confirmation is displayed.
 - [x] r16 FTP log shows 44 packages loaded/refreshed and a successful connection
   test; user confirms remote artwork downloads work (2026-10-16).
+- [ ] Retest r27: L2/R2 pages both layouts without unintended repeats; Square on
+  sidebar opens the letter picker, including filtered/grouped and empty views.
+- [ ] Retest r27: PS4 search keyboard cancellation, recent reuse, history clearing
+  and restart persistence; O returns from the new dialogs correctly.
+- [ ] Retest r27: create/rename/delete/switch profiles, explicit Save/discard,
+  offline cache isolation and switching while a catalog request/transfer runs.
 - [ ] Retest r25: sidebar shortcuts and O return to the invoking screen; Updates
   and selected game survive launch/reopen; filters and both sort directions work.
 - [ ] Retest r25: missing-base update/DLC is blocked; queued base completes and

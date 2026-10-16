@@ -40,7 +40,7 @@ std::optional<Button> ControllerInput::poll(const ControllerState& state, uint64
     previous = held;
     // One action per frame prevents a back/confirm combination acting twice.
     for (Button button : {Button::Circle, Button::Options, Button::Cross, Button::Square, Button::Triangle,
-                          Button::Up, Button::Down, Button::Left, Button::Right, Button::L1, Button::R1})
+                          Button::Up, Button::Down, Button::Left, Button::Right, Button::L1, Button::R1, Button::L2, Button::R2})
         if (pressed & buttonMask(button)) return button;
     return {};
 }

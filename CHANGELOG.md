@@ -1,5 +1,22 @@
 # Changelog
 
+## r27 — 2026-10-16
+
+- Add L2/R2 page jumps in both layouts, native/SDL trigger bindings and desktop
+  Page Up/Page Down keys. Add a letter picker from Options or Square on the sidebar,
+  with counts from the current filtered view and preserved sort/group settings.
+- Add a search menu with 12 recent terms, deduplication, immediate reuse, clear
+  current search and confirmed history clearing. Persist history in session.json
+  independently of personal records and report session-write failures.
+- Add 16 named server profiles storing complete source sets, with save-copy,
+  rename, confirmed delete and explicit Settings Save/discard. Keep existing
+  settings compatible, preserve active-profile URL edits and show the active name.
+- Keep separate caches per source set, migrate the legacy cache for an existing
+  setup, and reject old in-flight catalog results after switching sources. Preserve
+  queued tasks and local Title ID records while clearing stale remote enrichment.
+- Host/native validation and screenshots are tracked in PROGRESS.md. New controller
+  bindings/profile behavior still need console acceptance.
+
 ## r25 — 2026-10-16
 
 - Add sidebar Downloads, Collections and Updates with contextual back navigation

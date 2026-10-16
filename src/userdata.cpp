@@ -1,4 +1,5 @@
 #include "userdata.hpp"
+#include "text.hpp"
 #include "settings.hpp"
 #include "sfo.hpp"
 #include "cJSON.h"
@@ -297,6 +298,17 @@ ViewState parseViewState(const std::string& text) {
     state.updatesOnly = boolean(root.get(), "updates_only");
     state.sidebarIndex = cJSON_GetObjectItemCaseSensitive(root.get(), "sidebar_index") ? number(root.get(), "sidebar_index", 4) : (state.available ? 1 : 0);
     state.query = string(root.get(), "query", 512);
+    if (const auto* history=cJSON_GetObjectItemCaseSensitive(root.get(),"recent_searches")) {
+        if (!cJSON_IsArray(history)) throw std::runtime_error("Invalid recent searches");
+        for (const auto* item=history->child;item;item=item->next) {
+            if (!cJSON_IsString(item) || state.recentSearches.size()>=12) throw std::runtime_error("Invalid recent searches");
+            std::string term=item->valuestring;
+            if (term.empty() || term.size()>128 || std::any_of(term.begin(),term.end(),[](unsigned char c){return c<32 || c==127;})) throw std::runtime_error("Invalid recent search text");
+            toUtf16(term);
+            if (std::any_of(state.recentSearches.begin(),state.recentSearches.end(),[&](const std::string& old){return lower(old)==lower(term);})) throw std::runtime_error("Duplicate recent search");
+            state.recentSearches.push_back(term);
+        }
+    }
     if (auto* filter = cJSON_GetObjectItemCaseSensitive(root.get(), "local_filter")) {
         state.filter = readFilter(filter);
     }
@@ -317,6 +329,8 @@ std::string serializeViewState(const ViewState& state) {
     cJSON_AddBoolToObject(root.get(), "updates_only", state.updatesOnly);
     cJSON_AddNumberToObject(root.get(), "sidebar_index", state.sidebarIndex);
     cJSON_AddStringToObject(root.get(), "query", state.query.c_str());
+    auto* history=cJSON_AddArrayToObject(root.get(),"recent_searches");
+    for (const auto& term:state.recentSearches) cJSON_AddItemToArray(history,cJSON_CreateString(term.c_str()));
     auto* filter = cJSON_AddObjectToObject(root.get(), "local_filter");
     writeFilter(filter, state.filter);
     for (size_t i = 0; i < 2; ++i) {

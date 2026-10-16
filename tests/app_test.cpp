@@ -19,6 +19,7 @@ std::atomic<bool> rejectInstall{false}, retainFailedStart{false};
 std::atomic<int> submissions{0}, progressMode{0};
 std::atomic<bool> blockProbe{false}, uniqueTasks{false}, failCancellation{false};
 std::atomic<int> cancellations{0};
+std::atomic<bool> failProfileRemote{false}, blockProfileHome{false}, profileHomeBlocked{false};
 std::string sourceResponse;
 std::vector<psgi::Entry> localGames;
 std::string launchDirectory;
@@ -73,8 +74,17 @@ TaskProgress taskProgress(int task) {
     result.completed = progressMode == 2;
     return result;
 }
-std::string httpGet(const std::string& url, size_t, const std::atomic<bool>*) {
+std::string httpGet(const std::string& url, size_t, const std::atomic<bool>* cancelled) {
+    if (url=="http://profiles-home/games" && blockProfileHome) {
+        profileHomeBlocked=true;
+        while (blockProfileHome && !(cancelled && *cancelled)) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
     std::lock_guard<std::mutex> lock(requestMutex); lastUrl = url;
+    if (url=="http://profiles-home/games") return R"({"DATA":{"http://profiles-home/game.pkg":{"name":"Home game","title_id":"CUSA00001"}}})";
+    if (url=="http://profiles-remote/games") {
+        if (failProfileRemote) throw std::runtime_error("HTTP 503 profile fixture");
+        return R"({"DATA":{"http://profiles-remote/game.pkg":{"name":"Remote online","title_id":"CUSA00002"}}})";
+    }
     if (!sourceResponse.empty()) return sourceResponse;
     return R"({"DATA":{"http://fixture/game.pkg":{"name":"Saved source game","title_id":"CUSA00001"}}})";
 }
@@ -487,6 +497,42 @@ int main() {
     }
     retainFailedStart=false;
     uniqueTasks = false;
+    const auto profiles=directory+"/profiles";std::filesystem::create_directory(profiles);
+    Settings profileSettings;profileSettings.sources={{"games","http://profiles-home/games"}};addServerProfile(profileSettings,"Home");
+    profileSettings.sources={{"games","http://profiles-remote/games"}};addServerProfile(profileSettings,"Remote");useServerProfile(profileSettings,0);saveSettings(profiles,profileSettings);
+    auto homeCache=games[0];homeCache.name="Home cached";homeCache.url="http://profiles-home/game.pkg";
+    auto remoteCache=games[1];remoteCache.name="Remote cached";remoteCache.url="http://profiles-remote/game.pkg";
+    atomicWrite(catalogCachePath(profiles,profileSettings),serializeCatalog({homeCache}));
+    auto remoteSettings=profileSettings;useServerProfile(remoteSettings,1);atomicWrite(catalogCachePath(profiles,remoteSettings),serializeCatalog({remoteCache}));
+    atomicWrite(profiles+"/catalog.json",serializeCatalog({games[0]})); // Must never override a named profile cache.
+    {std::lock_guard<std::mutex> lock(requestMutex);localGames={games[0]};}
+    {
+        App app(profiles);settle(app,video);assert(app.ui.available[0].name=="Home game");auto& ui=app.ui;
+        ui.handle(Button::Options);ui.menuIndex=1;ui.handle(Button::Cross);ui.handle(Button::Cross);app.tick(0,video);ui.finishEdit("Home");app.tick(0,video);
+        assert(loadViewState(profiles).recentSearches==std::vector<std::string>{"Home"});
+        ui.screen=Screen::Options;ui.menuIndex=20;ui.handle(Button::Cross);ui.profileIndex=1;ui.handle(Button::Cross);assert(ui.screen==Screen::Settings && ui.draft.activeProfile=="Remote" && ui.settings.activeProfile=="Home");
+        std::filesystem::create_directory(profiles+"/config.json.tmp");ui.handle(Button::Cross);app.tick(0,video);
+        assert(loadSettings(profiles).activeProfile=="Home" && ui.settings.activeProfile=="Home" && ui.draft.activeProfile=="Remote" && ui.available[0].name=="Home game");
+        std::filesystem::remove(profiles+"/config.json.tmp");failProfileRemote=true;ui.handle(Button::Cross);app.tick(0,video);
+        assert(ui.settings.activeProfile=="Remote" && ui.available.size()==1 && ui.available[0].name=="Remote cached" && ui.installed[0].url.empty());
+        settle(app,video);assert(ui.available[0].name=="Remote cached" && ui.status.find("503")!=std::string::npos);
+        failProfileRemote=false;blockProfileHome=true;
+        ui.settingsIndex=16;ui.handle(Button::Cross);ui.profileIndex=0;ui.handle(Button::Cross);ui.handle(Button::Cross);app.tick(0,video);
+        for(unsigned i=0;i<200 && !profileHomeBlocked;++i) { std::this_thread::sleep_for(std::chrono::milliseconds(5)); }
+        assert(profileHomeBlocked);
+        assert(ui.available[0].name=="Home game"); // Existing Home cache is selected while its fetch waits.
+        ui.settingsIndex=16;ui.handle(Button::Cross);ui.profileIndex=1;ui.handle(Button::Cross);ui.handle(Button::Cross);app.tick(0,video);
+        assert(ui.settings.activeProfile=="Remote" && ui.available[0].name=="Remote cached");
+        blockProfileHome=false;
+        for(unsigned i=0;i<200;++i){app.tick(0,video);assert(ui.available.size()==1 && ui.available[0].titleId=="CUSA00002");if(!ui.loading)break;std::this_thread::sleep_for(std::chrono::milliseconds(5));}
+        settle(app,video);assert(ui.available[0].name=="Remote online" && loadSettings(profiles).activeProfile=="Remote");
+    }
+    {App app(profiles);settle(app,video);assert(app.ui.settings.activeProfile=="Remote" && app.ui.available[0].name=="Remote online" && app.ui.recentSearches==std::vector<std::string>{"Home"});}
+    const auto legacyCache=directory+"/legacy-cache";std::filesystem::create_directory(legacyCache);saveSettings(legacyCache,offline);
+    atomicWrite(legacyCache+"/catalog.json",serializeCatalog({homeCache}));
+    {App app(legacyCache);settle(app,video);assert(app.ui.available.size()==1 && app.ui.available[0].name=="Home cached");}
+    auto externallyEdited=offline;externallyEdited.sources={{"games","http://different-server/games"}};saveSettings(legacyCache,externallyEdited);
+    {App app(legacyCache);settle(app,video);assert(app.ui.available.empty());} // Legacy adoption must not repeat after an external URL change.
     std::filesystem::remove_all(directory);
     std::puts("Settings persistence and tracked installation progress, failed-task recovery, retry and staging cleanup passed");
     std::puts("Launch handoff/session restart, rating persistence, uninstall confirmation/history and corrupt-record protection passed");

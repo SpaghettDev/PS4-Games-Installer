@@ -36,7 +36,7 @@ void coreInput() {
     state.buttons |= buttonMask(Button::Up); assert(!input.poll(state, 1120000));
     state = {true, 0, 0, 0}; assert(!input.poll(state, 1130000));
     for (Button button : {Button::Up, Button::Down, Button::Left, Button::Right, Button::Cross,
-                          Button::Circle, Button::Square, Button::Triangle, Button::Options, Button::L1, Button::R1}) {
+                          Button::Circle, Button::Square, Button::Triangle, Button::Options, Button::L1, Button::R1, Button::L2, Button::R2}) {
         state.buttons = buttonMask(button); assert(input.poll(state, 1200000) == button);
         if (button >= Button::Cross) assert(!input.poll(state, 2200000));
         state.buttons = 0; assert(!input.poll(state, 2300000));
@@ -64,6 +64,8 @@ void nativeSamplesAndUi() {
     state = readNativeController(pad, true);
     assert(state.leftX == -32768 && state.leftY == 32512);
     assert(state.buttons == (buttonMask(Button::Cross) | buttonMask(Button::Options)));
+    pad.buttons=ORBIS_PAD_BUTTON_L2 | ORBIS_PAD_BUTTON_R2;
+    assert(readNativeController(pad,true).buttons==(buttonMask(Button::L2)|buttonMask(Button::R2)));
     assert(!readNativeController(pad, false).connected);
     pad.connected = 0; assert(!readNativeController(pad, true).connected);
 
@@ -123,6 +125,11 @@ void sdlController() {
     assert(SDL_JoystickSetVirtualButton(joystick, SDL_CONTROLLER_BUTTON_DPAD_UP, 0) == 0);
     assert(SDL_JoystickSetVirtualButton(joystick, SDL_CONTROLLER_BUTTON_A, 0) == 0);
     axis(0, 0); assert(video.input(ui).empty());
+    assert(SDL_JoystickSetVirtualAxis(joystick,SDL_CONTROLLER_AXIS_TRIGGERLEFT,32767)==0); expect(Button::L2);
+    assert(video.input(ui).empty()); video.flushInput(); assert(video.input(ui).empty());
+    assert(SDL_JoystickSetVirtualAxis(joystick,SDL_CONTROLLER_AXIS_TRIGGERLEFT,-32768)==0); assert(video.input(ui).empty());
+    assert(SDL_JoystickSetVirtualAxis(joystick,SDL_CONTROLLER_AXIS_TRIGGERRIGHT,32767)==0); expect(Button::R2);
+    assert(SDL_JoystickSetVirtualAxis(joystick,SDL_CONTROLLER_AXIS_TRIGGERRIGHT,-32768)==0); assert(video.input(ui).empty());
     ui.screen = Screen::Keyboard; ui.keyboardText = "http://fixture/games";
     video.startKeyboard(ui); axis(-26000, 0); assert(video.input(ui).empty());
     SDL_Event done{}; done.type = SDL_KEYDOWN; done.key.keysym.sym = SDLK_RETURN;

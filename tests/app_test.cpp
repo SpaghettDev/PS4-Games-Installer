@@ -340,18 +340,17 @@ int main() {
         assert(app.ui.current()->rating == 4 && loadPlayerData(personal).games.at("CUSA00002").rating == 4);
         action(app.ui, "Edit local info"); app.ui.handle(Button::Cross); app.ui.handle(Button::Triangle);
         app.tick(0, video); app.ui.finishEdit("Adventure"); app.ui.handle(Button::Circle);
-        app.ui.localIndex = 1; app.ui.handle(Button::Cross); app.tick(0, video); app.ui.finishEdit("Favorite");
-        app.ui.localIndex = 2; app.ui.handle(Button::Cross); app.ui.handle(Button::Triangle);
+        app.ui.localIndex = 1; app.ui.handle(Button::Cross); app.ui.handle(Button::Triangle);
         app.tick(0, video); app.ui.finishEdit("Weekend"); app.ui.handle(Button::Circle);
-        app.ui.localIndex = 3; app.ui.handle(Button::Cross); app.tick(0, video); app.ui.finishEdit("My own description");
+        app.ui.localIndex = 2; app.ui.handle(Button::Cross); app.tick(0, video); app.ui.finishEdit("My own description");
         assert(loadPlayerData(personal).games.at("CUSA00002").info.category.empty());
         std::filesystem::create_directory(personal + "/player.json.tmp");
-        app.ui.localIndex = 4; app.ui.handle(Button::Cross); app.tick(0, video);
+        app.ui.localIndex = 3; app.ui.handle(Button::Cross); app.tick(0, video);
         assert(app.ui.screen == Screen::LocalInfo && app.ui.localDirty() && app.ui.localNotice.find("Save failed") == 0);
         assert(loadPlayerData(personal).games.at("CUSA00002").info.category.empty());
         std::filesystem::remove(personal + "/player.json.tmp");
         app.ui.handle(Button::Cross); app.tick(0, video);
-        assert(!app.ui.localDirty() && app.ui.current()->info.label == "Favorite");
+        assert(!app.ui.localDirty() && app.ui.current()->info.description == "My own description");
         assert(loadPlayerData(personal).games.at("CUSA00002").info.tags == std::vector<std::string>{"Weekend"});
         // Quick category assignment saves immediately; failure keeps the picker for retry.
         action(app.ui, "Assign category"); assert(app.ui.screen == Screen::PickCategory);
@@ -383,7 +382,7 @@ int main() {
         app.ui.handle(Button::Square); app.tick(0, video);
         assert(app.ui.screen == Screen::Actions && !app.ui.quickAssignment);
         const auto quickSaved = loadPlayerData(personal).games.at("CUSA00002");
-        assert(quickSaved.info.tags.size() == 2 && quickSaved.info.category == "Adventure" && quickSaved.info.label == "Favorite");
+        assert(quickSaved.info.tags.size() == 2 && quickSaved.info.category == "Adventure");
         assert(quickSaved.info.description == "My own description" && quickSaved.rating == 4 && quickSaved.launches == 1 && quickSaved.wasInstalled);
         const auto localSaved = std::find_if(app.ui.installed.begin(), app.ui.installed.end(), [](const Entry& e) { return e.titleId == "CUSA00002"; });
         assert(localSaved != app.ui.installed.end() && localSaved->info.tags.size() == 2);
@@ -400,7 +399,7 @@ int main() {
         assert(loadPlayerData(personal).categories == std::vector<std::string>{"Story games"});
         app.ui.handle(Button::Options); app.ui.handle(Button::Cross); app.tick(0, video);
         assert(app.ui.filter.category.empty() && loadPlayerData(personal).categories.empty());
-        assert(loadPlayerData(personal).games.at("CUSA00002").info.label == "Favorite");
+        assert(loadPlayerData(personal).games.at("CUSA00002").info.description == "My own description");
         app.ui.screen = Screen::Dashboard; app.ui.handle(Button::L1);
         failLaunch = true;
         app.ui.screen = Screen::Dashboard; app.ui.handle(Button::Cross); app.tick(0, video);
@@ -421,7 +420,7 @@ int main() {
         assert(removed != app.ui.available.end() && !removed->installed && removed->wasInstalled && removed->rating == 4);
         const auto records = loadPlayerData(personal);
         assert(records.games.at("CUSA00002").wasInstalled && records.games.at("CUSA00002").rating == 4);
-        assert(records.games.at("CUSA00002").info.description == "My own description" && records.games.at("CUSA00002").info.label == "Favorite");
+        assert(records.games.at("CUSA00002").info.description == "My own description");
         app.ui.handle(Button::R1); assert(app.ui.librarySummary().find("available to install") != std::string::npos);
     }
     {
@@ -439,7 +438,7 @@ int main() {
     }
     const auto extras = directory + "/extras"; std::filesystem::create_directory(extras);
     saveSettings(extras, personalSettings); atomicWrite(extras + "/catalog.json", serializeCatalog(games));
-    PlayerData seed; seed.setInfo("CUSA00001", {"Old category", "Favorite", "Persistent note", {"Solo"}}); seed.rate("CUSA00001", 5);
+    PlayerData seed; seed.setInfo("CUSA00001", {"Old category", "Persistent note", {"Solo"}}); seed.rate("CUSA00001", 5);
     savePlayerData(extras, seed);
     { std::lock_guard<std::mutex> lock(requestMutex); localGames = games; for (auto& e : localGames) { e.installed = true; e.version = "1.00"; } }
     {

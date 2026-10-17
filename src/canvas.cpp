@@ -87,10 +87,14 @@ void Canvas::rounded(int x, int y, int w, int h, int radius, uint32_t color, uin
     }
 }
 void Canvas::text(const std::string& value, int x, int baseline, int size, uint32_t color, int maxWidth, uint8_t opacity) {
-    int pen = x, right = std::min(Width, x + maxWidth);
+    textWindow(value,x,baseline,size,color,x,std::min(Width,x+maxWidth),opacity,true);
+}
+void Canvas::textWindow(const std::string& value, int x, int baseline, int size, uint32_t color,
+                        int left, int right, uint8_t opacity, bool ellipsis) {
+    int pen=x;
     for (size_t i = 0; i < value.size();) {
         auto& g = glyph(nextCodepoint(value, i), size);
-        if (pen + g.advance > right) {
+        if (ellipsis && pen + g.advance > right) {
             auto& dot = glyph(0x2026, size);
             if (pen + dot.advance <= right) text("…", pen, baseline, size, color, right - pen, opacity);
             break;
@@ -100,13 +104,25 @@ void Canvas::text(const std::string& value, int x, int baseline, int size, uint3
             if (dy < 0 || dy >= Height) continue;
             for (int col = 0; col < g.width; ++col) {
                 int dx = pen + g.left + col;
-                if (dx < std::max(0, x) || dx >= right) continue;
+                if (dx < std::max(0, left) || dx >= std::min(Width,right)) continue;
                 unsigned alpha = unsigned(g.alpha[row * g.width + col]) * opacity / 255;
                 if (alpha) pixels[dy * Width + dx] = blend(pixels[dy * Width + dx], color, alpha);
             }
         }
         pen += g.advance;
     }
+}
+void Canvas::scrollingText(const std::string& value, int x, int baseline, int size, uint32_t color,
+                           int width, double seconds, bool animate) {
+    const int distance=textWidth(value,size)-width;
+    if(!animate||distance<=0||!std::isfinite(seconds)||seconds<0){text(value,x,baseline,size,color,width);return;}
+    constexpr double pause=1.25, speed=38;
+    const double travel=distance/speed, phase=std::fmod(seconds,2*(pause+travel));
+    double offset=0;
+    if(phase>pause&&phase<pause+travel)offset=(phase-pause)*speed;
+    else if(phase>=pause+travel&&phase<2*pause+travel)offset=distance;
+    else if(phase>=2*pause+travel)offset=distance-(phase-2*pause-travel)*speed;
+    textWindow(value,x-int(offset),baseline,size,color,x,std::min(Width,x+width),255,false);
 }
 void Canvas::boldText(const std::string& value, int x, int baseline, int size, uint32_t color, int maxWidth) {
     text(value,x,baseline,size,color,maxWidth);

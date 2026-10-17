@@ -2,7 +2,7 @@
 #include "library.hpp"
 #include "settings.hpp"
 #include "sfo.hpp"
-#include "cJSON.h"
+#include "json.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cerrno>
@@ -175,7 +175,7 @@ std::string serializeQueue(const std::vector<QueueItem>& queue) {
         cJSON_AddStringToObject(item, "previous_version", job.previousVersion.c_str());
         cJSON_AddBoolToObject(item, "background_transfer", job.backgroundTransfer);
     }
-    std::unique_ptr<char, decltype(&cJSON_free)> text(cJSON_PrintUnformatted(root.get()), cJSON_free);
+    std::unique_ptr<char, decltype(&cJSON_free)> text(printJson(root.get()), cJSON_free);
     if (!text) throw std::runtime_error("Cannot serialize queue");
     return text.get();
 }

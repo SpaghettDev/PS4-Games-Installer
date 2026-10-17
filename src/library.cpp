@@ -139,9 +139,9 @@ std::vector<VisibleEntry> makeView(const std::vector<Entry>& entries, const Sett
         }
         if (!matchesLocal(e, filter)) continue;
         if (library == Library::Available && s.notInstalledOnly && e.installed) continue;
-        std::string searchable = e.name + " " + e.titleId + " " + e.info.category + " " + e.info.label + " " + e.info.description;
+        std::string searchable = e.name + " " + e.titleId + " " + e.info.category + " " + e.info.description;
         for (const auto& tag : displayTags(e)) searchable += " " + tag;
-        searchable += " " + joinedNames(displayCategories(e)) + " " + joinedNames(e.igdb.publishers);
+        searchable += " " + joinedNames(displayCategories(e)) + " " + joinedNames(e.igdb.publishers) + " " + joinedNames(e.igdb.themes);
         if (!q.empty() && lower(searchable).find(q) == std::string::npos) continue;
         std::string group;
         if (s.grouping == Grouping::Category) group = e.category.empty() ? "Unknown" : e.category;
@@ -191,10 +191,12 @@ std::vector<VisibleEntry> makeView(const std::vector<Entry>& entries, const Sett
 std::vector<std::pair<std::string, std::string>> entryDetails(const Entry& e) {
     auto unknown = [](const std::string& value) { return value.empty() ? "Unknown" : value; };
     std::vector<std::pair<std::string,std::string>> out{{"Name",e.name}};
-    if (!e.info.label.empty()) out.emplace_back("Label",e.info.label);
-    const auto categories=joinedNames(displayCategories(e)), tags=joinedNames(displayTags(e));
-    if (!categories.empty()) out.emplace_back("Category",categories);
-    if (!tags.empty()) out.emplace_back("Tags",tags);
+    if (!e.info.category.empty()) out.emplace_back("Category",e.info.category);
+    if (!e.igdb.genres.empty()) out.emplace_back("Genres",joinedNames(e.igdb.genres));
+    if (!e.info.tags.empty()) out.emplace_back("Tags",joinedNames(e.info.tags));
+    out.emplace_back("Game modes",unknown(joinedNames(e.igdb.gameModes)));
+    out.emplace_back("Players",playerCountText(e));
+    out.emplace_back("Split screen",splitScreenText(e));
     out.insert(out.end(), {{"Rating",ratingText(e)}, {"Size",formatSize(e.size)}, {"Version",unknown(e.version)},
         {"Publisher",unknown(joinedNames(e.igdb.publishers))},
         {"Release date",unknown(e.igdb.releaseDate.empty() ? e.release : e.igdb.releaseDate)},

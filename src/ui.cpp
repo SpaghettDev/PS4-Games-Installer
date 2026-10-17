@@ -35,7 +35,6 @@ std::string keyboardTitle(EditKind kind) {
         case EditKind::Search: return "Search library";
         case EditKind::ProfileName: return "New server profile name";
         case EditKind::RenameProfile: return "Rename server profile";
-        case EditKind::GameLabel: return "Local game label";
         case EditKind::GameDescription: return "Local game description";
         case EditKind::GameTag: case EditKind::CreateTag: return "New local tag";
         case EditKind::RenameTag: return "Rename local tag";
@@ -198,7 +197,6 @@ void Ui::finishEdit(const std::optional<std::string>& text) {
     if (editKind >= EditKind::GameCategory) {
         try {
             if (editKind == EditKind::GameDescription) { auto next = localDraft; next.description = *text; localDraft = normalizeInfo(next); }
-            else if (editKind == EditKind::GameLabel) localDraft.label = localName(*text);
             else if (editKind == EditKind::GameCategory) localDraft.category = localName(*text);
             else if (editKind == EditKind::GameTag) { auto next = localDraft; next.tags.push_back(*text); localDraft = normalizeInfo(next); }
             else {
@@ -275,7 +273,6 @@ std::vector<std::string> Ui::termChoices(bool tags, bool draft) const {
 }
 std::vector<std::string> Ui::localRows() const {
     return {"Category: " + (localDraft.category.empty() ? "Uncategorized" : localDraft.category),
-        "Label: " + (localDraft.label.empty() ? "Unlabeled" : localDraft.label),
         "Tags: " + (localDraft.tags.empty() ? "Untagged" : joinedTags(localDraft.tags)),
         "Description: " + (localDraft.description.empty() ? "Not set" : localDraft.description), "Save local info"};
 }
@@ -336,10 +333,9 @@ void Ui::handle(Button b) {
         moveMenuSelection(b, localIndex, localRows().size());
         if (b == Button::Cross) switch (localIndex) {
             case 0: pickerIndex = 0; screen = Screen::PickCategory; break;
-            case 1: beginEdit(EditKind::GameLabel, 0, localDraft.label); break;
-            case 2: pickerIndex = 0; screen = Screen::PickTags; break;
-            case 3: beginEdit(EditKind::GameDescription, 0, localDraft.description); break;
-            case 4: saveLocalDraft(); break;
+            case 1: pickerIndex = 0; screen = Screen::PickTags; break;
+            case 2: beginEdit(EditKind::GameDescription, 0, localDraft.description); break;
+            case 3: saveLocalDraft(); break;
         }
         return;
     }

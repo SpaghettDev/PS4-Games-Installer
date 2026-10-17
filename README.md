@@ -80,7 +80,8 @@ X to select characters or Done, and O to cancel.
 - **Triangle > Game packages:** find a title's base game, updates and DLC together.
 
 **Square** opens Game Details. Local notes replace the remote description;
-genres, themes and IGDB ratings fill in missing personal information. Use **X**
+Genres and assigned Tags are separate, followed by game modes, player counts
+and split-screen support. IGDB ratings fill in missing personal ratings. Use **X**
 to expand Details or Tech. details, **Triangle** for screenshots and **Square**
 for videos (opened in the PS4 browser), when the catalog provides them.
 
@@ -101,9 +102,10 @@ destination also changes the PS4's default location for new installations.
 ## Organize your games
 
 Use **Options** to search, switch Tiles/Summary, group, sort and filter the library.
+Selected long game names and categories scroll inside their tile when animation is on.
 Choose **Triangle > Rate game** for 1–5 stars, **Assign category** for a category,
 or **Assign tags** to toggle tags with X and save them with Square.
-**Edit local info** adds a label and personal notes. These records stay on your
+**Edit local info** edits your category, tags and personal notes. These records stay on your
 PS4 and survive catalog refreshes and uninstalling a game.
 
 **Options > Collections** saves reusable views. **Select multiple games** applies

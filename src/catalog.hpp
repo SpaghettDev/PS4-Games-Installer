@@ -11,7 +11,7 @@ constexpr size_t MaxEntries = 50000;
 
 struct Source { std::string category, url; };
 struct LocalInfo {
-    std::string category, label, description;
+    std::string category, description;
     std::vector<std::string> tags;
 };
 struct LocalFilter {
@@ -24,9 +24,15 @@ struct LocalFilter {
     unsigned installState = 0;
 };
 struct MediaItem { std::string name, url; };
+struct PlayerMode {
+    bool supportedKnown = false, supported = false;
+    bool splitScreenKnown = false, splitScreen = false;
+    unsigned maximum = 0;
+};
 struct RichMetadata {
-    std::vector<std::string> genres, themes, publishers, developers;
+    std::vector<std::string> genres, themes, publishers, developers, gameModes;
     std::string summary, storyline, releaseDate;
+    PlayerMode offline, online;
     double userRating = 0;
     bool userRatingKnown = false;
     uint64_t ratingCount = 0;

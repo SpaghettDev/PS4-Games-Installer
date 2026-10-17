@@ -1,5 +1,19 @@
 # Changelog
 
+## r37 — 2026-10-18
+
+- Avoid the OpenOrbis allocator shrink path in JSON output after a kernel-log
+  investigation of r36 refresh/startup crashes. Add large-JSON allocator regression
+  coverage and startup/refresh phase logging; preserve existing saved data.
+- Remove local labels from records, editing, searching and every game layout.
+  Legacy label keys are ignored while other personal information is retained.
+- Give categories the full row; scroll overflowing selected title/category text
+  inside its tile. Separate Genres and manually assigned Tags in Details, followed
+  by game modes, offline/online player counts and split-screen support.
+- Full host suite (including the allocator regression and 15 Python tests) and
+  OpenOrbis package validation passed. PS4 startup/refresh and UI acceptance
+  remain pending on PS4 11.00 + GoldHEN.
+
 ## r36 — 2026-10-18
 
 - Rework Game Details with ordered bold keys, one personal-or-remote description,

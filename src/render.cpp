@@ -153,6 +153,9 @@ void Renderer::menu(Canvas& c, const std::vector<std::string>& rows, size_t sele
 void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
     c.background(time, ui.screen == Screen::Settings ? ui.draft.animations : ui.settings.animations);
     const Entry* selected = ui.current();
+    const auto focus=selected ? selected->titleId+"|"+selected->url : "";
+    if(focus!=textFocus){textFocus=focus;textFocusChanged=time;}
+    const auto textTime=std::max(0.0,time-textFocusChanged);
     if (ui.screen == Screen::Splash) {
         c.image(*placeholder, 904, 330, 112, 112);
         c.centered("Loading PS4 Games Installer", 560, 48, White);
@@ -230,9 +233,8 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
                     c.rounded(x + 13, y + 16, ui.updatesOnly ? 304 : 148, 28, 6, 0x08283c, 235);
                     c.text(ui.updatesOnly ? packageKindName(entry) + " / v" + entry.version : state(entry), x + 22, y + 36, 15, Accent, ui.updatesOnly ? 286 : 132);
                 }
-                c.text(entry.name, x + 17, y + 245, 24, White, 297);
-                c.text(displayCategories(entry).empty() ? "Uncategorized" : joinedNames(displayCategories(entry)), x + 17, y + 270, 17, Accent, 146);
-                c.text(entry.info.label.empty() ? "Unlabeled" : entry.info.label, x + 174, y + 270, 17, Muted, 140);
+                c.scrollingText(entry.name,x+17,y+245,24,White,297,textTime,focus&&ui.settings.animations);
+                c.scrollingText(displayCategories(entry).empty() ? "Uncategorized" : joinedNames(displayCategories(entry)),x+17,y+270,17,Accent,297,textTime,focus&&ui.settings.animations);
                 c.text(shortSize(ui.library == Library::Installed ? entry.installedSize : entry.size), x + 17, y + 299, 21, Muted, 288);
                 stars(c, unsigned(std::round(displayRating(entry))), x + 190, y + 282, 18);
                 if(!entry.rating&&entry.igdb.userRatingKnown)c.text("IGDB",x+149,y+299,12,Muted,39);
@@ -255,8 +257,7 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
             c.text(entry.name, 450, y + 3, 25, White, 645);
             std::string meta = entry.titleId + (entry.region.empty() ? "" : "  " + entry.region) + (ui.visible[i].group.empty() ? "" : "  /  " + ui.visible[i].group);
             if (!state(entry).empty()) meta += "  /  " + (ui.updatesOnly ? packageKindName(entry) + " / v" + entry.version : state(entry));
-            c.text(displayCategories(entry).empty() ? "Uncategorized" : joinedNames(displayCategories(entry)), 451, y + 26, 17, Accent, 300);
-            c.text(entry.info.label.empty() ? "Unlabeled" : entry.info.label, 775, y + 26, 17, Muted, 315);
+            c.scrollingText(displayCategories(entry).empty() ? "Uncategorized" : joinedNames(displayCategories(entry)),451,y+26,17,Accent,640,textTime,focus&&ui.settings.animations);
             c.text(meta, 451, y + 46, 15, Muted, 640);
             c.text(shortSize(ui.library == Library::Installed ? entry.installedSize : entry.size), 1110, y + 13, 21, Muted, 165);
             stars(c, unsigned(std::round(displayRating(entry))), 1110, y + 25, 17);
@@ -268,8 +269,7 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
             c.rounded(1340, 252, 514, 622, 16, Panel, 180);
             c.image(*(image ? image : placeholder), 1366, 279, 462, 400);
             c.text(selected->name, 1372, 732, 30, White, 452);
-            c.text(displayCategories(*selected).empty() ? "Uncategorized" : joinedNames(displayCategories(*selected)), 1373, 763, 18, Accent, 215);
-            c.text(selected->info.label.empty() ? "Unlabeled" : selected->info.label, 1605, 763, 18, Muted, 218);
+            c.scrollingText(displayCategories(*selected).empty() ? "Uncategorized" : joinedNames(displayCategories(*selected)),1373,763,18,Accent,452,textTime,!ui.sidebar&&ui.settings.animations);
             c.text(shortSize(ui.library == Library::Installed ? selected->installedSize : selected->size), 1373, 800, 24, Accent, 450);
             c.text(ui.updatesOnly ? packageKindName(*selected) + " / v" + selected->version : state(*selected), 1373, 831, 20, Muted, 450);
             stars(c, unsigned(std::round(displayRating(*selected))), 1373, 845, 20);
@@ -610,7 +610,7 @@ bool Renderer::featureDialog(Canvas& c, Ui& ui) {
         case Screen::ConfirmBulkClear:
             panel(c, 350, 260, 1220, 550, "Clear tags on selected games?");
             c.text(std::to_string(ui.markedTitles.size()) + " games will have all local tag assignments removed.", 400, 425, 28, White, 1120);
-            c.text("Categories, notes, labels, ratings and history will be kept.", 400, 493, 24, Muted, 1120);
+            c.text("Categories, notes, ratings and history will be kept.", 400, 493, 24, Muted, 1120);
             c.text(ui.featureNotice, 400, 620, 22, Accent, 1120);
             hints(c, 400, 752, {{Button::Cross, "Clear tags"}, {Button::Circle, "Cancel"}}); return true;
         case Screen::SavedCollections:

@@ -26,7 +26,7 @@ std::vector<Entry> demoLibrary() {
           "storyline":"An explorer searches for a lost expedition, uncovering an ancient secret along the way.",
           "languages":{"interface":["English","French","German"],"voice":["English"]},
           "game_modes":["Single player","Co-operative"],
-          "multiplayer":{"offline":{"supported":true,"max_players":2}},
+          "multiplayer":{"offline":{"supported":true,"max_players":2,"split_screen":true},"online":{"supported":false,"split_screen":false}},
           "media":{"screenshots":[{"url":"https://preview.invalid/screenshot.jpg"},{"url":"https://preview.invalid/screenshot2.jpg"}]},
           "videos":[{"name":"Official trailer (preview fixture)","video_id":"abcdefghijk"}]})igdb");
         if(i%3==1)e.igdb.genres={"Platform","Indie"};

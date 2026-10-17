@@ -209,3 +209,28 @@ ABI tests cover malformed fields/URLs, overrides, cache/session persistence and
 package routing. Desktop captures 85–92 exercise the new layouts. Real console
 acceptance for gallery, browser/provider playback and mixed-feed add-ons remains
 required; host mocks do not establish these behaviors.
+
+## Large JSON allocator regression (r37)
+
+A read-only GoldHEN kernel-log capture identified r36's worker SIGSEGV in the
+linked `memcpy` at runtime PC 0x511483 (ELF offset 0x111483, module base 0x400000).
+The SDK allocator's failed-mremap fallback allocates the requested smaller block
+and copies the former block's full size. cJSON's ordinary Print functions finish
+by shrinking their output, which exposes that path for rich catalog JSON.
+
+Use `src/json.hpp` / `printJson` for all production JSON output. It calls cJSON's
+buffered printer, which grows buffers without performing a final shrink. It uses
+no process-wide allocator-hook changes and leaves pinned dependencies intact.
+The dedicated allocator regression builds cJSON with a shim rejecting large
+shrinks, reproduces the ordinary printer failure, then round-trips large catalogs
+and personal records through the buffered policy. Do not replace this helper with
+`cJSON_Print` or `cJSON_PrintUnformatted`.
+
+The same saved PS4 catalog/session/personal state passed an ASan/UBSan host replay;
+that did not reproduce the console allocator behavior. Kernel/disassembly evidence
+and the emulated shrink-path regression provide the platform-specific coverage.
+Actual PS4 startup/refresh acceptance still requires installing the new package.
+
+Host model/UI objects are cached under `build/host/common/` and reused by ordinary
+tests and the preview. Sanitizer builds and native adapters keep separate compile
+recipes, so their instrumentation/SDK flags are preserved.

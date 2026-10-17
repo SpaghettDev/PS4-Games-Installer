@@ -67,7 +67,7 @@ void capture(App& app, Renderer& renderer, Canvas& canvas) {
     ui.pending = *ui.current(); ui.screen = Screen::Actions; ui.menuIndex = 0; shot("20-installed-actions");
     ui.screen = Screen::ConfirmUninstall; shot("21-uninstall-confirmation");
     ui.screen = Screen::Rating; ui.ratingIndex = 3; shot("22-rating");
-    ui.localDraft = ui.pending.info; ui.localIndex = 3; ui.screen = Screen::LocalInfo; shot("24-local-info");
+    ui.localDraft = ui.pending.info; ui.localIndex = 2; ui.screen = Screen::LocalInfo; shot("24-local-info");
     ui.pickerIndex = 1; ui.screen = Screen::PickTags; shot("25-game-tags");
     ui.screen = Screen::Actions; ui.menuIndex = ui.actionRows().size() - 1; shot("30-actions-last-page");
     ui.quickAssignment = true; ui.screen = Screen::PickCategory; ui.pickerIndex = 1; shot("31-assign-category");
@@ -160,6 +160,12 @@ void capture(App& app, Renderer& renderer, Canvas& canvas) {
     ui.screen = Screen::QueueDetails; ui.queueIndex = 3; ui.detailScroll = 0;
     ui.handle(Button::Triangle); shot("82-remove-old-queue-entry"); ui.handle(Button::Circle);
     ui.queueIndex = 2; ui.handle(Button::Triangle); shot("83-cancel-active-task"); ui.handle(Button::Circle);
+    ui.screen=Screen::Dashboard;ui.library=Library::Available;ui.sidebar=false;ui.updatesOnly=false;
+    ui.remoteGenre.clear();ui.filter={};ui.query.clear();ui.settings.grouping=Grouping::None;ui.settings.layout=Layout::Tiles;
+    ui.rebuild();
+    for(size_t i=0;i<ui.visible.size();++i)if(ui.available[ui.visible[i].index].titleId=="CUSA10002")ui.selected[1]=i;
+    shot("93-category-full-width");shot("94-category-scrolling");
+    ui.pending=*ui.current();ui.openDetails(Screen::Dashboard);shot("95-modes-players-details");
     ui.screen = Screen::About; shot("09-about");
     ui.screen = Screen::ConfirmExit; shot("10-exit");
     ui.screen = Screen::Dashboard; ui.available.clear(); ui.updatesOnly = true; ui.rebuild(); shot("61-updates-empty");

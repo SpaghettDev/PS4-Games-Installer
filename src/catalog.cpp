@@ -1,6 +1,6 @@
 #include "catalog.hpp"
 #include "metadata.hpp"
-#include "cJSON.h"
+#include "json.hpp"
 #include <algorithm>
 #include <cerrno>
 #include <cmath>
@@ -107,7 +107,7 @@ std::vector<Entry> parseCatalog(const std::string& text, const std::string& cate
         entry.description = field(item, "description");
         entry.packageType = lower(field(item, "package_type"));
         if (const auto* igdb = cJSON_GetObjectItemCaseSensitive(item, "igdb"); cJSON_IsObject(igdb)) {
-            std::unique_ptr<char, decltype(&cJSON_free)> json(cJSON_PrintUnformatted(igdb), cJSON_free);
+            std::unique_ptr<char, decltype(&cJSON_free)> json(printJson(igdb), cJSON_free);
             if (json) readIgdb(entry, json.get());
         }
         entry.size = sizeField(item);
@@ -116,7 +116,7 @@ std::vector<Entry> parseCatalog(const std::string& text, const std::string& cate
             if (std::string(m->string) == "igdb") continue;
             if (cJSON_IsString(m)) entry.metadata.emplace_back(m->string, std::string(m->valuestring).substr(0, 4096));
             else if (cJSON_IsNumber(m) || cJSON_IsBool(m)) {
-                std::unique_ptr<char, decltype(&cJSON_free)> value(cJSON_PrintUnformatted(m), cJSON_free);
+                std::unique_ptr<char, decltype(&cJSON_free)> value(printJson(m), cJSON_free);
                 if (value) entry.metadata.emplace_back(m->string, value.get());
             }
         }
@@ -186,7 +186,7 @@ std::string serializeCatalog(const std::vector<Entry>& entries) {
             if(cJSON_IsObject(igdb))cJSON_AddItemToObject(item,"igdb",igdb);else cJSON_Delete(igdb);
         }
     }
-    std::unique_ptr<char, decltype(&cJSON_free)> text(cJSON_PrintUnformatted(root.get()), cJSON_free);
+    std::unique_ptr<char, decltype(&cJSON_free)> text(printJson(root.get()), cJSON_free);
     if (!text) throw std::runtime_error("Cannot serialize library");
     return text.get();
 }

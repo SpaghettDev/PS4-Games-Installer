@@ -47,6 +47,20 @@ void flatten(RichMetadata& data, const cJSON* value, const std::string& key, uns
         if (!values.empty()) data.additional.emplace_back(key,joinedNames(values));
     } else { const auto out=scalar(value);if(!out.empty())data.additional.emplace_back(key,out); }
 }
+PlayerMode playerMode(const cJSON* value) {
+    PlayerMode out;
+    const auto* supported=get(value,"supported");
+    if(cJSON_IsBool(supported)){out.supportedKnown=true;out.supported=cJSON_IsTrue(supported);}
+    const auto* count=get(value,"max_players");
+    if(!cJSON_IsNumber(count)||!std::isfinite(count->valuedouble)||count->valuedouble<=0)count=get(value,"co_op_max_players");
+    if(cJSON_IsNumber(count)&&std::isfinite(count->valuedouble)&&count->valuedouble>0&&count->valuedouble<=65535&&std::floor(count->valuedouble)==count->valuedouble) {
+        out.maximum=unsigned(count->valuedouble);
+        if(!out.supportedKnown){out.supportedKnown=true;out.supported=true;}
+    }
+    const auto* split=get(value,"split_screen");
+    if(cJSON_IsBool(split)){out.splitScreenKnown=true;out.splitScreen=cJSON_IsTrue(split);}
+    return out;
+}
 std::string mediaUrl(std::string value) {
     if (value.compare(0,2,"//")==0) value="https:"+value;
     return isHttpUrl(value) ? value : "";
@@ -63,6 +77,9 @@ void readIgdb(Entry& entry, const std::string& json) {
     entry.igdbJson=json;auto& data=entry.igdb;
     data.genres=names(get(root.get(),"genres"));data.themes=names(get(root.get(),"themes"));
     data.publishers=names(get(root.get(),"publishers"));data.developers=names(get(root.get(),"developers"));
+    data.gameModes=names(get(root.get(),"game_modes"));
+    const auto* multiplayer=get(root.get(),"multiplayer");
+    data.offline=playerMode(get(multiplayer,"offline"));data.online=playerMode(get(multiplayer,"online"));
     data.summary=field(root.get(),"summary");data.storyline=field(root.get(),"storyline");
     const auto* dates=get(root.get(),"ps4_release_dates");
     if(cJSON_IsArray(dates))for(auto* date=dates->child;date;date=date->next){
@@ -86,9 +103,10 @@ void readIgdb(Entry& entry, const std::string& json) {
         auto name=field(video,"name");if(name.empty())name="Video "+std::to_string(data.videos.size()+1);
         if(!url.empty())data.videos.push_back({name.substr(0,256),url});
     }
+    if(!data.themes.empty())data.additional.emplace_back("Themes",joinedNames(data.themes));
     if(!data.developers.empty())data.additional.emplace_back("Developer",joinedNames(data.developers));
     if(!data.storyline.empty())data.additional.emplace_back("Plot",data.storyline);
-    for(const char* key:{"game_modes","multiplayer","languages","age_ratings","alternative_names","franchises","collections","relationships","websites"}){
+    for(const char* key:{"multiplayer","languages","age_ratings","alternative_names","franchises","collections","relationships","websites"}){
         std::string label=key;std::replace(label.begin(),label.end(),'_',' ');flatten(data,get(root.get(),key),label);
     }
     const auto* critics=get(get(root.get(),"ratings"),"critics");flatten(data,critics,"Critics rating");
@@ -98,7 +116,7 @@ std::vector<std::string> displayCategories(const Entry& entry) {
     return entry.info.category.empty() ? entry.igdb.genres : std::vector<std::string>{entry.info.category};
 }
 std::vector<std::string> displayTags(const Entry& entry) {
-    auto out=entry.igdb.themes;for(const auto& tag:entry.info.tags)append(out,tag);return out;
+    return entry.info.tags;
 }
 std::string displayDescription(const Entry& entry) {
     if(!entry.info.description.empty())return entry.info.description;
@@ -110,6 +128,21 @@ std::string ratingText(const Entry& entry) {
     if(!entry.igdb.userRatingKnown)return "Not rated";
     char out[40];std::snprintf(out,sizeof(out),"%.1f/5",displayRating(entry));
     return std::string(out)+" (IGDB users"+(entry.igdb.ratingCount ? "; "+std::to_string(entry.igdb.ratingCount)+" ratings" : "")+")";
+}
+std::string playerCountText(const Entry& entry) {
+    auto count=[](const PlayerMode& mode) {
+        if(mode.supportedKnown&&!mode.supported)return std::string("Not supported");
+        return mode.maximum ? "Up to "+std::to_string(mode.maximum) : std::string("Unknown");
+    };
+    auto offline=count(entry.igdb.offline);
+    const bool single=std::any_of(entry.igdb.gameModes.begin(),entry.igdb.gameModes.end(),[](const std::string& mode){return lower(mode)=="single player";});
+    // The source's supported flag describes multiplayer, not offline solo play.
+    if(!entry.igdb.offline.maximum&&single&&((entry.igdb.offline.supportedKnown&&!entry.igdb.offline.supported)||entry.igdb.gameModes.size()==1))offline="1";
+    return "Offline: "+offline+" / Online: "+count(entry.igdb.online);
+}
+std::string splitScreenText(const Entry& entry) {
+    auto split=[](const PlayerMode& mode) { return mode.splitScreenKnown ? (mode.splitScreen ? "Yes" : "No") : "Unknown"; };
+    return std::string("Offline: ")+split(entry.igdb.offline)+" / Online: "+split(entry.igdb.online);
 }
 std::string readableUrl(const std::string& value) {
     auto hex=[](char c)->int {if(c>='0'&&c<='9')return c-'0';if(c>='a'&&c<='f')return c-'a'+10;if(c>='A'&&c<='F')return c-'A'+10;return -1;};

@@ -1,5 +1,5 @@
 #include "settings.hpp"
-#include "cJSON.h"
+#include "json.hpp"
 #include "text.hpp"
 #include <algorithm>
 #include <cerrno>
@@ -130,7 +130,7 @@ std::string serializeSettings(const Settings& input) {
     cJSON_AddBoolToObject(root.get(), "not_installed_only", s.notInstalledOnly);
     cJSON_AddBoolToObject(root.get(), "animations", s.animations);
     cJSON_AddBoolToObject(root.get(), "refresh_on_start", s.refreshOnStart);
-    std::unique_ptr<char, decltype(&cJSON_free)> out(cJSON_Print(root.get()), cJSON_free);
+    std::unique_ptr<char, decltype(&cJSON_free)> out(printJson(root.get(),true), cJSON_free);
     if (!out) throw std::runtime_error("Settings allocation failed");
     return out.get();
 }

@@ -2,7 +2,7 @@
 #include "video.hpp"
 #include "platform.hpp"
 #include "download.hpp"
-#include "cJSON.h"
+#include "json.hpp"
 #include "revision.hpp"
 #include <chrono>
 #include <ctime>
@@ -88,6 +88,7 @@ App::App(const std::string& data, bool preview)
     : worker(new Worker), monitor(new Worker), directory(ensureDirectory(data)), demo(preview), artwork(directory + "/artwork") {
     try { ui.settings = loadSettings(directory); }
     catch (const std::exception& e) { ui.status = std::string("Settings: ") + e.what(); }
+    if(!demo)log(std::string("Starting PS4 Games Installer ")+PSGI_VERSION);
     saved = ui.settings; ui.draft = saved;
     try { ui.player = loadPlayerData(directory); }
     catch (const std::exception& e) { playerWritable = false; log(std::string("Local records kept unchanged: ") + e.what()); }
@@ -102,8 +103,8 @@ App::App(const std::string& data, bool preview)
         ui.player.observeInstalled(local, 1792108800);
         if (!local.empty()) ui.player.rate(local[0].titleId, 5);
         if (entries.size() > 8) { ui.player.observeInstalled({entries[8]}, 1792108800); ui.player.rate(entries[8].titleId, 4); }
-        if (!local.empty()) ui.player.setInfo(local[0].titleId, {"Action", "Favorite", "Fast combat and great music. Come back for the remaining secrets.", {"Weekend", "Single player"}});
-        if (entries.size() > 8) ui.player.setInfo(entries[8].titleId, {"Adventure", "Relaxing", "A peaceful underwater journey. Perfect for a quiet evening.", {"Weekend", "Short games"}});
+        if (!local.empty()) ui.player.setInfo(local[0].titleId, {"Action", "Fast combat and great music. Come back for the remaining secrets.", {"Weekend", "Single player"}});
+        if (entries.size() > 8) ui.player.setInfo(entries[8].titleId, {"Adventure", "A peaceful underwater journey. Perfect for a quiet evening.", {"Weekend", "Short games"}});
         SavedCollection favorites; favorites.name = "Favorites for the weekend"; favorites.available = true; favorites.filter.minRating = 4; favorites.filter.tag = "Weekend";
         ui.player.saveCollection(favorites);
         if (!entries.empty()) {
@@ -127,7 +128,9 @@ App::App(const std::string& data, bool preview)
         ui.loading = false; bootReady = true; initialScan = false;
         return;
     }
-    try { ui.available = parseCatalog(readFile(catalogCachePath(directory,ui.settings),CacheLimit),"",CacheLimit); }
+    log("Loading saved catalog");
+    try { ui.available = parseCatalog(readFile(catalogCachePath(directory,ui.settings),CacheLimit),"",CacheLimit);
+        log("Saved catalog ready: "+std::to_string(ui.available.size())+" packages"); }
     catch (const std::exception&) {
         // Adopt the old single cache only for an existing unprofiled setup.
         if (ui.settings.profiles.empty() && access((directory+"/catalog-cache-v1").c_str(),F_OK) && errno==ENOENT) try {
@@ -162,7 +165,9 @@ App::App(const std::string& data, bool preview)
         job.message = "Recovered an owned task from the previous release"; ui.downloads.push_back(std::move(job));
     }
     syncQueued();
+    log("Preparing cached library views");
     ui.rebuild();
+    log("Startup library views ready");
     startRemote = saved.refreshOnStart;
     refresh(false);
 }
@@ -184,7 +189,7 @@ void App::savePlayer(const PlayerData& next) {
 void App::saveTasks() {
     std::unique_ptr<cJSON, decltype(&cJSON_Delete)> root(cJSON_CreateObject(), cJSON_Delete);
     for (const auto& item : tasks) cJSON_AddNumberToObject(root.get(), item.first.c_str(), item.second);
-    std::unique_ptr<char, decltype(&cJSON_free)> text(cJSON_PrintUnformatted(root.get()), cJSON_free);
+    std::unique_ptr<char, decltype(&cJSON_free)> text(printJson(root.get()), cJSON_free);
     if (text) atomicWrite(directory + "/tasks.json", text.get());
 }
 void App::persistQueue() {
@@ -265,13 +270,20 @@ void App::refresh(bool remote) {
         size_t count = 0;
         for (const auto& source : settings.sources) if (!source.url.empty()) {
             if (worker->cancelled) throw std::runtime_error("Refresh cancelled");
-            try { mergeCatalog(combined, parseCatalog(httpGet(source.url, MaxCatalogBytes, &worker->cancelled), source.category)); }
+            try {
+                log("Fetching remote catalog: "+source.category);
+                const auto document=httpGet(source.url,MaxCatalogBytes,&worker->cancelled);
+                log("Parsing remote catalog: "+std::to_string(document.size())+" bytes");
+                mergeCatalog(combined,parseCatalog(document,source.category));
+            }
             catch (const std::exception& e) { throw std::runtime_error(source.category + ": " + e.what() + ". Keeping the last valid library."); }
             ++count;
         }
         if (!count) throw std::runtime_error("Open Options > Settings and enter your Games JSON URL.");
         result.message = std::to_string(combined.size()) + " remote packages loaded";
+        log("Serializing remote catalog cache");
         std::string cached = serializeCatalog(combined);
+        log("Remote catalog serialized: "+std::to_string(cached.size())+" bytes");
         if (cached.size() <= CacheLimit) {
             try { atomicWrite(catalogCachePath(directory,settings), cached); }
             catch (const std::exception&) { result.message += " (offline cache could not be saved)"; }

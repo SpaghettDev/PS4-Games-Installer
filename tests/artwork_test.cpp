@@ -47,6 +47,23 @@ int main() {
     canvas.text("invalid \xff UTF8", 0, 80, 24, 0xffffff, 1900);
     assert(canvas.textWidth("PS4 Games Installer", 24) > 0);
 
+    // A selected overflowing category moves within its own rectangle only.
+    const std::string categories="Adventure / Role-playing (RPG) / Platform / Strategy / Puzzle";
+    canvas.background(1,false);canvas.scrollingText(categories,500,400,23,0xffffff,180,0);
+    const auto marqueeStart=canvas.pixels;
+    canvas.background(1,false);canvas.scrollingText(categories,500,400,23,0xffffff,180,4);
+    size_t changed=0;
+    for(int y=0;y<Canvas::Height;++y)for(int x=0;x<Canvas::Width;++x){
+        const auto index=size_t(y)*Canvas::Width+x;
+        if(canvas.pixels[index]!=marqueeStart[index]){assert(x>=500&&x<680&&y>=370&&y<410);++changed;}
+    }
+    assert(changed>100);
+    canvas.background(1,false);canvas.scrollingText("Adventure",500,400,23,0xffffff,180,0);
+    const auto shortText=canvas.pixels;
+    canvas.background(1,false);canvas.scrollingText("Adventure",500,400,23,0xffffff,180,4);
+    assert(canvas.pixels==shortText);
+    canvas.scrollingText(categories,-10,1070,23,0xffffff,120,4);
+
     char root[] = "/tmp/psgi-art-XXXXXX";
     assert(mkdtemp(root));
     {

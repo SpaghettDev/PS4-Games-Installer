@@ -6,7 +6,8 @@ namespace psgi {
 class Renderer {
     std::shared_ptr<Image> placeholder, previousBackground, currentBackground, backgroundSource;
     std::string backgroundKey;
-    double backgroundChanged = 0;
+    double backgroundChanged = 0, textFocusChanged = 0;
+    std::string textFocus;
     void panel(Canvas& canvas, int x, int y, int w, int h, const std::string& title);
     void menu(Canvas& canvas, const std::vector<std::string>& rows, size_t selected,
               int x, int y, int w, int rowHeight = 54, size_t count = SIZE_MAX);

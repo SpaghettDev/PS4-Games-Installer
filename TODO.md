@@ -1,5 +1,16 @@
 # Work tracker
 
+## Current implementation: label removal and refresh/startup recovery
+
+- [x] Pull the PS4 app/system logs and cached state without modifying console data.
+- [x] Reproduce or narrow the refresh/startup failure and add recovery/regressions.
+- [x] Remove local label editing/storage/rendering while accepting older records.
+- [x] Use the full category row and scroll overflowing game/category text in tiles.
+- [x] Separate Genres and assigned Tags; show modes, players and split screen.
+- [x] Complete host/native checks, screenshot review, docs and a local revision commit.
+- [ ] Retest startup, cached/remote refresh, tile text and revised Details on PS4.
+
+
 ## Current implementation: rich game details and genre browsing
 
 - [x] Inspect actual embedded IGDB schema and package_type fields.

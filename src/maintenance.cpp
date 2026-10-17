@@ -2,7 +2,7 @@
 #include "library.hpp"
 #include "settings.hpp"
 #include "sfo.hpp"
-#include "cJSON.h"
+#include "json.hpp"
 #include <algorithm>
 #include <cerrno>
 #include <cctype>
@@ -55,7 +55,7 @@ std::vector<File> files(const std::string& directory, bool artwork, const std::s
 }
 void numeric(cJSON* object, const char* name, uint64_t value) { cJSON_AddNumberToObject(object, name, double(value)); }
 std::string print(cJSON* root) {
-    std::unique_ptr<char, decltype(&cJSON_free)> text(cJSON_Print(root), cJSON_free);
+    std::unique_ptr<char, decltype(&cJSON_free)> text(printJson(root,true), cJSON_free);
     if (!text) throw std::runtime_error("Cannot serialize diagnostics");
     return text.get();
 }

@@ -1,5 +1,47 @@
 # Implementation progress
 
+## r37 label removal, clearer metadata and refresh/startup recovery — 2026-10-18
+
+- Retrieved the PS4 app log, keyed/compatibility catalogs, session, personal data,
+  queue and system ring log through read-only FTP. Snapshots stay under ignored
+  build/refresh-crash-20261018. JSON is valid (101 packages, 80 IGDB objects).
+- The app log ends after normal discovery/refresh messages, with no crash trace.
+  The core-dump directory is empty; the system ring file has no usable text trace.
+- Exact saved catalog/session/player replay passed under ASan/UBSan; no host
+  memory violation appeared. Native stack-use review found no oversized worker
+  buffers. GoldHEN's read-only Klog service supplied the actual worker SIGSEGV:
+  runtime PC 0x511483 / ELF 0x111483 is the linked SDK memcpy.
+- Preserved the matching r36 ELF and disassembly under ignored build/. The SDK
+  realloc mmap fallback copies the old allocation size into a smaller replacement;
+  the kernel registers match a large JSON shrink. cJSON's final output shrink
+  exposes this path both when refreshing and reprinting cached IGDB objects.
+- Routed all JSON output through buffered printing without the final shrink,
+  preserving pinned dependencies and avoiding global allocator-hook changes.
+  A regression rejecting large realloc shrinks reproduces ordinary-print failure;
+  buffered catalog/personal-data round trips pass. Added startup/refresh phases to
+  the app log. No console data/cache deletion or modification was necessary.
+- Removed label fields, storage, editing, search and rendering. Legacy keys are
+  ignored while preserving other records. Expanded category rows and added clipped
+  scrolling text; Details separates Genres, assigned Tags, modes, players and split
+  screen. Multiplayer flags describe multiplayer rather than solo play; player
+  counts include the supplied co-op maximum when the general maximum is absent.
+- Complete Docker `make -j4 test` passed: allocator-shrink regression, metadata,
+  legacy personal records, menu flows, ASan/UBSan artwork/marquee bounds, native
+  adapters, App workflows, HTTP integration and all 15 Python tests. Reused host
+  model/UI objects avoid recompiling identical sources for each ordinary test.
+- Native compilation/linking and `make all` built
+  `dist/PS4Game_installer-r37.pkg` (6,619,136 bytes). `make validate` passed package
+  hashes/signatures and packed launcher imports. Revision, source fingerprint,
+  manifest and SHA-256 match; hardware_tested remains false. Existing native game
+  launch flags and install/download behavior are unchanged.
+- Generated all 95 desktop captures with the r37 label and inspected full-width
+  categories, two scrolling positions, wrapped Genres, modes/player/split-screen
+  rows and the three-field personal editor. Updated consumer/expert/development
+  guidance and preview images; supplied console captures remain untouched.
+- Recorded the completed source, documentation and successful revision in a local commit.
+  PS4 11.00 + GoldHEN acceptance remains pending for restart with existing data,
+  remote refresh and revised UI. No console writes, deployment or push performed.
+
 ## r36 rich game details and genre browsing — 2026-10-18
 
 - Inspected the configured live catalog through read-only FTP/HTTP. Confirmed

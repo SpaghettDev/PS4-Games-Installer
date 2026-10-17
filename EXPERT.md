@@ -60,7 +60,7 @@ stored separately from settings.
 - [Detailed controls](#controls)
 - [Search and navigation](#faster-browsing-and-remembered-searches)
 - [Ratings and history](#local-ratings-and-history)
-- [Categories, tags, bulk organization and backups](#your-categories-labels-notes-and-tags)
+- [Categories, tags, bulk organization and backups](#your-categories-notes-and-tags)
 - [Installation destination](#installation-storage)
 - [Downloads, verification and recovery](#downloads-and-offline-use)
 - [Storage cleanup](#storage-cleanup)
@@ -115,20 +115,32 @@ when one games endpoint mixes all three. Older catalogs fall back to the source'
 category. Available excludes updates/DLC; Updates lists both, including packages
 whose base is not installed yet. Installation still checks the required base.
 
-**Square > Game details** shows Name, optional Label/Category/Tags, Rating, package
-Size, Version, Publisher, Release date, Region and one Description, in that order.
-Keys are bold and values use the regular font. Personal descriptions override the
-top-level `description`; an empty remote description falls back to `igdb.summary`.
-Without a personal category, IGDB genres appear as Category. Tags combine IGDB
-themes and your manually assigned tags. A personal 1–5 rating takes priority over
+**Square > Game details** shows Name, optional personal Category, remote Genres,
+assigned Tags (only when nonempty), Game modes, Players, Split screen, Rating,
+package Size, Version, Publisher, Release date, Region and one Description.
+Keys are bold and values use the regular font. Genres always describe the remote
+IGDB classification; Tags are your manually assigned terms. IGDB themes appear
+inside the expandable Details section, separately from your Tags.
+
+Game modes comes from `igdb.game_modes`. Players shows separate offline/online
+maximum counts and explicit unsupported states from `igdb.multiplayer`. Split
+screen shows each mode's provided Yes/No value. Missing information stays Unknown;
+a Single player mode identifies one offline player when offline multiplayer is
+explicitly absent (or Single player is the only mode). Co-op maximums fill missing
+player counts. No network service is
+queried to infer missing player information.
+
+![Genres, modes and player counts with sample data (desktop preview)](docs/images/modes-players-details.png)
+
+Personal descriptions override the top-level `description`; an empty remote
+description falls back to `igdb.summary`. A personal 1–5 rating takes priority over
 `igdb.ratings.users.score`, converted from 0–100 to five stars and marked IGDB.
-Clearing personal information reveals the remote fallback again. These fallbacks
-are never written into `player.json`; personal collection rules remain local.
+These fallbacks never change `player.json`; personal collection rules remain local.
 Rating sorting uses the displayed personal/IGDB score.
 
 Up/Down selects and scrolls rows. **X** toggles the collapsed **Details** and
 **Tech. details** sections. Details contains plot/storyline, developers, languages,
-game modes, multiplayer, age ratings, related games, links and local history when
+themes, further multiplayer information, age ratings, related games, links and local history when
 provided. Tech. details contains package identity/URL, firmware and raw scalar
 metadata such as `APP_TYPE`. Package URLs are percent-decoded for display only;
 download requests retain the original URL exactly.
@@ -339,7 +351,7 @@ If `player.json` is corrupt, the app keeps it unchanged and reports an error
 when a record is edited. Restore a valid backup or repair the file to resume
 recording.
 
-## Your categories, labels, notes and tags
+## Your categories, notes and tags
 
 Select a game in **Installed** or **Available**, then press **Triangle**:
 
@@ -348,7 +360,7 @@ Select a game in **Installed** or **Available**, then press **Triangle**:
   Uncategorized to remove the assignment.
 - **Assign tags:** **X** toggles each tag, **Triangle** enters a new tag, and
   **Square** saves the selection together. Clear all game tags removes all of
-  this title's personal assignments when saved; IGDB themes remain visible.
+  this title's personal tag assignments when saved; Genres remain unchanged.
 - **O** cancels a quick assignment and returns to game actions. A failed save
   keeps the picker and your changes open for retry. Up/Down scrolls names and
   the game actions menu, including actions on its next page.
@@ -357,13 +369,10 @@ Select a game in **Installed** or **Available**, then press **Triangle**:
 
 One category and up to 16 tags are stored locally per Title ID. Both libraries
 and every remote package variant share them, even if the name or URL changes.
-You can also add a short label and personal notes through **Triangle > Edit
-local info**, which edits all four fields together:
+**Triangle > Edit local info** edits your category, tags and personal notes together:
 
 - **Category:** X opens the picker. Select an existing category or Triangle to
   enter a new one. Choose Uncategorized to clear the personal assignment and reveal any IGDB genres.
-- **Label:** X opens the keyboard. For example, use Favorite, Next to play or
-  Completed. Empty text clears the label.
 - **Tags:** X toggles tags in the picker; Triangle creates a new tag. O returns
   to the editor. Clear all game tags removes this title's assignments.
 - **Description:** enter your personal notes. The selected game's description
@@ -372,10 +381,20 @@ local info**, which edits all four fields together:
   here are created on save. O offers to discard an unsaved draft; failed writes
   keep the draft so you can retry.
 
-Category and label are always visible on tiles and summary rows, with
-Uncategorized / Unlabeled for unassigned fields. Your description takes precedence
-over a remote description in the selected-game preview. Search also matches local
-categories, labels, descriptions and tags.
+The category occupies the full row below the title on tiles and the full available
+row in the summary layout. Without a personal category, this row uses IGDB genres;
+otherwise it says Uncategorized. On the selected game, overflowing title/category
+text scrolls within its row after a short pause, including a pause at the other
+end. Turning background animation off also pauses this text animation. Details
+always exposes the full text. Your description takes precedence over a remote
+one in the selected-game preview. Search matches personal categories, descriptions
+and tags, plus remote genres, themes and publishers.
+
+Local labels are removed as of r37. Older `label` keys are ignored when loading
+saved data or backups and disappear on the next save. Categories, descriptions,
+tags, ratings, installation history and launch records are preserved.
+
+![Scrolling category text within a tile (desktop preview)](docs/images/category-scrolling.png)
 
 ![Local game info editor with sample data](docs/images/local-info.png)
 
@@ -389,7 +408,7 @@ setting remain independent.
 In that browser, Triangle creates a name even before any game uses it. Square
 renames the highlighted name and updates every assignment. Options opens deletion
 confirmation; deleting a local category/tag clears its assignments and keeps the
-games, labels, notes, ratings and history. O always goes back or cancels.
+games, notes, ratings and history. O always goes back or cancels.
 
 **Options > Group** and **Settings > Grouping** also offer **Local category** and
 **Local tag**. A game with several tags appears under each tag, while the footer
@@ -401,7 +420,7 @@ All of this stays in `player.json` on the PS4, survives refreshes/restarts and
 remains after uninstalling a game. Existing ratings/history are preserved when
 upgrading. The app reads player schemas 1–3 and writes schema 3; older releases preserve that file
 without editing it. Limits are 256 local categories, 256 tags, 64 UTF-8 bytes per
-name/label and 2047 UTF-8 bytes per description.
+name and 2047 UTF-8 bytes per description.
 
 ### Organizing several games
 
@@ -412,7 +431,7 @@ with L1/R1 if needed. Triangle opens the bulk actions:
 - Assign one category to the selection; X saves the chosen category.
 - Add tags while keeping each game's other tags, or remove only chosen tags.
   X toggles names, Triangle enters a name, and Square saves the batch.
-- Clear all tags requires a confirmation. Categories, labels, notes, ratings and
+- Clear all tags requires a confirmation. Categories, notes, ratings and
   history stay intact.
 - Select all visible games, clear the selection, or finish selecting.
 
@@ -454,7 +473,7 @@ before replacement. The existing `player.json` is first preserved as
 when the original profile is corrupt. If that recovery copy cannot be saved, the
 restore stops. The selected backup replaces the profile rather than merging it.
 
-Backups include ratings, categories, tags, labels, descriptions, installation/launch
+Backups include ratings, categories, tags, descriptions, installation/launch
 history and saved collections. They exclude game files, sources, network settings,
 artwork, queue state and session position. USB backup drives are separate from
 PS4 Extended Storage installation destinations. Actual USB behavior needs console
@@ -687,7 +706,7 @@ PS4 Extended Storage is a game destination, not an ordinary USB export drive.
 The report contains the application revision, library counts, storage availability,
 last measured cache usage, queue stages, Title IDs, numeric versions, task IDs,
 transfer bytes and selected native/HTTP error codes. Raw logs, package/source URLs,
-credentials, cookies, game names and personal notes/labels/tags are excluded.
+credentials, cookies, game names and personal notes/tags are excluded.
 Only recognized operation labels and error-code formats are extracted from the
 bounded log tail; lines mentioning credential fields are discarded. This deliberately
 omits diagnostic context that could contain private data. The report does not change
@@ -721,6 +740,7 @@ together. An existing new directory takes precedence.
 | --- | --- |
 | Cannot open `/app0/assets/icon.png` at startup | Install r7 or later; the startup asset-loading order was corrected |
 | System keyboard types with O and closes with X | Install r9 or later; package metadata now requests X confirm / O cancel for native dialogs |
+| r36 crashes on remote refresh or next startup | Install r37 or newer. Large JSON printing now avoids the toolchain allocator shrink path. Existing valid catalog/personal data can be kept; startup and refresh phases are recorded in app.log. |
 | CE-34878-0 when closing the app | The reported exit crash was confirmed fixed by the user on 2026-10-16. r8 introduced credential restoration and exit through the PS4 shell. |
 | Empty Available | Set the direct JSON URL, use Test connection, then Refresh library |
 | HTTP 404 from the companion server | Use its `/games` link on the JSON library port |

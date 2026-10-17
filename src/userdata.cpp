@@ -2,7 +2,7 @@
 #include "text.hpp"
 #include "settings.hpp"
 #include "sfo.hpp"
-#include "cJSON.h"
+#include "json.hpp"
 #include <cmath>
 #include <algorithm>
 #include <cerrno>
@@ -44,7 +44,7 @@ std::string string(const cJSON* object, const char* key, size_t limit) {
     return field->valuestring;
 }
 std::string print(const cJSON* root) {
-    std::unique_ptr<char, decltype(&cJSON_free)> text(cJSON_PrintUnformatted(root), cJSON_free);
+    std::unique_ptr<char, decltype(&cJSON_free)> text(printJson(root), cJSON_free);
     if (!text) throw std::runtime_error("Cannot serialize local data");
     return text.get();
 }
@@ -102,12 +102,12 @@ void writeFilter(cJSON* object, const LocalFilter& f) {
 std::string localName(const std::string& text) {
     const auto first = text.find_first_not_of(" \t\r\n"), last = text.find_last_not_of(" \t\r\n");
     const auto name = first == std::string::npos ? std::string() : text.substr(first, last - first + 1);
-    if (name.size() > MaxLocalName) throw std::runtime_error("Local names and labels must fit in 64 UTF-8 bytes");
+    if (name.size() > MaxLocalName) throw std::runtime_error("Local names must fit in 64 UTF-8 bytes");
     for (unsigned char c : name) if (c < 32 || c == 127) throw std::runtime_error("Local names cannot contain control characters");
     return name;
 }
 LocalInfo normalizeInfo(LocalInfo info) {
-    info.category = localName(info.category); info.label = localName(info.label);
+    info.category = localName(info.category);
     if (info.description.size() > MaxLocalDescription) throw std::runtime_error("Local description exceeds 2047 UTF-8 bytes");
     for (unsigned char c : info.description) if ((c < 32 && c != '\n' && c != '\r' && c != '\t') || c == 127)
         throw std::runtime_error("Invalid character in local description");
@@ -121,7 +121,7 @@ LocalInfo normalizeInfo(LocalInfo info) {
     info.tags = std::move(names); return info;
 }
 bool sameInfo(const LocalInfo& a, const LocalInfo& b) {
-    return a.category == b.category && a.label == b.label && a.description == b.description && a.tags == b.tags;
+    return a.category == b.category && a.description == b.description && a.tags == b.tags;
 }
 std::string joinedTags(const std::vector<std::string>& tags) {
     std::string text;
@@ -245,7 +245,7 @@ PlayerData parsePlayerData(const std::string& text) {
         if (!cJSON_IsObject(item) || data.games.count(id) || data.games.size() >= MaxEntries) throw std::runtime_error("Invalid or duplicate local game record");
         data.games[id] = {boolean(item, "was_installed"), unsigned(number(item, "rating", 5)),
             number(item, "first_seen_installed"), number(item, "launches"), number(item, "last_launch")};
-        LocalInfo info{string(item, "category", MaxLocalName), string(item, "label", MaxLocalName),
+        LocalInfo info{string(item, "category", MaxLocalName),
             string(item, "description", MaxLocalDescription), terms(item, "tags", MaxGameTags)};
         data.setInfo(id, std::move(info));
     }
@@ -279,7 +279,6 @@ std::string serializePlayerData(const PlayerData& data) {
         cJSON_AddNumberToObject(record, "launches", game.second.launches);
         cJSON_AddNumberToObject(record, "last_launch", game.second.lastLaunch);
         cJSON_AddStringToObject(record, "category", game.second.info.category.c_str());
-        cJSON_AddStringToObject(record, "label", game.second.info.label.c_str());
         cJSON_AddStringToObject(record, "description", game.second.info.description.c_str());
         array(record, "tags", game.second.info.tags);
     }

@@ -284,9 +284,7 @@ int main() {
     ui.handle(Button::Triangle); assert(ui.screen == Screen::Keyboard);
     drain(ui); ui.finishEdit("Action"); assert(ui.screen == Screen::PickCategory && ui.localDraft.category == "Action");
     ui.handle(Button::Circle); ui.handle(Button::Down); ui.handle(Button::Cross);
-    assert(ui.editKind == EditKind::GameLabel); drain(ui); ui.finishEdit("Favorite");
-    assert(ui.localDraft.label == "Favorite" && ui.player.games.empty());
-    ui.handle(Button::Down); ui.handle(Button::Cross); assert(ui.screen == Screen::PickTags);
+    assert(ui.screen == Screen::PickTags && ui.player.games.empty());
     ui.handle(Button::Triangle); drain(ui); ui.finishEdit("Weekend");
     assert(ui.localDraft.tags.size() == 1);
     ui.handle(Button::Down); ui.handle(Button::Cross); assert(ui.localDraft.tags.empty());
@@ -296,7 +294,7 @@ int main() {
     assert(ui.localDraft.description == "My local notes");
     ui.handle(Button::Circle); assert(ui.screen == Screen::DiscardLocal);
     ui.handle(Button::Cross); assert(ui.screen == Screen::LocalInfo && ui.localDirty());
-    ui.localIndex = 4; ui.handle(Button::Cross);
+    ui.localIndex = 3; ui.handle(Button::Cross);
     assert(ui.take(command) && command.type == CommandType::SaveLocalInfo && command.personal->category == "Action");
     assert(ui.screen == Screen::LocalInfo); // Stay open until the app acknowledges disk persistence.
     ui.handle(Button::Circle); ui.handle(Button::Circle);
@@ -317,7 +315,7 @@ int main() {
     assert(keyboardMaximum(EditKind::GameDescription) == MaxLocalDescription);
     // Direct assignments reuse local names and never open the full metadata editor.
     ui = fixture();
-    LocalInfo info{"Action", "Favorite", "Keep these notes", {"Weekend"}};
+    LocalInfo info{"Action", "Keep these notes", {"Weekend"}};
     ui.player.setInfo("CUSA00001", info); ui.player.createTerm(false, "Adventure");
     ui.player.createTerm(true, "Co-op"); ui.player.rate("CUSA00001", 5); ui.rebuild();
     choose("Assign category");
@@ -325,7 +323,7 @@ int main() {
     ui.handle(Button::Down); ui.handle(Button::Cross);
     assert(ui.take(command) && command.type == CommandType::SaveLocalInfo && command.returnToActions);
     assert(command.entry.titleId == "CUSA00001" && command.personal->category == "Adventure");
-    assert(command.personal->label == "Favorite" && command.personal->description == "Keep these notes" && command.personal->tags == info.tags);
+    assert(command.personal->description == "Keep these notes" && command.personal->tags == info.tags);
     assert(ui.screen == Screen::PickCategory); // Only persistence acknowledges success.
     ui.handle(Button::Circle);
     assert(ui.screen == Screen::Actions && !ui.quickAssignment && sameInfo(ui.localDraft, info) && !ui.take(command));

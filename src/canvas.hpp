@@ -15,6 +15,8 @@ class Canvas {
     FT_Face face = nullptr;
     std::map<uint64_t, Glyph> glyphs;
     const Glyph& glyph(uint32_t codepoint, int size);
+    void textWindow(const std::string& value, int x, int baseline, int size, uint32_t color,
+                    int left, int right, uint8_t alpha, bool ellipsis);
 public:
     static constexpr int Width = 1920, Height = 1080;
     std::vector<uint32_t> pixels;
@@ -25,6 +27,8 @@ public:
     void rounded(int x, int y, int w, int h, int radius, uint32_t color, uint8_t alpha = 255);
     void text(const std::string& value, int x, int baseline, int size, uint32_t color,
               int maxWidth = Width, uint8_t alpha = 255);
+    void scrollingText(const std::string& value, int x, int baseline, int size, uint32_t color,
+                       int width, double seconds, bool animate = true);
     void boldText(const std::string& value, int x, int baseline, int size, uint32_t color, int maxWidth = Width);
     int textWidth(const std::string& value, int size);
     void centered(const std::string& value, int baseline, int size, uint32_t color);

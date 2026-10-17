@@ -8,5 +8,7 @@ std::string joinedNames(const std::vector<std::string>& names);
 std::string displayDescription(const Entry& entry);
 double displayRating(const Entry& entry);
 std::string ratingText(const Entry& entry);
+std::string playerCountText(const Entry& entry);
+std::string splitScreenText(const Entry& entry);
 std::string readableUrl(const std::string& url);
 }

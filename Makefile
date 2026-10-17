@@ -34,6 +34,7 @@ PS4_OBJECTS := $(addprefix build/ps4/,$(addsuffix .o,$(COMMON) $(CONSOLE))) buil
 LIBS := -ljbc -lc++ -lSceVideoOut -lSceSysmodule -lSceLncUtil -lSceSystemService -lSceFreeType -lScePad -lSceUserService -lSceNet -lSceNetCtl -lSceSsl -lSceCommonDialog -lSceImeDialog -lc -lkernel
 HOSTFLAGS := -std=c++17 -DPSGI_HOST -Isrc -Ithird_party/cjson -Ithird_party/stb -Ibuild/generated -Wall -Wextra -Werror -O1 -g -pthread
 HEADERS := $(wildcard src/*.hpp) third_party/cjson/cJSON.h third_party/stb/stb_image.h
+HOST_COMMON := $(addprefix build/host/common/,$(addsuffix .o,$(COMMON)))
 
 all package: assets
 	python3 scripts/package.py
@@ -68,6 +69,12 @@ package-internal: build/pkg/eboot.bin assets
 	cd build/pkg && $(TOOLS)/PkgTool.Core pkg_build pkg.gp4 ../package
 	$(TOOLS)/PkgTool.Core pkg_validate build/package/$(CONTENT_ID).pkg
 
+# Reuse identical host model/UI objects across tests and preview builds.
+# Sanitized/native adapters retain their separate compile recipes below.
+build/host/common/%.o: src/%.cpp $(HEADERS)
+	@mkdir -p $(@D)
+	g++ $(HOSTFLAGS) -c $< -o $@
+
 build/host/cJSON.o: third_party/cjson/cJSON.c
 	@mkdir -p $(@D)
 	gcc -O1 -g -c $< -o $@
@@ -80,7 +87,7 @@ build/generated/revision.hpp:
 	@mkdir -p $(@D)
 	python3 -c 'import json; from pathlib import Path; r=json.load(open("revision.json"))["revision"]; Path("$@").write_text("#pragma once\n#define PSGI_REVISION %d\n#define PSGI_VERSION \"r%d\"\n" % (r,r))'
 
-build/host/preview: $(addprefix src/,$(addsuffix .cpp,$(COMMON) $(UI_SOURCES) http desktop)) build/host/cJSON.o build/generated/revision.hpp $(HEADERS)
+build/host/preview: $(HOST_COMMON) $(addprefix src/,$(addsuffix .cpp,$(UI_SOURCES) http desktop)) build/host/cJSON.o build/generated/revision.hpp $(HEADERS)
 	g++ $(HOSTFLAGS) -Wno-unused-function $$(pkg-config --cflags freetype2 sdl2) $(filter %.cpp %.o,$^) -lcurl $$(pkg-config --libs freetype2 sdl2) -o $@
 build/demo/0.png: scripts/demo_assets.py assets/font.ttf
 	python3 scripts/demo_assets.py
@@ -91,31 +98,36 @@ screenshots: assets build/host/preview build/demo/0.png
 	python3 scripts/screenshots.py
 	@echo 'Screenshots: build/screenshots/ — see README for interactive preview controls.'
 
-build/host/model-test: tests/model_test.cpp tests/sfo_fixture.hpp $(addprefix src/,$(addsuffix .cpp,$(COMMON))) build/host/cJSON.o $(HEADERS)
+build/host/model-test: tests/model_test.cpp tests/sfo_fixture.hpp $(HOST_COMMON) build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) $(filter %.cpp %.o,$^) -o $@
-build/host/metadata-test: tests/metadata_test.cpp tests/metadata_fixture.hpp $(addprefix src/,$(addsuffix .cpp,$(COMMON))) build/host/cJSON.o $(HEADERS)
+build/host/cJSON-shrink-test.o: third_party/cjson/cJSON.c
+	@mkdir -p $(@D)
+	gcc -O1 -g -Drealloc=psgiTestRealloc -c $< -o $@
+build/host/json-allocator-test: tests/json_allocator_test.cpp src/catalog.cpp src/metadata.cpp src/userdata.cpp src/sfo.cpp src/settings.cpp build/host/cJSON-shrink-test.o $(HEADERS)
+	g++ $(HOSTFLAGS) $(filter %.cpp %.o,$^) -o $@
+build/host/metadata-test: tests/metadata_test.cpp tests/metadata_fixture.hpp $(HOST_COMMON) build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) $(filter %.cpp %.o,$^) -o $@
 build/host/browser-native-test: tests/browser_native_test.cpp src/browser.cpp src/catalog.cpp src/metadata.cpp build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) -UPSGI_HOST -idirafter $(SDK)/include $(filter %.cpp %.o,$^) -o $@
-build/host/userdata-test: tests/userdata_test.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON))) build/host/cJSON.o $(HEADERS)
+build/host/userdata-test: tests/userdata_test.cpp $(HOST_COMMON) build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) $(filter %.cpp %.o,$^) -o $@
-build/host/features-test: tests/features_test.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON))) build/host/cJSON.o $(HEADERS)
+build/host/features-test: tests/features_test.cpp $(HOST_COMMON) build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) $(filter %.cpp %.o,$^) -o $@
-build/host/browsing-test: tests/browsing_test.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON))) build/host/cJSON.o $(HEADERS)
+build/host/browsing-test: tests/browsing_test.cpp $(HOST_COMMON) build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) $(filter %.cpp %.o,$^) -o $@
-build/host/maintenance-test: tests/maintenance_test.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON))) build/host/cJSON.o $(HEADERS)
+build/host/maintenance-test: tests/maintenance_test.cpp $(HOST_COMMON) build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) $(filter %.cpp %.o,$^) -o $@
 build/host/filesystem-native-test: tests/filesystem_native_test.cpp src/filesystem_native.cpp $(HEADERS)
 	g++ $(HOSTFLAGS) -fsanitize=address,undefined $(filter %.cpp,$^) -o $@
 build/host/thread-native-test: tests/thread_native_test.cpp $(HEADERS)
 	g++ $(HOSTFLAGS) -UPSGI_HOST -idirafter $(SDK)/include $(filter %.cpp,$^) -o $@
-build/host/ui-test: tests/ui_test.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON))) build/host/cJSON.o $(HEADERS)
+build/host/ui-test: tests/ui_test.cpp $(HOST_COMMON) build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) $(filter %.cpp %.o,$^) -o $@
 build/host/artwork-test: tests/artwork_test.cpp tests/sfo_fixture.hpp src/artwork.cpp src/canvas.cpp src/catalog.cpp src/metadata.cpp src/http.cpp src/settings.cpp src/installed.cpp src/sfo.cpp build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) -Wno-unused-function -fsanitize=address,undefined -fno-omit-frame-pointer $$(pkg-config --cflags freetype2) $(filter %.cpp %.o,$^) -lcurl $$(pkg-config --libs freetype2) -o $@
-build/host/render-animation-test: tests/render_animation_test.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON) canvas artwork render http)) build/host/cJSON.o build/generated/revision.hpp $(HEADERS)
+build/host/render-animation-test: tests/render_animation_test.cpp $(HOST_COMMON) $(addprefix src/,$(addsuffix .cpp,canvas artwork render http)) build/host/cJSON.o build/generated/revision.hpp $(HEADERS)
 	g++ $(HOSTFLAGS) -Wno-unused-function $$(pkg-config --cflags freetype2) $(filter %.cpp %.o,$^) -lcurl $$(pkg-config --libs freetype2) -o $@
-build/host/startup-test: tests/startup_fixtures.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON) canvas artwork render app download demo main http)) build/host/cJSON.o build/generated/revision.hpp $(HEADERS)
+build/host/startup-test: tests/startup_fixtures.cpp $(HOST_COMMON) $(addprefix src/,$(addsuffix .cpp,canvas artwork render app download demo main http)) build/host/cJSON.o build/generated/revision.hpp $(HEADERS)
 	g++ $(HOSTFLAGS) -Wno-unused-function $$(pkg-config --cflags freetype2) $(filter %.cpp %.o,$^) -lcurl $$(pkg-config --libs freetype2) -o $@
 build/host/lifecycle-test: tests/lifecycle_test.cpp src/lifecycle.cpp $(HEADERS)
 	g++ $(HOSTFLAGS) -I/opt/libjbc -idirafter $(SDK)/include $(filter %.cpp,$^) -o $@
@@ -133,11 +145,12 @@ build/host/install-native-test: tests/install_native_test.cpp tests/package_fixt
 	g++ $(HOSTFLAGS) -idirafter $(SDK)/include $(filter %.cpp %.o,$^) -o $@
 build/host/download-runner: tests/download_runner.cpp src/download.cpp src/http.cpp src/catalog.cpp src/metadata.cpp src/settings.cpp build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) $(filter %.cpp %.o,$^) -lcurl -o $@
-build/host/app-test: tests/app_test.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON) app artwork download)) build/host/cJSON.o build/generated/revision.hpp $(HEADERS)
+build/host/app-test: tests/app_test.cpp $(HOST_COMMON) $(addprefix src/,$(addsuffix .cpp,app artwork download)) build/host/cJSON.o build/generated/revision.hpp $(HEADERS)
 	g++ $(HOSTFLAGS) -Wno-unused-function $$(pkg-config --cflags freetype2) $(filter %.cpp %.o,$^) -o $@
-build/host/controller-test: tests/controller_test.cpp src/controller.cpp src/video.cpp $(addprefix src/,$(addsuffix .cpp,$(COMMON))) build/host/cJSON.o $(HEADERS)
+build/host/controller-test: tests/controller_test.cpp src/controller.cpp src/video.cpp $(HOST_COMMON) build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) -idirafter $(SDK)/include $$(pkg-config --cflags freetype2 sdl2) $(filter %.cpp %.o,$^) $$(pkg-config --libs sdl2) -o $@
-test: assets build/host/browser-native-test build/host/metadata-test build/host/catalog-test build/host/catalog-check build/host/model-test build/host/userdata-test build/host/features-test build/host/maintenance-test build/host/browsing-test build/host/filesystem-native-test build/host/thread-native-test build/host/ui-test build/host/artwork-test build/host/render-animation-test build/host/startup-test build/host/lifecycle-test build/host/http-native-test build/host/launch-native-test build/host/uninstall-native-test build/host/storage-native-test build/host/install-native-test build/host/download-runner build/host/app-test build/host/controller-test
+test: assets build/host/json-allocator-test build/host/browser-native-test build/host/metadata-test build/host/catalog-test build/host/catalog-check build/host/model-test build/host/userdata-test build/host/features-test build/host/maintenance-test build/host/browsing-test build/host/filesystem-native-test build/host/thread-native-test build/host/ui-test build/host/artwork-test build/host/render-animation-test build/host/startup-test build/host/lifecycle-test build/host/http-native-test build/host/launch-native-test build/host/uninstall-native-test build/host/storage-native-test build/host/install-native-test build/host/download-runner build/host/app-test build/host/controller-test
+	./build/host/json-allocator-test
 	./build/host/browser-native-test
 	./build/host/metadata-test
 	./build/host/catalog-test

@@ -28,7 +28,7 @@ struct Command {
 struct DetailRow { std::string key, value; unsigned action = 0; };
 struct SidebarRow { std::string name, genre; unsigned kind = 0; };
 struct TileRow { std::string group; std::vector<size_t> items; };
-enum class EditKind { SourceUrl, SourceCategory, Search, GameCategory, GameLabel, GameTag, GameDescription, CreateCategory, CreateTag, RenameCategory, RenameTag, SavedName, SavedQuery, SetupUrl, ProfileName, RenameProfile };
+enum class EditKind { SourceUrl, SourceCategory, Search, GameCategory, GameTag, GameDescription, CreateCategory, CreateTag, RenameCategory, RenameTag, SavedName, SavedQuery, SetupUrl, ProfileName, RenameProfile };
 size_t keyboardMaximum(EditKind kind);
 std::string keyboardTitle(EditKind kind);
 

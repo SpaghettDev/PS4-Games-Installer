@@ -12,23 +12,23 @@ void drain(Ui& ui) { Command command; while (ui.take(command)) {} }
 int main() {
     auto entries = parseCatalog(R"({"DATA":{"http://nas/base":{"name":"Game","title_id":"CUSA00001","version":"1.00","category":"games"},"http://nas/update":{"name":"Patch","title_id":"CUSA00001","version":"1.20","category":"updates"},"http://nas/dlc":{"name":"Expansion","title_id":"CUSA00001","category":"dlc"},"http://nas/other":{"name":"Other","title_id":"CUSA00002","category":"games"}}})", "");
     PlayerData data; data.observeInstalled({entries[0]}, 100); data.rate("CUSA00001", 5); data.noteLaunch("CUSA00001", 200);
-    data.setInfo("CUSA00001", {"RPG", "Favorite", "Keep this note", {"Solo"}});
-    data.setInfo("CUSA00002", {"Action", "Next", "Another note", {"Co-op"}});
-    data.assignMany({"CUSA00001", "CUSA00002"}, {"Adventure", "ignored", "ignored", {}}, 0);
+    data.setInfo("CUSA00001", {"RPG", "Keep this note", {"Solo"}});
+    data.setInfo("CUSA00002", {"Action", "Another note", {"Co-op"}});
+    data.assignMany({"CUSA00001", "CUSA00002"}, {"Adventure", "ignored", {}}, 0);
     assert(data.games.at("CUSA00001").info.category == "Adventure" && data.games.at("CUSA00002").info.category == "Adventure");
-    data.assignMany({"CUSA00001", "CUSA00002"}, {"", "", "", {"Weekend", "weekend"}}, 1);
+    data.assignMany({"CUSA00001", "CUSA00002"}, {"", "", {"Weekend", "weekend"}}, 1);
     assert(data.games.at("CUSA00001").info.tags.size() == 2 && data.games.at("CUSA00002").info.tags.size() == 2);
-    data.assignMany({"CUSA00001", "CUSA00002"}, {"", "", "", {"weekend"}}, 2);
+    data.assignMany({"CUSA00001", "CUSA00002"}, {"", "", {"weekend"}}, 2);
     assert(data.games.at("CUSA00001").info.tags == std::vector<std::string>{"Solo"});
     assert(data.games.at("CUSA00001").rating == 5 && data.games.at("CUSA00001").launches == 1 && data.games.at("CUSA00001").wasInstalled);
-    assert(data.games.at("CUSA00002").info.description == "Another note" && data.games.at("CUSA00001").info.label == "Favorite");
+    assert(data.games.at("CUSA00002").info.description == "Another note" && data.games.at("CUSA00001").info.description == "Keep this note");
     auto before = serializePlayerData(data);
-    rejects([&] { data.assignMany({"CUSA00001", "INVALID"}, {"Broken", "", "", {}}, 0); });
+    rejects([&] { data.assignMany({"CUSA00001", "INVALID"}, {"Broken", "", {}}, 0); });
     assert(serializePlayerData(data) == before);
     auto full = data; LocalInfo many;
     for (int i = 0; i < 16; ++i) many.tags.push_back("Tag " + std::to_string(i));
     full.setInfo("CUSA00002", many); before = serializePlayerData(full);
-    rejects([&] { full.assignMany({"CUSA00001", "CUSA00002"}, {"", "", "", {"Overflow"}}, 1); });
+    rejects([&] { full.assignMany({"CUSA00001", "CUSA00002"}, {"", "", {"Overflow"}}, 1); });
     assert(serializePlayerData(full) == before);
     data.assignMany({"CUSA00002"}, {}, 3); assert(data.games.at("CUSA00002").info.tags.empty());
 

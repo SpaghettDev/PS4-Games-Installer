@@ -56,7 +56,7 @@ public:
     std::set<std::string> queued;
     std::vector<VisibleEntry> visible;
     Library library = Library::Installed;
-    Screen screen = Screen::Splash, detailReturn = Screen::Dashboard;
+    Screen screen = Screen::Splash, detailReturn = Screen::Dashboard, mediaReturn = Screen::Details;
     size_t selected[2] = {0, 0}, menuIndex = 0, settingsIndex = 0, sourceIndex = 0, detailScroll = 0;
     size_t ratingIndex = 0;
     bool sidebar = false, loading = true, updatesOnly = false;

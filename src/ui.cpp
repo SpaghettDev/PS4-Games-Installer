@@ -253,6 +253,8 @@ std::vector<std::string> Ui::actionRows() const {
         rows = pending.url.empty() ? std::vector<std::string>{"Launch game", "Details", "Refresh artwork"} :
             std::vector<std::string>{"Launch game", "Install remote package", "Details", "Refresh artwork"};
     else rows = {"Install package", "Details", "Refresh artwork"};
+    if(!pending.igdb.screenshots.empty())
+        rows.insert(std::find(rows.begin(),rows.end(),"Details")+1,"Show screenshots");
     if (validTitleId(pending.titleId)) {
         rows.push_back("Assign category");
         rows.push_back("Assign tags");
@@ -545,6 +547,7 @@ void Ui::handle(Button b) {
             else if (action == "Game packages") { packageTitle = pending.titleId; packageIndex = 0; screen = Screen::Packages; }
             else if (action == "Edit local info") { localDraft = pending.info; quickAssignment = false; localIndex = 0; localNotice.clear(); screen = Screen::LocalInfo; }
             else if (action == "Details") { openDetails(Screen::Actions); }
+            else if (action == "Show screenshots") { mediaIndex=0; mediaReturn=Screen::Actions; screen=Screen::Screenshots; }
             else { emit(CommandType::RefreshArtwork, pending); screen = Screen::Dashboard; }
         }
         return;

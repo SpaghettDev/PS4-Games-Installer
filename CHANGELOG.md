@@ -1,5 +1,13 @@
 # Changelog
 
+## r40 — 2026-10-18
+
+- Add Show screenshots immediately after Details in game Actions when images are
+  supplied. Open the existing gallery directly and return to Actions with O.
+- UI/metadata regressions and native package validation passed; console shortcut
+  acceptance remains pending on PS4 11.00 + GoldHEN.
+
+
 ## r39 — 2026-10-18
 
 - Reduce the selected title/category scrolling pause from 1.25 to 0.35 seconds.

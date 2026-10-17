@@ -1,5 +1,24 @@
 # Implementation progress
 
+## r40 screenshot shortcut in game Actions — 2026-10-18
+
+- Added Show screenshots immediately after Details when images are supplied, for
+  Installed and Available titles. The shortcut resets the gallery to image one.
+- Added a media return screen so O returns directly to the originating Actions
+  row. Screenshots/videos opened through Details still return to Details.
+- Extended existing metadata/UI coverage for remote and installed/local
+  variants, row order, first-image reset, wrapped image navigation, return paths
+  and absent media. Targeted UI/metadata tests passed, including wrapped menus.
+- `make all` built r40 and `make validate` passed hashes/signatures and packed
+  launcher imports. Revision, source fingerprint, manifest and SHA-256 match;
+  hardware_tested remains false.
+- Generated all 97 desktop captures and inspected both Installed and Available
+  Actions: Show screenshots follows Details, with readable rows and scrollbars.
+  Added the shortcut to the consumer/expert manuals and an expert preview image.
+- Recorded the successful revision and completed source/docs in a local commit.
+  PS4 11.00 + GoldHEN shortcut acceptance remains pending; no deployment or push.
+
+
 ## r39 quicker selected-title scrolling — 2026-10-18
 
 - User reports roughly five seconds before title scrolling becomes visible on PS4.

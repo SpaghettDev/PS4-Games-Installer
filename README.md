@@ -78,6 +78,7 @@ X to select characters or Done, and O to cancel.
   genres from your catalog; **Left** collapses them.
 - **Updates:** browse update and DLC packages; their matching base game is required.
 - **Triangle > Game packages:** find a title's base game, updates and DLC together.
+- **Triangle > Show screenshots:** open the gallery when the catalog supplies images.
 
 **Square** opens Game Details. Local notes replace the remote description;
 Genres and assigned Tags are separate, followed by game modes, player counts

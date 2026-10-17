@@ -172,6 +172,8 @@ void capture(App& app, Renderer& renderer, Canvas& canvas) {
         app.artwork.request(ui.screenshot(),true,true);std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
     shot("96-screenshot-unavailable");
+    for(const auto& entry:ui.available)if(!entry.installed){ui.pending=entry;break;}
+    ui.screen=Screen::Actions;ui.menuIndex=0;shot("97-available-screenshot-action");
     ui.screen = Screen::About; shot("09-about");
     ui.screen = Screen::ConfirmExit; shot("10-exit");
     ui.screen = Screen::Dashboard; ui.available.clear(); ui.updatesOnly = true; ui.rebuild(); shot("61-updates-empty");

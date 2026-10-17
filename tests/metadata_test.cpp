@@ -81,6 +81,23 @@ int main(){
     ui.handle(Button::Cross);assert(ui.detailsExpanded);ui.handle(Button::Cross);assert(!ui.detailsExpanded);
     ui.handle(Button::Down);ui.handle(Button::Cross);assert(ui.technicalExpanded);
     ui.handle(Button::Circle);assert(ui.screen==Screen::Actions);
+    // Direct Actions shortcut preserves its selection and returns there with O.
+    for(unsigned variant=0;variant<3;++variant){
+        Ui actions;actions.screen=Screen::Actions;actions.pending=e;actions.mediaIndex=1;
+        actions.library=variant ? Library::Installed : Library::Available;
+        actions.pending.installed=variant!=0;if(variant==2)actions.pending.url.clear();
+        const auto choices=actions.actionRows();const auto details=std::find(choices.begin(),choices.end(),"Details");
+        assert(details!=choices.end()&&details+1!=choices.end()&&*(details+1)=="Show screenshots");
+        actions.menuIndex=details+1-choices.begin();const auto selected=actions.menuIndex;
+        actions.handle(Button::Cross);assert(actions.screen==Screen::Screenshots&&actions.mediaIndex==0);
+        actions.handle(Button::Left);assert(actions.mediaIndex==1);
+        actions.handle(Button::Circle);assert(actions.screen==Screen::Actions&&actions.menuIndex==selected);
+        actions.menuIndex=details-choices.begin();actions.handle(Button::Cross);actions.handle(Button::Triangle);
+        actions.handle(Button::Circle);assert(actions.screen==Screen::Details);
+        actions.handle(Button::Circle);assert(actions.screen==Screen::Actions);
+        actions.pending.igdb.screenshots.clear();const auto without=actions.actionRows();
+        assert(std::find(without.begin(),without.end(),"Show screenshots")==without.end());
+    }
     // Removed genres clear the stale saved filter after a catalog update.
     auto noMetadata=e;noMetadata.igdb={};ui.setLibraries({},std::vector<Entry>{noMetadata});ui.restoreView(session);assert(ui.remoteGenre.empty());
     for(const auto& json:{"null","[]","{bad",R"({"genres":4,"ratings":{"users":{"score":101}},"media":{"screenshots":[{"url":"file:///etc/passwd"}]},"videos":[{"video_id":"bad"},{"url":"javascript:evil"}]})"}){

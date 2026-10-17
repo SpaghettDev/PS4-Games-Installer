@@ -63,9 +63,9 @@ std::vector<std::string> Ui::videoRows() const {
 }
 bool Ui::handleDetails(Button button) {
     if(screen==Screen::Screenshots||screen==Screen::Videos) {
-        if(button==Button::Circle){screen=Screen::Details;return true;}
+        if(button==Button::Circle){screen=mediaReturn;return true;}
         const auto count=screen==Screen::Screenshots ? pending.igdb.screenshots.size() : pending.igdb.videos.size();
-        if(!count){screen=Screen::Details;return true;}
+        if(!count){screen=mediaReturn;return true;}
         auto direction=button;
         if(button==Button::Left||button==Button::L1)direction=Button::Up;
         if(button==Button::Right||button==Button::R1)direction=Button::Down;
@@ -77,15 +77,15 @@ bool Ui::handleDetails(Button button) {
     if(screen!=Screen::Details)return false;
     if(button==Button::Circle){screen=detailReturn;return true;}
     if((button==Button::Triangle&&!pending.igdb.screenshots.empty())||(button==Button::Square&&!pending.igdb.videos.empty())) {
-        screen=button==Button::Triangle ? Screen::Screenshots : Screen::Videos;mediaIndex=0;return true;
+        screen=button==Button::Triangle ? Screen::Screenshots : Screen::Videos;mediaIndex=0;mediaReturn=Screen::Details;return true;
     }
     const auto rows=detailRows();moveMenuSelection(button,detailIndex,rows.size());
     if(button==Button::Cross) {
         switch(rows[detailIndex].action) {
             case 1: detailsExpanded=!detailsExpanded;break;
             case 2: technicalExpanded=!technicalExpanded;break;
-            case 3: screen=Screen::Screenshots;mediaIndex=0;break;
-            case 4: screen=Screen::Videos;mediaIndex=0;break;
+            case 3: screen=Screen::Screenshots;mediaIndex=0;mediaReturn=Screen::Details;break;
+            case 4: screen=Screen::Videos;mediaIndex=0;mediaReturn=Screen::Details;break;
         }
     }
     if(detailIndex<detailScroll)detailScroll=detailIndex;

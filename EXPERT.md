@@ -167,6 +167,12 @@ The optional embedded `igdb` object follows the companion server's tree:
 }
 ```
 
+When screenshots are supplied, the game's **Triangle > Actions** menu includes
+**Show screenshots** immediately after **Details**. X opens the gallery at its
+first image; O returns to the same Actions selection.
+
+![Direct screenshot shortcut in game Actions (desktop preview)](docs/images/actions-screenshots.png)
+
 Screenshots/videos appear as selectable buttons only when supplied. **Triangle**
 in Details opens the in-app screenshot gallery; Left/Right or L1/R1 changes image,
 Triangle retries loading and O returns. **Square** opens the videos list; X opens

@@ -1,5 +1,14 @@
 # Work tracker
 
+## Current implementation: screenshot shortcut in game Actions
+
+- [x] Add Show screenshots after Details when the game has supplied images.
+- [x] Open the existing gallery at the first image and return to Actions with O.
+- [x] Run UI/metadata regressions, build/validate and inspect action-menu captures.
+- [x] Commit the successful revision and updated documentation locally.
+- [ ] Confirm the direct shortcut and return behavior on PS4 11.00 + GoldHEN.
+
+
 ## Current implementation: quicker selected-title scrolling
 
 - [x] Shorten the marquee pause to 0.35 seconds for selected titles/categories.

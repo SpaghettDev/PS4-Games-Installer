@@ -1,5 +1,13 @@
 # Work tracker
 
+## Current implementation: quicker selected-title scrolling
+
+- [x] Shorten the marquee pause to 0.35 seconds for selected titles/categories.
+- [x] Verify motion before one second, build/validate and inspect captures.
+- [x] Commit the successful revision and progress locally.
+- [ ] Confirm the shorter perceived delay on PS4 11.00 + GoldHEN.
+
+
 ## Current implementation: screenshot download recovery
 
 - [x] Inspect PS4 r37 logs, catalog URLs and screenshot disk-cache evidence.

@@ -397,7 +397,7 @@ and every remote package variant share them, even if the name or URL changes.
 The category occupies the full row below the title on tiles and the full available
 row in the summary layout. Without a personal category, this row uses IGDB genres;
 otherwise it says Uncategorized. On the selected game, overflowing title/category
-text scrolls within its row after a short pause, including a pause at the other
+text scrolls within its row after a 0.35-second pause, including a pause at the other
 end. Turning background animation off also pauses this text animation. Details
 always exposes the full text. Your description takes precedence over a remote
 one in the selected-game preview. Search matches personal categories, descriptions

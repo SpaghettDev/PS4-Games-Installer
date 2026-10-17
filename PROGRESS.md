@@ -1,5 +1,23 @@
 # Implementation progress
 
+## r39 quicker selected-title scrolling — 2026-10-18
+
+- User reports roughly five seconds before title scrolling becomes visible on PS4.
+  Reduced the renderer's marquee pause from 1.25 to 0.35 seconds, retaining its
+  speed and clipping. Updated the existing pixel regression to require visible
+  movement by 0.9 seconds rather than four seconds.
+- Targeted Docker artwork tests passed under ASan/UBSan, including visible motion
+  by 0.9 seconds, clipping and static short text. Renderer animation tests passed.
+- `make all` built r39 and `make validate` passed package hashes/signatures and
+  packed launcher imports. Revision, source fingerprint, manifest and SHA-256
+  match; hardware_tested remains false.
+- Generated all 96 desktop captures and inspected the selected marquee at two
+  times: text has moved by the first one-second capture and remains clipped to
+  the tile. Refreshed the expert manual's scrolling illustration.
+- Recorded the successful revision and completed change in a local commit.
+  Perceived delay on PS4 11.00 + GoldHEN remains pending user acceptance.
+
+
 ## r38 screenshot download recovery — 2026-10-18
 
 - Retrieved r37 logs, catalog and artwork listing through read-only FTP. The app

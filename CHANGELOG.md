@@ -1,5 +1,13 @@
 # Changelog
 
+## r39 — 2026-10-18
+
+- Reduce the selected title/category scrolling pause from 1.25 to 0.35 seconds.
+  Keep the scrolling speed and clipping unchanged.
+- The ASan/UBSan pixel regression confirms motion by 0.9 seconds. Renderer
+  animation checks and native package validation passed; PS4 timing needs retesting.
+
+
 ## r38 — 2026-10-18
 
 - Show actual screenshot failures and retry instructions instead of an endless

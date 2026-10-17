@@ -116,7 +116,7 @@ void Canvas::scrollingText(const std::string& value, int x, int baseline, int si
                            int width, double seconds, bool animate) {
     const int distance=textWidth(value,size)-width;
     if(!animate||distance<=0||!std::isfinite(seconds)||seconds<0){text(value,x,baseline,size,color,width);return;}
-    constexpr double pause=1.25, speed=38;
+    constexpr double pause=0.35, speed=38;
     const double travel=distance/speed, phase=std::fmod(seconds,2*(pause+travel));
     double offset=0;
     if(phase>pause&&phase<pause+travel)offset=(phase-pause)*speed;

@@ -53,7 +53,7 @@ int main() {
     const std::string categories="Adventure / Role-playing (RPG) / Platform / Strategy / Puzzle";
     canvas.background(1,false);canvas.scrollingText(categories,500,400,23,0xffffff,180,0);
     const auto marqueeStart=canvas.pixels;
-    canvas.background(1,false);canvas.scrollingText(categories,500,400,23,0xffffff,180,4);
+    canvas.background(1,false);canvas.scrollingText(categories,500,400,23,0xffffff,180,0.9);
     size_t changed=0;
     for(int y=0;y<Canvas::Height;++y)for(int x=0;x<Canvas::Width;++x){
         const auto index=size_t(y)*Canvas::Width+x;

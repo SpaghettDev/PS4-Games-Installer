@@ -1,5 +1,13 @@
 # Changelog
 
+## r35 — 2026-10-17
+
+- Show the remote catalog's description directly after Version in Game Details,
+  instead of after all other metadata. Keep local notes separate and omit the
+  catalog description row when the source supplies no text.
+- Model regressions, native package validation and desktop screenshot review
+  passed. PS4 display acceptance is pending; native launch/installation is unchanged.
+
 ## r34 — 2026-10-17
 
 - Revert r33's skip-launch-check flag after the user reported a console crash on

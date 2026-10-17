@@ -186,7 +186,10 @@ std::vector<std::pair<std::string, std::string>> entryDetails(const Entry& e) {
         {"Local label", e.info.label.empty() ? "Unlabeled" : e.info.label},
         {"Local tags", e.info.tags.empty() ? "Untagged" : [&] { std::string value; for (const auto& tag : e.info.tags) { if (!value.empty()) value += ", "; value += tag; } return value; }()},
         {"Local description", e.info.description.empty() ? "Not set" : e.info.description},
-        {"Title ID", unknown(e.titleId)}, {"Version", unknown(e.version)},
+        {"Title ID", unknown(e.titleId)}, {"Version", unknown(e.version)}
+    };
+    if (!e.description.empty()) out.emplace_back("Description", e.description);
+    out.insert(out.end(), {
         {"Package type", packageKindName(e)}, {"Installed version", unknown(e.installedVersion.empty() && e.installed ? e.version : e.installedVersion)},
         {"Latest catalog update", unknown(e.latestVersion)},
         {"Region", unknown(e.region)}, {"Category", unknown(e.category)},
@@ -197,13 +200,12 @@ std::vector<std::pair<std::string, std::string>> entryDetails(const Entry& e) {
         {"Launch requests", std::to_string(e.launches)},
         {"Minimum firmware", unknown(e.minFirmware)}, {"Release", unknown(e.release)},
         {"Content ID", unknown(e.contentId)}, {"Package URL", unknown(e.url)}
-    };
+    });
     for (const auto& date : std::vector<std::pair<std::string, uint64_t>>{{"First recorded installed", e.firstSeenInstalled}, {"Last launch request", e.lastLaunch}}) {
         if (!date.second) continue;
         const std::time_t timestamp = date.second; const auto* utc = std::gmtime(&timestamp); char text[40];
         if (utc && std::strftime(text, sizeof(text), "%Y-%m-%d %H:%M UTC", utc)) out.emplace_back(date.first, text);
     }
-    if (!e.description.empty()) out.emplace_back("Description", e.description);
     const std::set<std::string> known{"title_id","name","version","region","category","size","min_fw","release","cover_url","content_id","description","rating","was_installed","launches","first_seen_installed","last_launch"};
     for (const auto& m : e.metadata) if (!known.count(lower(m.first))) out.push_back(m);
     return out;

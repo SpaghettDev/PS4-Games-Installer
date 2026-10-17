@@ -98,6 +98,7 @@ The existing catalog format is supported:
       "title_id": "BREW00000",
       "region": "EUR",
       "version": "1.00",
+      "description": "An overview of the game and its story.",
       "release": "10-15-2026",
       "size": "32000000000",
       "min_fw": null,
@@ -109,7 +110,10 @@ The existing catalog format is supported:
 
 A name and direct HTTP(S) package URL are required. Metadata may be missing or null;
 size accepts integer bytes or a decimal string. Title IDs enable installed-status
-matching. Details also retain additional string metadata supplied by the server.
+matching. The optional `description` field appears directly after **Version** in
+**Square > Game details**, separately from your personal Local description. Long
+text wraps and can be read with Up/Down scrolling. Details also retain additional
+string metadata supplied by the server.
 
 Serve catalogs as direct HTTP 200, uncompressed JSON responses. Redirects and
 interactive authentication are not supported. Package hosting must support direct

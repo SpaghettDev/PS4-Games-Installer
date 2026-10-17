@@ -1,5 +1,14 @@
 # Work tracker
 
+## Current implementation: r35 catalog description placement
+
+- [x] Show the catalog description immediately after Version in Game Details.
+- [x] Preserve local descriptions, existing wrapping and scroll navigation.
+- [x] Run relevant host checks, build/validate the package and inspect screenshots.
+- [x] Update expert documentation and commit the successful revision.
+- [ ] Verify a refreshed catalog description appears in Details on PS4 for remote
+  and matching installed titles, with scrolling for long text.
+
 ## Documentation: consumer guide and reference manuals
 
 - [x] State the jailbroken-PS4 requirement and link the recommended JSON catalog server.

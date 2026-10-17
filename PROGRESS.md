@@ -1,5 +1,27 @@
 # Implementation progress
 
+## r35 catalog description immediately after Version — 2026-10-17
+
+- User states the configured remote JSON now provides description and requests it
+  directly after Version in Game Details.
+- The existing parser, catalog cache and installed-title enrichment already carry
+  this field. Moved its single nonempty row ahead of Package type, preserving the
+  separate Local description and existing wrapped/scrollable rendering.
+- Updated the expert catalog example and field explanation. No new provider/API,
+  matching logic, settings or metadata-fetch path is required for this change.
+- Existing Docker model regressions passed for settings, SFO, installed discovery
+  and library behavior.
+- `make all` built `dist/PS4Game_installer-r35.pkg` (6,619,136 bytes).
+  `make validate` passed package hashes/signatures and packed imports; input
+  fingerprint, artifact manifest/checksum and successful revision record match.
+- Generated all 84 desktop captures and inspected `08-details.png`: Version is
+  immediately followed by Description, which wraps without clipping. Local notes
+  remain separate and the remaining fields continue below with a scrollbar.
+- Expert JSON examples parse and whitespace checks pass. Committed the source,
+  documentation and successful revision locally. PS4 description display remains
+  pending hardware acceptance; native launch/download/install code is unchanged.
+  No console actions, deployment or push performed.
+
 ## README requirements and companion server — 2026-10-17
 
 - User requested explicit jailbroken-PS4 wording and a recommendation for the

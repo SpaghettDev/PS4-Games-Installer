@@ -4,6 +4,7 @@
 *.tmp
 __pycache__/
 .package.lock
+/realease_notes.md
 
 .env
 .env.*

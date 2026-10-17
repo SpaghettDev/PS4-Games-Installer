@@ -1,5 +1,10 @@
 # Changelog
 
+## Release documentation — 2026-10-18
+
+- Prepare concise r40 release highlights in a temporary, Git-ignored notes file.
+
+
 ## r40 — 2026-10-18
 
 - Add Show screenshots immediately after Details in game Actions when images are

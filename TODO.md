@@ -1,5 +1,11 @@
 # Work tracker
 
+## r40 release preparation
+
+- [x] Write concise temporary realease_notes.md for the GitHub release page.
+- [x] Ignore the notes in Git and retain the existing r40 package/revision.
+
+
 ## Current implementation: screenshot shortcut in game Actions
 
 - [x] Add Show screenshots after Details when the game has supplied images.

@@ -1,5 +1,14 @@
 # Implementation progress
 
+## r40 release notes — 2026-10-18
+
+- Created the requested temporary realease_notes.md with consumer release
+  highlights, changes/fixes since r34, requirements and upgrade guidance.
+- Added an exact root ignore rule. The notes remain outside version control;
+  only the ignore rule and work records are committed. Application/package
+  inputs and successful revision remain r40.
+
+
 ## r40 screenshot shortcut in game Actions — 2026-10-18
 
 - Added Show screenshots immediately after Details when images are supplied, for

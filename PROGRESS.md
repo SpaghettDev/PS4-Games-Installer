@@ -1,5 +1,35 @@
 # Implementation progress
 
+## r38 screenshot download recovery — 2026-10-18
+
+- Retrieved r37 logs, catalog and artwork listing through read-only FTP. The app
+  restarted and refreshed 101 packages successfully. No screenshot cache files
+  exist for the catalog's 648 images; covers come from the LAN while screenshots
+  use images.igdb.com HTTPS. Four sampled CDN responses are valid 1920x1080 JPEGs.
+- Existing artwork failures were swallowed, leaving the gallery's loading text
+  unchanged. Kernel/app logs contain no underlying image failure code, so the
+  exact console transfer failure is not proven by this evidence.
+- Added bounded artwork errors/messages, visible gallery failure/retry instructions
+  and app.log outcomes without image URLs. Isolated public IGDB image HTTPS
+  compatibility using the pinned OpenOrbis sample callback ABI; other image
+  origins and catalog/package requests retain the regular certificate policy.
+- Added regressions for native HTTPS callback ABI/origin isolation, progressive
+  JPEG decoding and asynchronous failure/retry recovery. The native/ASan checks
+  pass. The complete Docker host suite passed, including App workflows/restarts,
+  controller/HTTP integrations and all 15 Python tests.
+- Native compilation/linking and packaging succeeded as
+  `dist/PS4Game_installer-r38.pkg` (6,619,136 bytes). Package validation passed
+  hashes/signatures and packed launcher imports; revision, fingerprint, manifest
+  and SHA-256 match. Console screenshot acceptance remains pending.
+- Generated 96 desktop captures with r38 and inspected both a loaded gallery image
+  and a real refused-connection failure. Error text and retry/navigation controls
+  fit the dialog. Updated consumer/expert/development manuals and preview images.
+- Recorded the completed source, documentation and successful revision in a local
+  commit. Console investigation was read-only; no deployment or push performed.
+  Install r38 and retest screenshots on PS4 11.00 + GoldHEN to confirm whether the
+  transport fix resolves the original failure; any remaining error is now visible.
+
+
 ## r37 label removal, clearer metadata and refresh/startup recovery — 2026-10-18
 
 - Retrieved the PS4 app log, keyed/compatibility catalogs, session, personal data,

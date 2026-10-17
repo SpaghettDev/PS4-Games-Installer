@@ -7,6 +7,8 @@
 
 namespace psgi {
 std::string httpGet(const std::string& url, size_t limit = MaxCatalogBytes, const std::atomic<bool>* cancelled = nullptr);
+// Public artwork has a separate console HTTPS compatibility policy.
+std::string httpGetArtwork(const std::string& url, size_t limit, const std::atomic<bool>* cancelled = nullptr);
 struct HttpTransferInfo { int status = 0; uint64_t length = 0; };
 // Bounded-memory package transfer. Returning false from the sink stops a probe
 // without downloading the remaining body. total is the response Content-Length.

@@ -365,9 +365,15 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
         }
         case Screen::Screenshots: {
             panel(c,110,165,1700,775,"Screenshots / "+ui.pending.name);
-            const auto image=artwork.request(ui.screenshot(),true,true);
+            const auto screenshot=ui.screenshot();
+            const auto image=artwork.request(screenshot,true,true);
             if(image)c.image(*image,160,270,1600,560);
-            else c.centered("Loading image... Press Triangle to retry if unavailable.",550,27,Muted);
+            else {
+                const auto error=artwork.error(screenshot,true);
+                c.centered(error.empty() ? "Loading image..." : "Could not load screenshot",500,30,Muted);
+                if(!error.empty())c.text(error,210,555,24,Muted,1500);
+                c.centered("Triangle retries the image. L1 / R1 changes screenshots. O goes back.",620,24,Muted);
+            }
             c.text(std::to_string(ui.mediaIndex+1)+" / "+std::to_string(ui.pending.igdb.screenshots.size()),1580,904,23,Accent,160);
             hints(c,160,904,{{Button::L1,"Previous / next"},{Button::Triangle,"Reload"},{Button::Circle,"Back"}},21);break;
         }

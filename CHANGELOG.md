@@ -1,5 +1,16 @@
 # Changelog
 
+## r38 — 2026-10-18
+
+- Show actual screenshot failures and retry instructions instead of an endless
+  Loading image message. Record bounded artwork outcomes in app.log by cache key.
+- Add a console HTTPS compatibility path limited to public IGDB artwork. Catalogs,
+  packages and other artwork origins keep their existing certificate verification.
+- Complete host suite (including 15 Python tests), native package validation and
+  desktop gallery/error capture review passed. Actual PS4 screenshot display
+  remains pending hardware acceptance.
+
+
 ## r37 — 2026-10-18
 
 - Avoid the OpenOrbis allocator shrink path in JSON output after a kernel-log

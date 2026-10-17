@@ -294,6 +294,7 @@ void App::refresh(bool remote) {
     if (started) { ui.loading = true; ui.status = remote ? "Refreshing remote library..." : "Reading installed games..."; }
 }
 void App::tick(double elapsed, Video& video) {
+    for(const auto& message:artwork.takeMessages())if(!demo)log(message);
     if (auto update = worker->takeTransfer()) if (auto* job = findJob(ui.downloads, update->url)) {
         if (job->stage != QueueStage::Cancelling) {
             const bool changed = job->stage != update->stage; job->stage = update->stage;

@@ -98,6 +98,9 @@ std::string httpGet(const std::string& url, size_t limit, const std::atomic<bool
     if (status != 200) throw std::runtime_error("Catalog HTTP " + std::to_string(status) + "; use a direct URL");
     return transfer.text;
 }
+std::string httpGetArtwork(const std::string& url, size_t limit, const std::atomic<bool>* cancelled) {
+    return httpGet(url,limit,cancelled);
+}
 }
 #else
 #include "http_native.hpp"
@@ -137,6 +140,7 @@ struct HttpApi {
     decltype(&sceHttpAbortRequest) abort = nullptr;
     decltype(&sceHttpAddRequestHeader) addHeader = nullptr;
     decltype(&sceHttpGetResponseContentLength) contentLength = nullptr;
+    decltype(&sceHttpsSetSslCallback) setSslCallback = nullptr;
 
     template<class T> void bind(int module, const char* name, T& function) {
         check(sceKernelDlsym(module, name, reinterpret_cast<void**>(&function)), name);
@@ -169,6 +173,7 @@ struct HttpApi {
         bind(module, "sceHttpAbortRequest", abort);
         bind(module, "sceHttpAddRequestHeader", addHeader);
         bind(module, "sceHttpGetResponseContentLength", contentLength);
+        bind(module, "sceHttpsSetSslCallback", setSslCallback);
     }
 };
 struct Network {
@@ -209,6 +214,11 @@ void setRequestPolicy(HttpApi& api, int id) {
     check(api.setAutoRedirect(id, 0), "Disable redirects");
     check(api.setRecvTimeout(id, 10000000), "Set receive timeout");
 }
+int32_t publicImageCertificate(int32_t, uint32_t, void* const[], int32_t, void*) {
+    // Same ABI/return convention as the pinned SDK net_http sample. Limited to
+    // public IGDB image requests; never used for catalogs or install packages.
+    return 1;
+}
 }
 
 namespace psgi {
@@ -248,7 +258,7 @@ HttpTransferInfo httpTransfer(const std::string& url, const HttpSink& sink, bool
     } catch (...) { api.abort(r.req); throw; }
     return info;
 }
-std::string httpGet(const std::string& url, size_t limit, const std::atomic<bool>* cancelled) {
+static std::string getDocument(const std::string& url, size_t limit, const std::atomic<bool>* cancelled, bool artwork) {
     if (!isHttpUrl(url)) throw std::runtime_error("Invalid catalog URL");
     if (cancelled && *cancelled) throw std::runtime_error("Download cancelled");
     auto& net = network();
@@ -260,7 +270,12 @@ std::string httpGet(const std::string& url, size_t limit, const std::atomic<bool
     check(api.setConnectTimeout(r.tmpl, 10000000), "Connect timeout");
     check(api.setResolveTimeout(r.tmpl, 10000000), "DNS timeout");
     check(api.setSendTimeout(r.tmpl, 10000000), "Send timeout");
-    // Keep the platform's certificate verification enabled.
+    // Old firmware CA/date checks can reject the current IGDB CDN certificate.
+    // Scope compatibility to the exact public image origin/path; redirects stay
+    // disabled, and supplied catalog/package HTTPS never uses this callback.
+    constexpr char imageOrigin[]="https://images.igdb.com/igdb/image/upload/";
+    if(artwork&&url.compare(0,sizeof(imageOrigin)-1,imageOrigin)==0)
+        check(api.setSslCallback(r.tmpl,publicImageCertificate,nullptr),"Image HTTPS compatibility");
     r.conn = api.createConnection(r.tmpl, url.c_str(), false);
     check(r.conn, "HTTP connection");
     r.req = api.createRequest(r.conn, ORBIS_METHOD_GET, url.c_str(), 0);
@@ -282,6 +297,12 @@ std::string httpGet(const std::string& url, size_t limit, const std::atomic<bool
         out.append(block.data(), n);
     }
     return out;
+}
+std::string httpGet(const std::string& url, size_t limit, const std::atomic<bool>* cancelled) {
+    return getDocument(url,limit,cancelled,false);
+}
+std::string httpGetArtwork(const std::string& url, size_t limit, const std::atomic<bool>* cancelled) {
+    return getDocument(url,limit,cancelled,true);
 }
 }
 #endif

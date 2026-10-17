@@ -17,10 +17,11 @@ namespace {
 const std::string body = R"({"DATA":{"http://fixture/game.pkg":{"name":"A game"}}})";
 std::string scenario;
 bool initialized = false, tmpl = false, conn = false, req = false, policy = false, aborted = false;
+bool imageCallback = false;
 int initializations = 0, moduleLoads = 0, resolutions = 0;
 size_t offset = 0;
 std::atomic<bool>* cancellation = nullptr;
-void reset(const char* mode) { scenario = mode; offset = 0; policy = aborted = false; }
+void reset(const char* mode) { scenario = mode; offset = 0; policy = aborted = imageCallback = false; }
 template<class F> void rejects(F fn, const char* text) {
     bool rejected = false;
     try { fn(); } catch (const std::runtime_error& error) {
@@ -66,7 +67,16 @@ int32_t sceHttpCreateConnectionWithURL(int32_t id, const char*, bool) {
 int32_t sceHttpCreateRequestWithURL(int32_t id, int32_t, const char*, uint64_t) {
     assert(conn && id == 5); req = true; return 6;
 }
-int32_t sceHttpSendRequest(int32_t id, const void*, size_t) { assert(req && id == 6); return 0; }
+int32_t sceHttpSendRequest(int32_t id, const void*, size_t) {
+    assert(req && id == 6);
+    return scenario=="image-tls"&&!imageCallback ? int32_t(0x80431075u) : 0;
+}
+int32_t sceHttpsSetSslCallback(int32_t id, OrbisHttpsCallback callback, void* argument) {
+    assert(id==4&&tmpl&&callback&&!argument);
+    assert(callback(2,0x20,nullptr,0,nullptr)==1);
+    if(scenario=="image-policy-error")return int32_t(0x80431001u);
+    imageCallback=true;return 0;
+}
 int32_t sceHttpGetStatusCode(int32_t id, int32_t* status) { assert(id == 6); *status = scenario == "redirect" ? 302 : scenario == "partial" ? 206 : 200; return 0; }
 int32_t sceHttpReadData(int32_t id, void* data, uint32_t capacity) {
     assert(req && id == 6);
@@ -123,6 +133,7 @@ int32_t sceKernelDlsym(int32_t module, const char* name, void** address) {
     RESOLVE("sceHttpAbortRequest", sceHttpAbortRequest)
     RESOLVE("sceHttpAddRequestHeader", sceHttpAddRequestHeader)
     RESOLVE("sceHttpGetResponseContentLength", sceHttpGetResponseContentLength)
+    RESOLVE("sceHttpsSetSslCallback", sceHttpsSetSslCallback)
 #undef RESOLVE
     assert(false && "Unexpected HTTP symbol"); return -1;
 }
@@ -139,14 +150,14 @@ int main() {
     assert(moduleLoads == 2 && initializations == 0);
     reset("null-symbol"); rejects([&] { psgi::httpGet(url); }, "Missing HTTP function: sceHttpInit");
     reset("success"); assert(psgi::httpGet(url) == body);
-    assert(initializations == 1 && moduleLoads == 2 && resolutions == 21 && !tmpl && !conn && !req);
+    assert(initializations == 1 && moduleLoads == 2 && resolutions == 22 && !tmpl && !conn && !req);
     reset("redirect"); rejects([&] { psgi::httpGet(url); }, "HTTP 302");
     reset("large"); rejects([&] { psgi::httpGet(url, 4); }, "exceeds limit");
     reset("cancel"); cancelled = false;
     rejects([&] { psgi::httpGet(url, 1024, &cancelled); }, "cancelled"); assert(aborted);
     reset("policy-error"); rejects([&] { psgi::httpGet(url); }, "Disable redirects (0x80431001)");
     reset("success"); assert(psgi::httpGet(url) == body);
-    assert(initializations == 1 && moduleLoads == 2 && resolutions == 21 && !tmpl && !conn && !req);
+    assert(initializations == 1 && moduleLoads == 2 && resolutions == 22 && !tmpl && !conn && !req);
     reset("success"); std::string streamed;
     auto info = psgi::httpTransfer(url, [&](const void* data, size_t count, uint64_t total) {
         assert(total == body.size()); streamed.append(static_cast<const char*>(data), count); return true;
@@ -165,5 +176,16 @@ int main() {
     reset("cancel"); cancelled = false;
     rejects([&] { psgi::httpTransfer(url, [](const void*, size_t, uint64_t) { return true; }, false, &cancelled); }, "cancelled");
     assert(aborted);
+    const char* image="https://images.igdb.com/igdb/image/upload/t_1080p/fixture.jpg";
+    reset("image-tls");assert(psgi::httpGetArtwork(image,1024)==body&&imageCallback);
+    reset("image-tls");rejects([&]{psgi::httpGet(image);},"Send request (0x80431075)");assert(!imageCallback);
+    for(const char* strict:{"https://other.example/image.jpg","https://images.igdb.com.evil.example/igdb/image/upload/a.jpg",
+        "https://images.igdb.com/private/a.jpg"}) {
+        reset("image-tls");rejects([&]{psgi::httpGetArtwork(strict,1024);},"Send request (0x80431075)");assert(!imageCallback);
+    }
+    reset("image-tls");rejects([&]{psgi::httpGetArtwork("https://images.igdb.com@evil.example/igdb/image/upload/a.jpg",1024);},"Invalid catalog URL");assert(!imageCallback);
+    reset("image-tls");rejects([&]{psgi::httpTransfer(image,[](const void*,size_t,uint64_t){return true;},false);},"Send package request (0x80431075)");assert(!imageCallback);
+    reset("image-policy-error");rejects([&]{psgi::httpGetArtwork(image,1024);},"Image HTTPS compatibility (0x80431001)");
+    reset("redirect");rejects([&]{psgi::httpGetArtwork(image,1024);},"HTTP 302");
     std::puts("Native HTTP module binding, initialization, policies, limits, cancellation, cleanup and retry passed");
 }

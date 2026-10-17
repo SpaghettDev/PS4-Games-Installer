@@ -234,3 +234,25 @@ Actual PS4 startup/refresh acceptance still requires installing the new package.
 Host model/UI objects are cached under `build/host/common/` and reused by ordinary
 tests and the preview. Sanitizer builds and native adapters keep separate compile
 recipes, so their instrumentation/SDK flags are preserved.
+
+## Screenshot transport and diagnostics (r38)
+
+Artwork downloads use `httpGetArtwork`; catalog/package requests use their original
+clients. Only PS4 artwork URLs starting with the exact public IGDB image origin
+and upload path use a certificate-acceptance callback. This follows the ABI and
+success convention in the pinned SDK's
+[net_http sample](https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/blob/v0.5.4/samples/net_http/net_http/main.c).
+It relaxes certificate validation for those public images. Prefix tests exclude
+lookalike hosts, credentials and unrelated paths; catalogs/packages never activate
+the exception, including when pointed at that same host. Redirects remain disabled.
+
+The artwork worker keeps bounded failure text per key and at most 32 diagnostic
+messages for the main thread to write to app.log. Screenshot successes include
+decoded dimensions. Triangle refresh clears the image's failure and disk entry;
+generation checks discard stale in-flight results. Host regressions cover the
+native callback ABI/isolation, progressive JPEG decoding and error/retry recovery.
+Capture 96 exercises a real refused local connection rather than a hardcoded error.
+
+Read-only r37 console evidence showed no screenshot cache entries, but no native
+image error had been logged. HTTPS compatibility addresses a likely cause; actual
+PS4 acceptance is required to establish that it resolves this console's failure.

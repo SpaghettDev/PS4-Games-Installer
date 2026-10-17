@@ -123,7 +123,7 @@ build/host/thread-native-test: tests/thread_native_test.cpp $(HEADERS)
 	g++ $(HOSTFLAGS) -UPSGI_HOST -idirafter $(SDK)/include $(filter %.cpp,$^) -o $@
 build/host/ui-test: tests/ui_test.cpp $(HOST_COMMON) build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) $(filter %.cpp %.o,$^) -o $@
-build/host/artwork-test: tests/artwork_test.cpp tests/sfo_fixture.hpp src/artwork.cpp src/canvas.cpp src/catalog.cpp src/metadata.cpp src/http.cpp src/settings.cpp src/installed.cpp src/sfo.cpp build/host/cJSON.o $(HEADERS)
+build/host/artwork-test: tests/artwork_test.cpp tests/sfo_fixture.hpp tests/fixtures/screenshot.jpg src/artwork.cpp src/canvas.cpp src/catalog.cpp src/metadata.cpp src/http.cpp src/settings.cpp src/installed.cpp src/sfo.cpp build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) -Wno-unused-function -fsanitize=address,undefined -fno-omit-frame-pointer $$(pkg-config --cflags freetype2) $(filter %.cpp %.o,$^) -lcurl $$(pkg-config --libs freetype2) -o $@
 build/host/render-animation-test: tests/render_animation_test.cpp $(HOST_COMMON) $(addprefix src/,$(addsuffix .cpp,canvas artwork render http)) build/host/cJSON.o build/generated/revision.hpp $(HEADERS)
 	g++ $(HOSTFLAGS) -Wno-unused-function $$(pkg-config --cflags freetype2) $(filter %.cpp %.o,$^) -lcurl $$(pkg-config --libs freetype2) -o $@

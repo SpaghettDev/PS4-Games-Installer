@@ -184,12 +184,25 @@ ignored. Gallery images retain up to 1920 pixels; decoded cover/gallery images
 share a 64 MiB memory limit and a 48-image LRU cache. Refresh the remote library
 after upgrading to populate the new cache.
 
+The screenshot viewer shows the underlying download/decode error if an image
+fails. **Triangle** clears that image's cached failure and retries it immediately;
+**L1/R1** changes images and **O** returns to Details. `app.log` records screenshot
+successes and artwork failures using cache filenames, without source image URLs.
+
+![Screenshot viewer with sample artwork (desktop preview)](docs/images/screenshot-gallery.png)
+
+![A failed screenshot with retry controls (desktop preview)](docs/images/screenshot-error.png)
+
 Serve catalogs as direct HTTP 200, uncompressed JSON responses. Redirects and
 interactive authentication are not supported. Package hosting must support direct
 URLs and correct content lengths. HTTP Range support enables background downloads
 without an extra staging copy. Servers that ignore ranges use the direct-download
-fallback described below. TLS verification remains
-enabled; firmware TLS/certificate support can limit which HTTPS hosts work.
+fallback described below. Catalog/package TLS verification remains enabled;
+firmware TLS/certificate support can limit which HTTPS hosts work. On PS4, public
+artwork under `https://images.igdb.com/igdb/image/upload/` uses the OpenOrbis HTTP
+sample's certificate compatibility callback so firmware certificate errors do not
+block these images. This exception applies only to that image origin/path;
+redirects stay disabled and other artwork origins keep normal verification.
 
 ### Connection setup helper
 

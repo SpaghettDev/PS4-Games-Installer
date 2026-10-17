@@ -166,6 +166,12 @@ void capture(App& app, Renderer& renderer, Canvas& canvas) {
     for(size_t i=0;i<ui.visible.size();++i)if(ui.available[ui.visible[i].index].titleId=="CUSA10002")ui.selected[1]=i;
     shot("93-category-full-width");shot("94-category-scrolling");
     ui.pending=*ui.current();ui.openDetails(Screen::Dashboard);shot("95-modes-players-details");
+    ui.pending.igdb.screenshots={{"Unavailable screenshot","http://127.0.0.1:1/screenshot.jpg"}};
+    ui.mediaIndex=0;ui.screen=Screen::Screenshots;
+    for(int i=0;i<200&&app.artwork.error(ui.screenshot(),true).empty();++i){
+        app.artwork.request(ui.screenshot(),true,true);std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    shot("96-screenshot-unavailable");
     ui.screen = Screen::About; shot("09-about");
     ui.screen = Screen::ConfirmExit; shot("10-exit");
     ui.screen = Screen::Dashboard; ui.available.clear(); ui.updatesOnly = true; ui.rebuild(); shot("61-updates-empty");

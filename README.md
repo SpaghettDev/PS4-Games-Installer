@@ -84,6 +84,7 @@ Genres and assigned Tags are separate, followed by game modes, player counts
 and split-screen support. IGDB ratings fill in missing personal ratings. Use **X**
 to expand Details or Tech. details, **Triangle** for screenshots and **Square**
 for videos (opened in the PS4 browser), when the catalog provides them.
+In the screenshot viewer, use **L1/R1** to browse and **Triangle** to retry a failed image.
 
 Open **Options > Downloads** to check progress. X opens an entry's diagnostics;
 X there retries a failed/cancelled item. Triangle offers **Cancel task** for an

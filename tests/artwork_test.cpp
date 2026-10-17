@@ -22,6 +22,8 @@ int main() {
     rejects([] { decodeImage("bad",2048); });
     rejects([] { decodeImage("not a PNG"); });
     rejects([] { decodeImage(std::string(MaxCatalogBytes + 1, 'x')); });
+    const auto jpeg=loadImage("tests/fixtures/screenshot.jpg",1920);
+    assert(jpeg->width==96&&jpeg->height==54);
     const std::string text = "URL / Žaidimai / 日本語 / \xf0\x9f\x8e\xae";
     auto utf16 = toUtf16(text);
     assert(fromUtf16(utf16.data(), utf16.size()) == text);
@@ -85,6 +87,18 @@ int main() {
         cache.clear();
         entry.localIcon = "/missing/icon.png";
         assert(!cache.request(entry));
+    }
+    {
+        ArtworkCache cache(root);Entry screenshot;screenshot.localIcon=std::string(root)+"/later.jpg";
+        for(int i=0;i<200&&cache.error(screenshot,true).empty();++i){cache.request(screenshot,true,true);std::this_thread::sleep_for(std::chrono::milliseconds(5));}
+        assert(!cache.error(screenshot,true).empty()&&cache.error(screenshot).empty());
+        const auto messages=cache.takeMessages();assert(!messages.empty()&&messages.back().find("Screenshot art-")==0&&messages.back().find("failed:")!=std::string::npos);
+        cache.refresh(screenshot,true);assert(cache.error(screenshot,true).empty());
+        atomicWrite(screenshot.localIcon,readFile("tests/fixtures/screenshot.jpg"));
+        std::shared_ptr<Image> recovered;
+        for(int i=0;i<200&&!recovered;++i){recovered=cache.request(screenshot,true,true);if(!recovered)std::this_thread::sleep_for(std::chrono::milliseconds(5));}
+        assert(recovered&&recovered->width==96&&cache.error(screenshot,true).empty());
+        const auto ready=cache.takeMessages();assert(ready.size()==1&&ready[0].find("ready (96x54)")!=std::string::npos);
     }
     // Match the console's separate metadata/icon trees, including Extended Storage.
     {

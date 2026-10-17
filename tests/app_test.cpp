@@ -93,6 +93,7 @@ std::string httpGet(const std::string& url, size_t, const std::atomic<bool>* can
     if (!sourceResponse.empty()) return sourceResponse;
     return R"({"DATA":{"http://fixture/game.pkg":{"name":"Saved source game","title_id":"CUSA00001"}}})";
 }
+std::string httpGetArtwork(const std::string& url, size_t limit, const std::atomic<bool>* cancelled) { return httpGet(url,limit,cancelled); }
 }
 
 using namespace psgi;

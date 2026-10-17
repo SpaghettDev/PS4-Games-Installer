@@ -65,14 +65,24 @@ std::shared_ptr<Image> ArtworkCache::request(const Entry& e, bool priority, bool
     auto hit = images.find(key);
     if (hit != images.end()) { hit->second.age = ++age; return hit->second.image; }
     auto failure = failed.find(key);
-    if (failure != failed.end() && failure->second > now()) return {};
+    if (failure != failed.end() && failure->second.retryAt > now()) return {};
     if (!queued.count(key)) {
+        failed.erase(key);
         if (jobs.size() >= 32) { queued.erase(artworkKey(jobs.back().entry,jobs.back().fullSize)); jobs.pop_back(); }
         queued.insert(key);
         if (priority) jobs.push_front({e, generation, fullSize}); else jobs.push_back({e, generation, fullSize});
         wake.notify_one();
     }
     return {};
+}
+std::string ArtworkCache::error(const Entry& e, bool fullSize) {
+    std::lock_guard<std::mutex> lock(mutex);
+    const auto failure=failed.find(artworkKey(e,fullSize));
+    return failure==failed.end() ? "" : failure->second.message;
+}
+std::vector<std::string> ArtworkCache::takeMessages() {
+    std::lock_guard<std::mutex> lock(mutex);
+    std::vector<std::string> result;result.swap(messages);return result;
 }
 void ArtworkCache::refresh(const Entry& e, bool fullSize) {
     std::lock_guard<std::mutex> lock(mutex);
@@ -132,12 +142,17 @@ void ArtworkCache::run() {
             }
             if (!image) {
                 try { image = loadImage(path,job.fullSize ? 1920 : 384); } catch (const std::exception&) { unlink(path.c_str()); }
-                if (!image) { downloaded = httpGet(job.entry.coverUrl, MaxCatalogBytes, &stopped); image = decodeImage(downloaded,job.fullSize ? 1920 : 384); }
+                if (!image) { downloaded = httpGetArtwork(job.entry.coverUrl, MaxCatalogBytes, &stopped); image = decodeImage(downloaded,job.fullSize ? 1920 : 384); }
             }
             std::lock_guard<std::mutex> lock(mutex);
             if (job.generation == generation) {
                 images[key] = {std::move(image), ++age};
                 queued.erase(key);
+                failed.erase(key);
+                if(job.fullSize) {
+                    if(messages.size()>=32)messages.erase(messages.begin());
+                    messages.push_back("Screenshot "+artworkCacheName(key)+" ready ("+std::to_string(images[key].image->width)+"x"+std::to_string(images[key].image->height)+")");
+                }
                 if (!downloaded.empty()) {
                     try { atomicWrite(path, downloaded); pruneDisk(); } catch (const std::exception&) { /* Disk cache is optional. */ }
                 }
@@ -149,9 +164,14 @@ void ArtworkCache::run() {
                     images.erase(oldest);
                 }
             }
-        } catch (const std::exception&) {
+        } catch (const std::exception& error) {
             std::lock_guard<std::mutex> lock(mutex);
-            if (job.generation == generation) { failed[key] = now() + 30; queued.erase(key); }
+            if (job.generation == generation) {
+                const std::string message=std::string(error.what()).substr(0,256);
+                failed[key] = {now() + 30,message}; queued.erase(key);
+                if(messages.size()>=32)messages.erase(messages.begin());
+                messages.push_back(std::string(job.fullSize ? "Screenshot " : "Artwork ")+artworkCacheName(key)+" failed: "+message);
+            }
             while (failed.size() > 512) failed.erase(failed.begin());
         }
     }

@@ -1,5 +1,15 @@
 # Work tracker
 
+## Current implementation: screenshot download recovery
+
+- [x] Inspect PS4 r37 logs, catalog URLs and screenshot disk-cache evidence.
+- [x] Add visible failures/retry and bounded artwork diagnostics.
+- [x] Separate the IGDB artwork HTTPS compatibility path from catalogs/packages.
+- [x] Run relevant regressions, native build/validation and visual review.
+- [x] Commit the successful revision and updated manuals locally.
+- [ ] Retest IGDB screenshot display/reload/navigation on PS4 11.00 + GoldHEN.
+
+
 ## Current implementation: label removal and refresh/startup recovery
 
 - [x] Pull the PS4 app/system logs and cached state without modifying console data.

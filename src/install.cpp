@@ -1,4 +1,5 @@
 #include "platform.hpp"
+#include "library.hpp"
 #include "storage.hpp"
 #include "package.hpp"
 #include "sfo.hpp"
@@ -101,7 +102,7 @@ int submit(const Entry& entry, int userId, const std::string& localPath, const P
     // size estimates as authoritative package headers.
     params.packageSize = package ? package->size : 0;
     StorageDownloadParams local{}; local.params = params;
-    if (!localPath.empty() && entry.category == "updates") {
+    if (!localPath.empty() && packageKind(entry) == 1) {
         int module = sceKernelLoadStartModule("/system/common/lib/libSceAppInstUtil.sprx", 0, nullptr, 0, nullptr, nullptr);
         if (module < 0) check(module, "Load update slot service");
         auto initialize = symbol<int (*)()>(module, "sceAppInstUtilInitialize");

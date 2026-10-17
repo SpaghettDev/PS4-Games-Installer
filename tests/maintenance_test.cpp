@@ -13,8 +13,8 @@ int main() {
     matchInstalled(games,{local},{});
     Settings settings;
     auto updates = makeView(games,settings,Library::Available,"",{},true);
-    assert(updates.size()==1 && updates[0].index==1);
-    local.version="1.20"; matchInstalled(games,{local},{}); assert(makeView(games,settings,Library::Available,"",{},true).empty());
+    assert(updates.size()==2 && updates[0].index==2 && updates[1].index==1);
+    local.version="1.20"; matchInstalled(games,{local},{}); assert(makeView(games,settings,Library::Available,"",{},true).size()==2);
     local.version="unknown"; matchInstalled(games,{local},{}); assert(!newerUpdate(games[1]));
     local.version="1.10";
     assert(!installationRequirements(games[1],{}).blockers.empty());
@@ -44,9 +44,9 @@ int main() {
     rejects([]{parseSettings(R"({"schema":1,"content_urls":{"games":""},"sort_field":"invalid"})");});
 
     Ui ui; ui.screen=Screen::Dashboard;local.version="1.10";ui.setLibraries(std::vector<Entry>{local},games);
-    ui.handle(Button::Left);ui.handle(Button::Down);ui.handle(Button::Down); assert(ui.updatesOnly && ui.sidebarIndex==2 && ui.visible.size()==1);
+    ui.handle(Button::Left);ui.handle(Button::Down);ui.handle(Button::Down); assert(ui.updatesOnly && ui.sidebarIndex==2 && ui.visible.size()==2);
     auto state=parseViewState(serializeViewState(ui.captureView())); Ui reopened;reopened.setLibraries(std::vector<Entry>{local},games);reopened.restoreView(state);
-    assert(reopened.updatesOnly && reopened.sidebar && reopened.sidebarIndex==2 && reopened.current()->url==games[1].url);
+    assert(reopened.updatesOnly && reopened.sidebar && reopened.sidebarIndex==2 && reopened.current()->url==games[2].url);
     ui.handle(Button::Down); assert(ui.sidebarIndex==0 && !ui.updatesOnly && ui.library==Library::Installed);
     ui.handle(Button::Options);ui.menuIndex=12;ui.handle(Button::Cross);assert(ui.screen==Screen::Queue);ui.handle(Button::Circle);assert(ui.screen==Screen::Options);
     ui.menuIndex=13;ui.handle(Button::Cross);assert(ui.screen==Screen::SavedCollections);ui.handle(Button::Circle);assert(ui.screen==Screen::Options);

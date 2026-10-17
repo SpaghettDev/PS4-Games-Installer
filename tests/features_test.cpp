@@ -60,7 +60,9 @@ int main() {
     assert(packageStatus(entries[1]) == "Newer update available");
     const auto related = relatedPackages(entries, "CUSA00001"); assert(related == std::vector<size_t>({0, 1, 2}));
     Settings settings; settings.grouping = Grouping::Title;
-    auto grouped = makeView(entries, settings, Library::Available); assert(grouped.size() == 4 && grouped[0].group == grouped[2].group && grouped[0].index == 0 && grouped[1].index == 1);
+    auto grouped = makeView(entries, settings, Library::Available); assert(grouped.size() == 2 && grouped[0].index == 0 && grouped[1].index == 3);
+    grouped = makeView(entries,settings,Library::Available,"",{},true);
+    assert(grouped.size() == 2 && grouped[0].group == grouped[1].group && grouped[0].index == 1 && grouped[1].index == 2);
     assert(parseSettings(serializeSettings(settings)).grouping == Grouping::Title);
 
     std::vector<QueueItem> queue; enqueueJob(queue, entries[0], 100); rejects([&] { enqueueJob(queue, entries[0], 101); });

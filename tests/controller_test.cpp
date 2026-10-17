@@ -100,8 +100,11 @@ void nativeSamplesAndUi() {
     ui.menuIndex = 6; ui.handle(Button::Cross); move(128, 255); assert(ui.settingsIndex == 1);
     ui.handle(Button::Circle); ui.handle(Button::Circle); // Settings -> Options -> Dashboard.
     ui.handle(Button::Square); assert(ui.screen == Screen::Details);
-    move(128, 255); assert(ui.detailScroll == 1);
-    move(128, 0); assert(ui.detailScroll == 0);
+    ui.pending.info.description.clear(); ui.pending.description=std::string(1000,'x');
+    move(128, 255); assert(ui.detailIndex == 1 && ui.detailScroll == 0);
+    move(128, 0); assert(ui.detailIndex == 0 && ui.detailScroll == 0);
+    move(128, 0); assert(ui.detailIndex == ui.detailRows().size()-1 && ui.detailScroll > 0);
+    move(128, 255); assert(ui.detailIndex == 0 && ui.detailScroll == 0);
 }
 
 void sdlController() {

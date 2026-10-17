@@ -131,7 +131,7 @@ bool Ui::handleFeatures(Button b) {
                 if (savedIndex == 2) filter.minRating = 4;
                 if (savedIndex == 3) { filter.installState = 3; library = Library::Available; }
             }
-            updatesOnly = false; sidebarIndex = size_t(library); selected[static_cast<int>(library)] = 0; sidebar = false; screen = Screen::Dashboard; quickSave();
+            updatesOnly = false; remoteGenre.clear(); sidebarIndex = size_t(library); selected[static_cast<int>(library)] = 0; sidebar = false; screen = Screen::Dashboard; quickSave();
         }
         return true;
     }
@@ -247,7 +247,7 @@ bool Ui::handleFeatures(Button b) {
             if (b == Button::Cross) {
                 if (pending.queued) { for (size_t i = 0; i < downloads.size(); ++i) if (downloads[i].entry.url == pending.url) queueIndex = i; featureReturn = Screen::Packages; screen = Screen::Queue; }
                 else { installReturn = Screen::Packages; screen = Screen::ConfirmInstall; }
-            } else if (b == Button::Square) { detailReturn = Screen::Packages; detailScroll = 0; screen = Screen::Details; }
+            } else if (b == Button::Square) { openDetails(Screen::Packages); }
             else { actionReturn = Screen::Packages; menuIndex = 0; screen = Screen::Actions; }
         }
         return true;

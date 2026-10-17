@@ -44,7 +44,24 @@ void capture(App& app, Renderer& renderer, Canvas& canvas) {
     ui.screen = Screen::Storage; shot("13-storage-available");
     ui.storage.external = {}; shot("14-storage-unavailable");
     ui.screen = Screen::Keyboard; ui.keyboardText = ui.draft.sources[0].url; shot("07-url-editor");
-    ui.screen = Screen::Details; ui.pending = ui.available[0]; shot("08-details");
+    ui.pending = ui.available[0]; ui.openDetails(Screen::Dashboard); shot("08-details");
+    ui.pending = ui.available[1]; ui.openDetails(Screen::Dashboard); shot("85-details-igdb");
+    ui.detailIndex=ui.detailRows().size()-2; ui.detailScroll=ui.detailIndex>10 ? ui.detailIndex-10 : 0; shot("86-details-collapsed");
+    ui.detailsExpanded=true; shot("87-details-expanded");
+    ui.technicalExpanded=true; ui.detailIndex=ui.detailRows().size()-1; ui.detailScroll=ui.detailIndex>10 ? ui.detailIndex-10 : 0; shot("88-details-technical");
+    ui.screen=Screen::Videos;ui.mediaIndex=0;shot("89-videos");
+    // Seed the normal disk cache with local preview art; the gallery follows
+    // the same request/decode path as a previously cached remote screenshot.
+    const auto media=ui.screenshot();
+    app.artwork.refresh(media,true);
+    // Refresh removes disk entries, so install the fixture after invalidation.
+    atomicWrite("build/preview-data/artwork/"+artworkCacheName(artworkKey(media,true)),readFile("build/demo/1.png"));
+    for(int i=0;i<100&&!app.artwork.request(media,true,true);++i)std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    ui.screen=Screen::Screenshots;shot("90-screenshots-gallery");
+    ui.screen=Screen::Dashboard;ui.library=Library::Available;ui.settings.layout=Layout::Tiles;
+    ui.genresExpanded=true;ui.remoteGenre="Adventure";ui.rebuild();ui.sidebar=true;ui.sidebarIndex=ui.activeSidebarIndex();shot("91-genre-sidebar");
+    ui.sidebarIndex=0;ui.handle(Button::Up);shot("92-genre-sidebar-bottom");
+    ui.genresExpanded=false;ui.remoteGenre.clear();ui.sidebar=false;ui.updatesOnly=false;ui.rebuild();
     ui.library = Library::Installed; ui.rebuild();
     for (size_t i = 0; i < ui.visible.size(); ++i) if (ui.installed[ui.visible[i].index].titleId == ui.installed[0].titleId) ui.selected[0] = i;
     ui.pending = *ui.current(); ui.screen = Screen::Actions; ui.menuIndex = 0; shot("20-installed-actions");

@@ -1,5 +1,39 @@
 # Implementation progress
 
+## r36 rich game details and genre browsing — 2026-10-18
+
+- Inspected the configured live catalog through read-only FTP/HTTP. Confirmed
+  embedded `igdb` metadata and explicit game/update/dlc package types. Private
+  review files remain under ignored build/, with no console writes.
+- Implemented structured details, personal overrides, collapsed extra/technical
+  sections, screenshot gallery/video links, package routing and remembered genres.
+- Added cache, malformed-input, controller/session and native browser regressions.
+  The saved live catalog round-trips 101 packages (96 games, 4 updates, 1 DLC),
+  including 80 IGDB trees, 20 genres, 648 screenshots and 325 video links.
+- Found and corrected the local installer's source-category-only update-slot check;
+  it now shares package classification with the UI and saved queue. Native game
+  launch flags remain unchanged. Added separate 1920-pixel gallery decoding with
+  a shared 64 MiB / 48-image decoded-cache bound.
+- Native OpenOrbis compilation/linking passed. `make all` built
+  `dist/PS4Game_installer-r36.pkg` (6,619,136 bytes); `make validate` passed package
+  hashes/signatures and packed launcher imports. Successful revision, current input
+  fingerprint, artifact manifest and SHA-256 match; hardware_tested remains false.
+- Complete Docker `make -j4 test` passed: metadata/cache/override/media/genre
+  regressions, legacy models/sessions, native browser/installer/launcher/controller
+  adapters, ASan/UBSan artwork bounds, App workflows, HTTP integrations and all
+  15 Python tests. Controller expectations now cover row focus, wrapped selection
+  and viewport following instead of the former text-only scroll behavior.
+- Generated 92 desktop captures and reviewed ordered fields, personal/remote
+  descriptions, collapsed/expanded technical sections, media screens, genre
+  overflow and Updates/DLC badges. Regenerated the captures with the successful
+  r36 label and re-inspected the details, genre sidebar and screenshot gallery.
+- Updated consumer/expert/development guidance and preview illustrations. Readme
+  console captures remain intact; temporary release_notes.md remains absent.
+- PS4 11.00 + GoldHEN acceptance is pending for new details, full-size media,
+  browser/provider playback, genre persistence and mixed-source add-on installs.
+  Committed the completed implementation, documentation and successful revision
+  locally. No deployment, console write, push or change to native game-launch flags.
+
 ## r35 catalog description immediately after Version — 2026-10-17
 
 - User states the configured remote JSON now provides description and requests it

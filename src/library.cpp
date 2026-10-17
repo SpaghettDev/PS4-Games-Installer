@@ -1,4 +1,5 @@
 #include "library.hpp"
+#include "metadata.hpp"
 #include <algorithm>
 #include <map>
 #include <ctime>
@@ -56,6 +57,10 @@ std::optional<int> compareVersions(const std::string& a, const std::string& b) {
     return x == y ? 0 : x < y ? -1 : 1;
 }
 unsigned packageKind(const Entry& e) {
+    const auto type = lower(e.packageType);
+    if (type == "game") return 0;
+    if (type == "update" || type == "patch") return 1;
+    if (type == "dlc") return 2;
     const auto category = lower(e.category);
     return category == "updates" || category == "update" || category == "patch" ? 1 :
         category == "dlc" || category == "addons" ? 2 : category == "games" || category == "homebrew" || category.empty() ? 0 : 3;
@@ -120,18 +125,23 @@ bool matchesLocal(const Entry& entry, const LocalFilter& filter) {
     return true;
 }
 std::vector<VisibleEntry> makeView(const std::vector<Entry>& entries, const Settings& s,
-                                 Library library, const std::string& query, const LocalFilter& filter, bool updatesOnly) {
+                                 Library library, const std::string& query, const LocalFilter& filter, bool updatesOnly, const std::string& genre) {
     std::vector<VisibleEntry> out;
     auto q = lower(query);
     std::map<std::string, std::string> titleNames;
     if (s.grouping == Grouping::Title) for (const auto& e : entries) if (!e.titleId.empty() && packageKind(e) == 0) titleNames[e.titleId] = e.name;
     for (size_t i = 0; i < entries.size(); ++i) {
         const auto& e = entries[i];
-        if (updatesOnly && !newerUpdate(e)) continue;
+        if (library == Library::Available) {
+            const bool addon = packageKind(e) == 1 || packageKind(e) == 2;
+            if (addon != updatesOnly) continue;
+            if (!updatesOnly && !genre.empty() && std::none_of(e.igdb.genres.begin(),e.igdb.genres.end(),[&](const std::string& name){ return lower(name)==lower(genre); })) continue;
+        }
         if (!matchesLocal(e, filter)) continue;
         if (library == Library::Available && s.notInstalledOnly && e.installed) continue;
         std::string searchable = e.name + " " + e.titleId + " " + e.info.category + " " + e.info.label + " " + e.info.description;
-        for (const auto& tag : e.info.tags) searchable += " " + tag;
+        for (const auto& tag : displayTags(e)) searchable += " " + tag;
+        searchable += " " + joinedNames(displayCategories(e)) + " " + joinedNames(e.igdb.publishers);
         if (!q.empty() && lower(searchable).find(q) == std::string::npos) continue;
         std::string group;
         if (s.grouping == Grouping::Category) group = e.category.empty() ? "Unknown" : e.category;
@@ -140,11 +150,11 @@ std::vector<VisibleEntry> makeView(const std::vector<Entry>& entries, const Sett
             char c = lower(e.name).empty() ? '#' : lower(e.name)[0];
             group = c >= 'a' && c <= 'z' ? std::string(1, c - 'a' + 'A') : "#";
         }
-        else if (s.grouping == Grouping::LocalCategory) group = e.info.category.empty() ? "Uncategorized" : e.info.category;
+        else if (s.grouping == Grouping::LocalCategory) group = displayCategories(e).empty() ? "Uncategorized" : joinedNames(displayCategories(e));
         else if (s.grouping == Grouping::Title) group = e.titleId.empty() ? "No Title ID: " + e.name : e.titleId + (titleNames.count(e.titleId) ? " / " + titleNames.at(e.titleId) : "");
         else if (s.grouping == Grouping::Tag) {
-            if (e.info.tags.empty()) group = "Untagged";
-            else { for (const auto& tag : e.info.tags) if (filter.tag.empty() || lower(tag) == lower(filter.tag)) out.push_back({i, tag}); continue; }
+            if (displayTags(e).empty()) group = "Untagged";
+            else { for (const auto& tag : displayTags(e)) if (filter.tag.empty() || lower(tag) == lower(filter.tag)) out.push_back({i, tag}); continue; }
         }
         out.push_back({i, group});
     }
@@ -161,7 +171,7 @@ std::vector<VisibleEntry> makeView(const std::vector<Entry>& entries, const Sett
         auto key = [&](const Entry& e) -> uint64_t {
             switch (s.sort) {
                 case SortField::Size: return library == Library::Installed ? e.installedSize : e.size;
-                case SortField::Rating: return e.rating;
+                case SortField::Rating: return uint64_t(displayRating(e) * 1000);
                 case SortField::LastLaunch: return e.lastLaunch;
                 case SortField::FirstInstalled: return e.firstSeenInstalled;
                 default: return 0;
@@ -179,35 +189,42 @@ std::vector<VisibleEntry> makeView(const std::vector<Entry>& entries, const Sett
     return out;
 }
 std::vector<std::pair<std::string, std::string>> entryDetails(const Entry& e) {
-    auto unknown = [](const std::string& s) { return s.empty() ? "Unknown" : s; };
-    std::vector<std::pair<std::string, std::string>> out{
-        {"Name", e.name},
-        {"Local category", e.info.category.empty() ? "Uncategorized" : e.info.category},
-        {"Local label", e.info.label.empty() ? "Unlabeled" : e.info.label},
-        {"Local tags", e.info.tags.empty() ? "Untagged" : [&] { std::string value; for (const auto& tag : e.info.tags) { if (!value.empty()) value += ", "; value += tag; } return value; }()},
-        {"Local description", e.info.description.empty() ? "Not set" : e.info.description},
-        {"Title ID", unknown(e.titleId)}, {"Version", unknown(e.version)}
-    };
-    if (!e.description.empty()) out.emplace_back("Description", e.description);
-    out.insert(out.end(), {
-        {"Package type", packageKindName(e)}, {"Installed version", unknown(e.installedVersion.empty() && e.installed ? e.version : e.installedVersion)},
-        {"Latest catalog update", unknown(e.latestVersion)},
-        {"Region", unknown(e.region)}, {"Category", unknown(e.category)},
-        {"Package size", formatSize(e.size)}, {"Installed size", formatSize(e.installedSize)},
-        {"State", packageStatus(e)},
-        {"Your local rating", e.rating ? std::to_string(e.rating) + "/5 stars" : "Not rated"},
-        {"Installation history", e.wasInstalled ? "Previously observed installed" : "Not recorded"},
-        {"Launch requests", std::to_string(e.launches)},
-        {"Minimum firmware", unknown(e.minFirmware)}, {"Release", unknown(e.release)},
-        {"Content ID", unknown(e.contentId)}, {"Package URL", unknown(e.url)}
-    });
+    auto unknown = [](const std::string& value) { return value.empty() ? "Unknown" : value; };
+    std::vector<std::pair<std::string,std::string>> out{{"Name",e.name}};
+    if (!e.info.label.empty()) out.emplace_back("Label",e.info.label);
+    const auto categories=joinedNames(displayCategories(e)), tags=joinedNames(displayTags(e));
+    if (!categories.empty()) out.emplace_back("Category",categories);
+    if (!tags.empty()) out.emplace_back("Tags",tags);
+    out.insert(out.end(), {{"Rating",ratingText(e)}, {"Size",formatSize(e.size)}, {"Version",unknown(e.version)},
+        {"Publisher",unknown(joinedNames(e.igdb.publishers))},
+        {"Release date",unknown(e.igdb.releaseDate.empty() ? e.release : e.igdb.releaseDate)},
+        {"Region",unknown(e.region)}, {"Description",displayDescription(e).empty() ? "Not provided" : displayDescription(e)}});
+    return out;
+}
+std::vector<std::pair<std::string, std::string>> entryAdditionalDetails(const Entry& e) {
+    std::vector<std::pair<std::string,std::string>> out{
+        {"Title ID",e.titleId.empty() ? "Unknown" : e.titleId}, {"Package type",packageKindName(e)},
+        {"State",packageStatus(e)}, {"Installed version",e.installedVersion.empty() ? (e.installed ? e.version : "Unknown") : e.installedVersion},
+        {"Installed size",formatSize(e.installedSize)}, {"Installation history",e.wasInstalled ? "Previously observed installed" : "Not recorded"},
+        {"Launch requests",std::to_string(e.launches)}};
+    if (!e.latestVersion.empty()) out.emplace_back("Latest catalog update",e.latestVersion);
+    out.insert(out.end(),e.igdb.additional.begin(),e.igdb.additional.end());
     for (const auto& date : std::vector<std::pair<std::string, uint64_t>>{{"First recorded installed", e.firstSeenInstalled}, {"Last launch request", e.lastLaunch}}) {
         if (!date.second) continue;
         const std::time_t timestamp = date.second; const auto* utc = std::gmtime(&timestamp); char text[40];
         if (utc && std::strftime(text, sizeof(text), "%Y-%m-%d %H:%M UTC", utc)) out.emplace_back(date.first, text);
     }
-    const std::set<std::string> known{"title_id","name","version","region","category","size","min_fw","release","cover_url","content_id","description","rating","was_installed","launches","first_seen_installed","last_launch"};
-    for (const auto& m : e.metadata) if (!known.count(lower(m.first))) out.push_back(m);
+    return out;
+}
+std::vector<std::pair<std::string, std::string>> entryTechnicalDetails(const Entry& e) {
+    std::vector<std::pair<std::string,std::string>> out;
+    if (!e.url.empty()) out.emplace_back("Package URL",readableUrl(e.url));
+    if (!e.contentId.empty()) out.emplace_back("Content ID",e.contentId);
+    if (!e.minFirmware.empty()) out.emplace_back("Minimum firmware",e.minFirmware);
+    if (!e.category.empty()) out.emplace_back("Catalog source",e.category);
+    const std::set<std::string> known{"title_id","name","version","region","category","size","min_fw","release","cover_url","content_id","description","rating","was_installed","launches","first_seen_installed","last_launch","package_type","igdb","url"};
+    for (const auto& field:e.metadata) if (!known.count(lower(field.first))) out.push_back(field);
+    if (out.empty()) out.emplace_back("Technical metadata","Not provided");
     return out;
 }
 }

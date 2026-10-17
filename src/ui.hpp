@@ -14,9 +14,9 @@ enum class Button { Up, Down, Left, Right, Cross, Circle, Square, Triangle, Opti
 // Selectable lists wrap at both ends; first supports lists with reserved rows.
 void moveMenuSelection(Button button, size_t& selection, size_t count, size_t first = 0);
 enum class Screen { Splash, Dashboard, Options, Settings, Sources, Storage, Details, Actions, Rating, LocalInfo, PickCategory, PickTags, DiscardLocal, Collections, ConfirmDeleteCollection, About, ConfirmExit, ConfirmInstall, InstallError, ConfirmUninstall, Discard, Keyboard,
-    BulkMenu, ConfirmBulkClear, SavedCollections, EditSaved, ConfirmDeleteSaved, Queue, QueueDetails, ConfirmCancelQueue, Backups, BackupFiles, ConfirmRestore, SourceSetup, Packages, Cleanup, ConfirmCleanup, Diagnostics, Search, ConfirmClearSearches, JumpLetter, ServerProfiles, ConfirmDeleteProfile };
+    BulkMenu, ConfirmBulkClear, SavedCollections, EditSaved, ConfirmDeleteSaved, Queue, QueueDetails, ConfirmCancelQueue, Backups, BackupFiles, ConfirmRestore, SourceSetup, Packages, Cleanup, ConfirmCleanup, Diagnostics, Search, ConfirmClearSearches, JumpLetter, ServerProfiles, ConfirmDeleteProfile, Screenshots, Videos };
 enum class CommandType { Refresh, Save, Test, Storage, SetStorage, ClearArtwork, RefreshArtwork, Install, Uninstall, Rate, SaveLocalInfo, CreateCollection, RenameCollection, DeleteCollection, Launch, Keyboard, Quit,
-    BulkAssign, SaveSavedCollection, DeleteSavedCollection, ScanBackups, ExportBackup, RestoreBackup, TestSource, RetryQueue, CancelQueue, ClearQueue, RefreshQueue, ScanUsage, CleanStaging, ExportDiagnostics, SaveSession, RemoveQueue };
+    BulkAssign, SaveSavedCollection, DeleteSavedCollection, ScanBackups, ExportBackup, RestoreBackup, TestSource, RetryQueue, CancelQueue, ClearQueue, RefreshQueue, ScanUsage, CleanStaging, ExportDiagnostics, SaveSession, RemoveQueue, OpenMedia };
 struct Command {
     CommandType type; Entry entry; size_t source = 0; std::string text;
     std::optional<Settings> configuration = {}; std::optional<LocalInfo> personal = {}; std::string previous = {};
@@ -25,6 +25,8 @@ struct Command {
     std::optional<SavedCollection> collection = {};
     std::optional<Source> candidate = {};
 };
+struct DetailRow { std::string key, value; unsigned action = 0; };
+struct SidebarRow { std::string name, genre; unsigned kind = 0; };
 struct TileRow { std::string group; std::vector<size_t> items; };
 enum class EditKind { SourceUrl, SourceCategory, Search, GameCategory, GameLabel, GameTag, GameDescription, CreateCategory, CreateTag, RenameCategory, RenameTag, SavedName, SavedQuery, SetupUrl, ProfileName, RenameProfile };
 size_t keyboardMaximum(EditKind kind);
@@ -43,7 +45,9 @@ class Ui {
     void beginAssignment(bool tags, bool bulk = false);
     void testSetupSource();
     size_t uniqueShown = 0, installable = 0;
+    std::vector<std::string> genreNames;
     bool handleBrowsing(Button button);
+    bool handleDetails(Button button);
     void applySearch(const std::string& text);
 public:
     Settings settings, draft;
@@ -57,6 +61,9 @@ public:
     size_t ratingIndex = 0;
     bool sidebar = false, loading = true, updatesOnly = false;
     size_t sidebarIndex = 0;
+    bool genresExpanded = false, detailsExpanded = false, technicalExpanded = false;
+    std::string remoteGenre;
+    size_t detailIndex = 0, mediaIndex = 0;
     Screen featureReturn = Screen::Options, maintenanceReturn = Screen::Options;
     StorageUsage usage;
     bool cleanupArtwork = false;
@@ -104,6 +111,13 @@ public:
     const std::vector<TileRow>& tileRows() const { return grid; }
     size_t tileRowIndex() const { return gridRowByPosition.empty() ? 0 : gridRowByPosition[position()]; }
     std::vector<std::string> details() const;
+    std::vector<DetailRow> detailRows() const;
+    void openDetails(Screen from);
+    Entry screenshot() const;
+    std::vector<std::string> videoRows() const;
+    std::vector<std::string> genres() const;
+    std::vector<SidebarRow> sidebarRows() const;
+    size_t activeSidebarIndex() const;
     void rebuild();
     void setLibraries(std::optional<std::vector<Entry>> local, std::optional<std::vector<Entry>> remote);
     ViewState captureView() const;

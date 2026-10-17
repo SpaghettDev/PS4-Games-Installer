@@ -38,6 +38,7 @@ struct TaskProgress {
 };
 TaskProgress taskProgress(int taskId);
 std::vector<Entry> scanInstalled();
+void openMediaUrl(const std::string& url);
 void launchTitle(const std::string& titleId);
 void uninstallTitle(const std::string& titleId);
 uint64_t freeSpace(const std::string& path);

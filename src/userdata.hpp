@@ -42,7 +42,8 @@ struct LibraryCursor { std::string titleId, url; size_t index = 0; std::string g
 struct ViewState {
     bool available = false, sidebar = false, updatesOnly = false;
     size_t sidebarIndex = 0;
-    std::string query;
+    std::string query, genre;
+    bool genresExpanded = false;
     std::vector<std::string> recentSearches;
     LocalFilter filter;
     LibraryCursor cursor[2];

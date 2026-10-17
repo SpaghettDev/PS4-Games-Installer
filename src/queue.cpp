@@ -127,7 +127,7 @@ std::vector<QueueItem> parseQueue(const std::string& text) {
         if (!cJSON_IsObject(item) || queue.size() >= 200) throw std::runtime_error("Invalid/oversized queue");
         QueueItem job;
         job.entry.url = string(item, "url", 2047); job.entry.name = string(item, "name", 599);
-        job.entry.titleId = string(item, "title_id", 16); job.entry.category = string(item, "category", 32);
+        job.entry.titleId = string(item, "title_id", 16); job.entry.category = string(item, "category", 32); job.entry.packageType = string(item, "package_type", 32);
         job.entry.version = string(item, "version", 64); job.entry.contentId = string(item, "content_id", 128);
         job.entry.minFirmware = string(item, "min_fw", 64);
         const auto required = string(item, "required_base_version", 64);
@@ -164,7 +164,7 @@ std::string serializeQueue(const std::vector<QueueItem>& queue) {
     for (const auto& job : queue) {
         auto* item = cJSON_CreateObject(); cJSON_AddItemToArray(jobs, item);
         for (const auto& field : std::vector<std::pair<const char*, std::string>>{{"url",job.entry.url},{"name",job.entry.name},{"title_id",job.entry.titleId},
-            {"depends_on",job.dependsOn},{"min_fw",job.entry.minFirmware},{"required_base_version",requiredBaseVersion(job.entry)},{"category",job.entry.category},{"version",job.entry.version},{"content_id",job.entry.contentId},{"cover_url",job.entry.coverUrl},{"message",job.message}})
+            {"depends_on",job.dependsOn},{"min_fw",job.entry.minFirmware},{"required_base_version",requiredBaseVersion(job.entry)},{"category",job.entry.category},{"package_type",job.entry.packageType},{"version",job.entry.version},{"content_id",job.entry.contentId},{"cover_url",job.entry.coverUrl},{"message",job.message}})
             cJSON_AddStringToObject(item, field.first, field.second.c_str());
         cJSON_AddNumberToObject(item, "size", job.entry.size); cJSON_AddNumberToObject(item, "stage", static_cast<unsigned>(job.stage));
         if (job.task >= 0) cJSON_AddNumberToObject(item, "task", job.task);

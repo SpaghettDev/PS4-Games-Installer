@@ -1,4 +1,5 @@
 #include "catalog.hpp"
+#include "metadata.hpp"
 #include "cJSON.h"
 #include <algorithm>
 #include <cerrno>
@@ -104,9 +105,15 @@ std::vector<Entry> parseCatalog(const std::string& text, const std::string& cate
         entry.release = field(item, "release");
         entry.contentId = field(item, "content_id");
         entry.description = field(item, "description");
+        entry.packageType = lower(field(item, "package_type"));
+        if (const auto* igdb = cJSON_GetObjectItemCaseSensitive(item, "igdb"); cJSON_IsObject(igdb)) {
+            std::unique_ptr<char, decltype(&cJSON_free)> json(cJSON_PrintUnformatted(igdb), cJSON_free);
+            if (json) readIgdb(entry, json.get());
+        }
         entry.size = sizeField(item);
         entry.category = lower(category.empty() ? field(item, "category") : category);
         for (const cJSON* m = item->child; m && entry.metadata.size() < 64; m = m->next) {
+            if (std::string(m->string) == "igdb") continue;
             if (cJSON_IsString(m)) entry.metadata.emplace_back(m->string, std::string(m->valuestring).substr(0, 4096));
             else if (cJSON_IsNumber(m) || cJSON_IsBool(m)) {
                 std::unique_ptr<char, decltype(&cJSON_free)> value(cJSON_PrintUnformatted(m), cJSON_free);
@@ -173,6 +180,11 @@ std::string serializeCatalog(const std::vector<Entry>& entries) {
         set("version", e.version); set("min_fw", e.minFirmware); set("category", e.category);
         set("cover_url", e.coverUrl); set("release", e.release); set("content_id", e.contentId);
         set("description", e.description); set("size", std::to_string(e.size));
+        if (!e.packageType.empty()) set("package_type",e.packageType);
+        if (!e.igdbJson.empty()) {
+            auto* igdb=cJSON_Parse(e.igdbJson.c_str());
+            if(cJSON_IsObject(igdb))cJSON_AddItemToObject(item,"igdb",igdb);else cJSON_Delete(igdb);
+        }
     }
     std::unique_ptr<char, decltype(&cJSON_free)> text(cJSON_PrintUnformatted(root.get()), cJSON_free);
     if (!text) throw std::runtime_error("Cannot serialize library");

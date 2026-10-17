@@ -101,6 +101,6 @@ int main() {
     view = makeView(remote, settings, Library::Available);
     assert(view.size() == 3 && view[0].group == "#" && view[1].group == "A");
     assert(makeView(remote, settings, Library::Available, "cusa00002").size() == 1);
-    assert(entryDetails(remote[0]).size() >= 11);
+    assert(entryDetails(remote[0]).size() == 8 && entryAdditionalDetails(remote[0]).size() >= 7);
     std::puts("Settings, SFO, installed discovery and library model tests passed");
 }

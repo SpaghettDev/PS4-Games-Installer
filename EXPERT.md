@@ -110,10 +110,67 @@ The existing catalog format is supported:
 
 A name and direct HTTP(S) package URL are required. Metadata may be missing or null;
 size accepts integer bytes or a decimal string. Title IDs enable installed-status
-matching. The optional `description` field appears directly after **Version** in
-**Square > Game details**, separately from your personal Local description. Long
-text wraps and can be read with Up/Down scrolling. Details also retain additional
-string metadata supplied by the server.
+matching. `package_type` explicitly identifies `game`, `update` or `dlc`, even
+when one games endpoint mixes all three. Older catalogs fall back to the source's
+category. Available excludes updates/DLC; Updates lists both, including packages
+whose base is not installed yet. Installation still checks the required base.
+
+**Square > Game details** shows Name, optional Label/Category/Tags, Rating, package
+Size, Version, Publisher, Release date, Region and one Description, in that order.
+Keys are bold and values use the regular font. Personal descriptions override the
+top-level `description`; an empty remote description falls back to `igdb.summary`.
+Without a personal category, IGDB genres appear as Category. Tags combine IGDB
+themes and your manually assigned tags. A personal 1–5 rating takes priority over
+`igdb.ratings.users.score`, converted from 0–100 to five stars and marked IGDB.
+Clearing personal information reveals the remote fallback again. These fallbacks
+are never written into `player.json`; personal collection rules remain local.
+Rating sorting uses the displayed personal/IGDB score.
+
+Up/Down selects and scrolls rows. **X** toggles the collapsed **Details** and
+**Tech. details** sections. Details contains plot/storyline, developers, languages,
+game modes, multiplayer, age ratings, related games, links and local history when
+provided. Tech. details contains package identity/URL, firmware and raw scalar
+metadata such as `APP_TYPE`. Package URLs are percent-decoded for display only;
+download requests retain the original URL exactly.
+
+![Game Details with embedded IGDB metadata (desktop preview)](docs/images/game-details.png)
+
+![Collapsed sections and media buttons (desktop preview)](docs/images/game-details-sections.png)
+
+The optional embedded `igdb` object follows the companion server's tree:
+
+```json
+{
+  "genres": ["Adventure"],
+  "themes": ["Fantasy"],
+  "publishers": ["Example Publisher"],
+  "developers": ["Example Studio"],
+  "summary": "General game description.",
+  "storyline": "The plot.",
+  "ps4_release_dates": [{"date": "2020-02-02", "region": "worldwide"}],
+  "ratings": {"users": {"score": 84, "count": 123}},
+  "languages": {"interface": ["English"], "voice": ["English"]},
+  "media": {"screenshots": [{"url": "https://example.org/screenshot.jpg"}]},
+  "videos": [{"name": "Trailer", "video_id": "abcdefghijk"}]
+}
+```
+
+Screenshots/videos appear as selectable buttons only when supplied. **Triangle**
+in Details opens the in-app screenshot gallery; Left/Right or L1/R1 changes image,
+Triangle retries loading and O returns. **Square** opens the videos list; X opens
+its HTTP(S) link in the PS4 browser after saving your library position. Video
+playback depends on browser/provider support. Videos are not downloaded or played
+inside the installer. O returns from the list. Missing media does not prevent
+viewing other game details.
+
+IGDB metadata is cached with the catalog, including unknown fields, without API
+keys or a second matching service. Publisher/release/media enrichment also appears
+for installed titles matched to a base game's exact Title ID. Limits per package:
+256 KiB embedded IGDB JSON, 32 screenshots and 32 videos; PNG/JPEG images must fit
+the existing 2048-pixel dimension and 8 MiB download limits. Invalid media URLs are
+ignored. Gallery images retain up to 1920 pixels; decoded cover/gallery images
+share a 64 MiB memory limit and a 48-image LRU cache. Refresh the remote library
+after upgrading to populate the new cache.
 
 Serve catalogs as direct HTTP 200, uncompressed JSON responses. Redirects and
 interactive authentication are not supported. Package hosting must support direct
@@ -186,7 +243,7 @@ URLs live in `config.json`; profile backups and diagnostic exports omit them.
 | X on Installed | Launch the game |
 | X on Available | Install confirmation, or actions for an installed title |
 | Triangle | Game actions: launch/install, details, artwork, Assign category, Assign tags, rating, Edit local info and Uninstall for installed games; Up/Down scrolls all actions |
-| Square | Game details; Up/Down scroll |
+| Square | Game details; Up/Down browses rows, X expands a section; Triangle screenshots, Square videos |
 | Options | Refresh, search, view/group/sort/filter, Settings, About and Exit |
 | O | Close a window or go back |
 | O on the main dashboard | Open exit confirmation; press O again to exit, X to stay |
@@ -200,7 +257,7 @@ Paginated menus show a scrollbar with a position thumb and Up/Down arrows when
 more entries are outside the visible page. Additional sources and scrollable
 progress/details dialogs also indicate hidden content.
 Left at the first tile column still opens the sidebar. L2/R2 page jumps and
-scrolling game-detail text retain their page/scroll boundaries.
+game-detail rows also wrap, while L2/R2 page jumps keep their page boundaries.
 
 ![Options with entries above and below the visible page](docs/images/menu-navigation.png)
 
@@ -291,7 +348,7 @@ Select a game in **Installed** or **Available**, then press **Triangle**:
   Uncategorized to remove the assignment.
 - **Assign tags:** **X** toggles each tag, **Triangle** enters a new tag, and
   **Square** saves the selection together. Clear all game tags removes all of
-  this title's assignments when saved.
+  this title's personal assignments when saved; IGDB themes remain visible.
 - **O** cancels a quick assignment and returns to game actions. A failed save
   keeps the picker and your changes open for retry. Up/Down scrolls names and
   the game actions menu, including actions on its next page.
@@ -304,7 +361,7 @@ You can also add a short label and personal notes through **Triangle > Edit
 local info**, which edits all four fields together:
 
 - **Category:** X opens the picker. Select an existing category or Triangle to
-  enter a new one. Choose Uncategorized to clear the assignment.
+  enter a new one. Choose Uncategorized to clear the personal assignment and reveal any IGDB genres.
 - **Label:** X opens the keyboard. For example, use Favorite, Next to play or
   Completed. Empty text clears the label.
 - **Tags:** X toggles tags in the picker; Triangle creates a new tag. O returns
@@ -415,15 +472,24 @@ groups the main dashboard this way.
 Details show the installed version and the latest catalog update where available.
 Version comparison uses numeric dotted versions, so `1.10` is newer than `1.2`.
 Malformed or missing versions remain unconfirmed. A base game's presence never
-marks all DLC installed. Each source's configured catalog category identifies its
-package type; configure updates and DLC as their own sources when supplied by
-separate endpoints. Correct Title IDs and version metadata improve these views.
+marks all DLC installed. Explicit `package_type` takes priority over the source's
+category; legacy catalogs still use source categories. Correct Title IDs and
+version metadata improve these views.
 
-**Updates** in the sidebar filters the catalog to update packages with an exact
-installed Title ID and a newer dotted numeric version. Unknown versions are left
-out rather than guessed; search and local filters still apply. Tiles and summary
-rows show the installed version followed by the available version. This view uses
-only your configured catalogs; it does not query PlayStation services.
+**Updates** in the sidebar lists update and DLC packages from configured catalogs.
+Search and personal filters still apply. Tiles and summary rows identify the type
+and catalog version; installed-version comparisons remain in Details and package
+actions. This view does not query PlayStation services.
+
+**Available** can expand into genre subitems supplied by `igdb.genres`. With its
+sidebar row selected, Right expands while keeping sidebar focus; X expands and
+enters all games. Up/Down selects a genre, and X or Right enters its games. Left
+on a genre returns to all Available games and collapses the branch. Up/Down wraps
+the full sidebar and its scrollbar shows hidden genres. Membership uses remote
+genres even when a personal category is assigned. The genre selection and expanded
+state are remembered with the library position; a removed genre clears its filter.
+
+![Available filtered by a remote genre (desktop preview)](docs/images/genres.png)
 
 Update/DLC confirmation explains the required base Title ID. X is blocked when
 that base is missing; Triangle opens **Game packages** so you can choose it first.
@@ -638,7 +704,7 @@ The console stores its files under `/data/PS4-Game-Installer/`:
 - `catalog.json`: compatibility copy of the latest accepted catalog; adopted once for legacy settings.
 - `catalog-cache-v1`: marker preventing legacy-cache adoption after later URL changes.
 - `player.json`: personal Title ID records and saved collection rules (schema 3).
-- `session.json`: library selections, Updates mode, sidebar focus, search/history and active filter rules.
+- `session.json`: library selections, Updates mode, genre/expanded sidebar, search/history and active filter rules.
 - `queue.json`: waiting/active/finished items, base dependencies, progress and task ownership.
 - `tasks.json`: compatibility copy of submitted task IDs from earlier releases.
 - `player-before-restore-*.json`: recovery copies made before USB restores.

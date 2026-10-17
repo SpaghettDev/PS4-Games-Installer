@@ -48,7 +48,7 @@ int main() {
     rejects([] { parsePlayerData(R"({"schema":1,"games":{"CUSA00001":{"tags":"bad"}}})"); });
     assert(parsePlayerData(R"({"schema":1,"games":{"CUSA00001":{"rating":4,"was_installed":true}}})").games.at("CUSA00001").info.category.empty());
     remote[0].installed = false;
-    auto fields = entryDetails(remote[0]);
+    auto fields = entryAdditionalDetails(remote[0]);
     assert(std::find(fields.begin(), fields.end(), std::make_pair(std::string("State"), std::string("Was installed"))) != fields.end());
     assert(parseCatalog(serializeCatalog(remote), "")[0].rating == 0); // Personal values never enter the catalog format.
     data.rate("CUSA00001", 0); assert(data.games.at("CUSA00001").wasInstalled && data.games.at("CUSA00001").rating == 0);

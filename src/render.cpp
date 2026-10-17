@@ -1,4 +1,5 @@
 #include "render.hpp"
+#include "metadata.hpp"
 #include "revision.hpp"
 #include <algorithm>
 #include <array>
@@ -183,28 +184,31 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
     c.rectangle(54, 151, 1812, 1, 0x638aad, 65);
 
     c.text("LIBRARY", 74, 216, 20, Muted);
-    const char* sidebarNames[] = {"Installed", "Available", "Updates"};
-    for (size_t i = 0; i < 3; ++i) {
-        bool active = ui.sidebar ? ui.sidebarIndex == i : i == (ui.updatesOnly ? 2 : size_t(ui.library));
-        int y = 268 + i * 67;
-        if (active) {
-            c.rounded(56, y - 37, 262, 56, 10, ui.sidebar ? Blue : Panel, 210);
-            c.rectangle(56, y - 26, 3, 31, Accent);
+    const auto sidebarRows=ui.sidebarRows();
+    const auto active=ui.sidebar ? std::min(ui.sidebarIndex,sidebarRows.size()-1) : ui.activeSidebarIndex();
+    const size_t sidebarStart=active/9*9;
+    for(size_t i=sidebarStart;i<std::min(sidebarStart+9,sidebarRows.size());++i) {
+        const bool focus=i==active, genre=!sidebarRows[i].genre.empty();
+        const int y=268+int(i-sidebarStart)*57;
+        if(focus) {
+            c.rounded(56,y-35,262,50,10,ui.sidebar ? Blue : Panel,210);
+            c.rectangle(56,y-25,3,31,Accent);
         }
-        c.text(sidebarNames[i], 78, y, 29, active ? White : Muted, 220);
+        c.text(sidebarRows[i].name,genre ? 94 : 78,y,genre ? 22 : 27,focus ? White : Muted,genre ? 197 : 220);
     }
+    scrollIndicator(c,sidebarRows.size(),sidebarStart,9,311,230,525);
     c.text("OPTIONS", 78, 840, 18, Muted);
     c.text("Settings & more", 78, 875, 23, White, 236);
     c.text("Vintage2000.org", 78, 935, 18, Muted);
-    c.text(ui.library == Library::Installed ? "Installed games" : ui.updatesOnly ? "Newer updates" : "Available games", 368, 206, 32, White);
+    c.text(ui.library == Library::Installed ? "Installed games" : ui.updatesOnly ? "Updates / DLC" : "Available games", 368, 206, 32, White);
     c.text(ui.filterDescription(), 750, 205, 20, Accent, 850);
     c.text(std::to_string(ui.shownGames()) + (ui.shownGames() == 1 ? " title" : " titles"), 1640, 204, 23, Muted, 220);
     if (ui.bulkMode) c.text("SELECTING: " + std::to_string(ui.markedTitles.size()) + " games", 75, 665, 21, Accent, 250);
 
     if (ui.visible.empty()) {
         c.image(*placeholder, 1020, 365, 140, 140, 180);
-        c.text(!ui.filterDescription().empty() || !ui.query.empty() ? "No games match this view" : ui.library == Library::Installed ? "No installed games found" : ui.updatesOnly ? "No newer updates found" : "Your remote library belongs here", 700, 585, 34, White, 1100);
-        c.text(!ui.filterDescription().empty() ? "Options > Browse local categories or tags > All games clears local filters." : !ui.query.empty() ? "Options > Search lets you change or clear your search." : ui.library == Library::Installed ? "Refresh the library in Options, or browse Available." : ui.updatesOnly ? "Refresh your catalogs to check updates. Packages need matching Title IDs and versions." : "Open Options > Settings and enter your Games JSON URL.", 610, 641, 26, Muted, 1220);
+        c.text(!ui.filterDescription().empty() || !ui.query.empty() ? "No games match this view" : ui.library == Library::Installed ? "No installed games found" : ui.updatesOnly ? "No updates or DLC found" : "Your remote library belongs here", 700, 585, 34, White, 1100);
+        c.text(!ui.filterDescription().empty() ? "Options > Browse local categories or tags > All games clears local filters." : !ui.query.empty() ? "Options > Search lets you change or clear your search." : ui.library == Library::Installed ? "Refresh the library in Options, or browse Available." : ui.updatesOnly ? "Refresh the catalog to load updates and DLC. Install the matching base game first." : "Open Options > Settings and enter your Games JSON URL.", 610, 641, 26, Muted, 1220);
         if (ui.loading) c.text("Loading...", 1020, 702, 25, Accent);
     } else if (ui.settings.layout == Layout::Tiles) {
         const auto& rows = ui.tileRows();
@@ -224,13 +228,14 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
                 c.image(*(image ? image : placeholder), x + 55, y + 12, 220, 204);
                 if (!state(entry).empty()) {
                     c.rounded(x + 13, y + 16, ui.updatesOnly ? 304 : 148, 28, 6, 0x08283c, 235);
-                    c.text(ui.updatesOnly ? "v" + entry.installedVersion + " -> v" + entry.version : state(entry), x + 22, y + 36, 15, Accent, ui.updatesOnly ? 286 : 132);
+                    c.text(ui.updatesOnly ? packageKindName(entry) + " / v" + entry.version : state(entry), x + 22, y + 36, 15, Accent, ui.updatesOnly ? 286 : 132);
                 }
                 c.text(entry.name, x + 17, y + 245, 24, White, 297);
-                c.text(entry.info.category.empty() ? "Uncategorized" : entry.info.category, x + 17, y + 270, 17, Accent, 146);
+                c.text(displayCategories(entry).empty() ? "Uncategorized" : joinedNames(displayCategories(entry)), x + 17, y + 270, 17, Accent, 146);
                 c.text(entry.info.label.empty() ? "Unlabeled" : entry.info.label, x + 174, y + 270, 17, Muted, 140);
                 c.text(shortSize(ui.library == Library::Installed ? entry.installedSize : entry.size), x + 17, y + 299, 21, Muted, 288);
-                stars(c, entry.rating, x + 190, y + 282, 18);
+                stars(c, unsigned(std::round(displayRating(entry))), x + 190, y + 282, 18);
+                if(!entry.rating&&entry.igdb.userRatingKnown)c.text("IGDB",x+149,y+299,12,Muted,39);
                 if (ui.bulkMode && ui.markedTitles.count(entry.titleId)) {
                     c.rounded(x + 220, y + 16, 95, 30, 5, Blue); c.text("Selected", x + 228, y + 38, 17, White, 82);
                 }
@@ -249,12 +254,13 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
             c.image(*(image ? image : placeholder), 374, y - 17, 58, 58);
             c.text(entry.name, 450, y + 3, 25, White, 645);
             std::string meta = entry.titleId + (entry.region.empty() ? "" : "  " + entry.region) + (ui.visible[i].group.empty() ? "" : "  /  " + ui.visible[i].group);
-            if (!state(entry).empty()) meta += "  /  " + (ui.updatesOnly ? "v" + entry.installedVersion + " -> v" + entry.version : state(entry));
-            c.text(entry.info.category.empty() ? "Uncategorized" : entry.info.category, 451, y + 26, 17, Accent, 300);
+            if (!state(entry).empty()) meta += "  /  " + (ui.updatesOnly ? packageKindName(entry) + " / v" + entry.version : state(entry));
+            c.text(displayCategories(entry).empty() ? "Uncategorized" : joinedNames(displayCategories(entry)), 451, y + 26, 17, Accent, 300);
             c.text(entry.info.label.empty() ? "Unlabeled" : entry.info.label, 775, y + 26, 17, Muted, 315);
             c.text(meta, 451, y + 46, 15, Muted, 640);
             c.text(shortSize(ui.library == Library::Installed ? entry.installedSize : entry.size), 1110, y + 13, 21, Muted, 165);
-            stars(c, entry.rating, 1110, y + 25, 17);
+            stars(c, unsigned(std::round(displayRating(entry))), 1110, y + 25, 17);
+            if(!entry.rating&&entry.igdb.userRatingKnown)c.text("IGDB",1230,y+41,12,Muted,45);
             if (ui.bulkMode && ui.markedTitles.count(entry.titleId)) c.text("[Selected]", 1008, y + 45, 15, Accent, 95);
         }
         if (selected) {
@@ -262,15 +268,16 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
             c.rounded(1340, 252, 514, 622, 16, Panel, 180);
             c.image(*(image ? image : placeholder), 1366, 279, 462, 400);
             c.text(selected->name, 1372, 732, 30, White, 452);
-            c.text(selected->info.category.empty() ? "Uncategorized" : selected->info.category, 1373, 763, 18, Accent, 215);
+            c.text(displayCategories(*selected).empty() ? "Uncategorized" : joinedNames(displayCategories(*selected)), 1373, 763, 18, Accent, 215);
             c.text(selected->info.label.empty() ? "Unlabeled" : selected->info.label, 1605, 763, 18, Muted, 218);
             c.text(shortSize(ui.library == Library::Installed ? selected->installedSize : selected->size), 1373, 800, 24, Accent, 450);
-            c.text(ui.updatesOnly ? "v" + selected->installedVersion + " -> v" + selected->version : state(*selected), 1373, 831, 20, Muted, 450);
-            stars(c, selected->rating, 1373, 845, 20);
+            c.text(ui.updatesOnly ? packageKindName(*selected) + " / v" + selected->version : state(*selected), 1373, 831, 20, Muted, 450);
+            stars(c, unsigned(std::round(displayRating(*selected))), 1373, 845, 20);
+            if(!selected->rating&&selected->igdb.userRatingKnown)c.text("IGDB users",1500,862,16,Muted,170);
         }
     }
     if (selected) {
-        auto description = selected->info.description.empty() ? selected->description : selected->info.description;
+        auto description = displayDescription(*selected);
         for (auto& c : description) if (c == '\n' || c == '\r' || c == '\t') c = ' ';
         if (!description.empty()) c.text(description, 368, 946, 21, Muted, 1250);
     }
@@ -331,16 +338,44 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
         }
         case Screen::Details: {
             panel(c, 230, 120, 1460, 828, "Game details");
-            auto image = artwork.request(ui.pending, true);
-            c.image(*(image ? image : placeholder), 270, 240, 260, 260);
-            c.text(ui.pending.name, 572, 264, 34, White, 1055);
-            auto rows = ui.details();
-            ui.detailScroll = std::min(ui.detailScroll, rows.size() > 12 ? rows.size() - 12 : size_t(0));
-            scrollIndicator(c, rows.size(), ui.detailScroll, 12, 1650, 297, 516);
-            for (size_t i = ui.detailScroll; i < std::min(rows.size(), ui.detailScroll + 12); ++i)
-                c.text(rows[i], 574, 322 + (i - ui.detailScroll) * 43, 23, i % 2 ? Muted : White, 1040);
-            c.text("Up / Down Scroll", 575, 908, 23, Muted);
-            hints(c, 840, 908, {{Button::Circle, "Back"}}); break;
+            auto image=artwork.request(ui.pending,true);
+            c.image(*(image ? image : placeholder),270,240,260,260);
+            c.text(ui.pending.name,572,264,34,White,1055);
+            const auto rows=ui.detailRows();
+            ui.detailScroll=std::min(ui.detailScroll,rows.size()>12 ? rows.size()-12 : size_t(0));
+            scrollIndicator(c,rows.size(),ui.detailScroll,12,1650,297,516);
+            for(size_t i=ui.detailScroll;i<std::min(rows.size(),ui.detailScroll+12);++i) {
+                const int y=322+int(i-ui.detailScroll)*43;
+                if(i==ui.detailIndex)c.rounded(564,y-29,1070,39,6,Blue,rows[i].action ? 220 : 90);
+                const auto label=rows[i].key.empty() ? "" : rows[i].key+": ";
+                const auto width=std::min(440,c.textWidth(label,23)+1);
+                c.boldText(label,574,y,23,White,width);
+                c.text(rows[i].value,574+width,y,23,rows[i].action ? Accent : Muted,1040-width);
+            }
+            c.text("Up / Down to browse",270,555,20,Muted,270);
+            c.text("X expands a selected section",270,590,18,Muted,280);
+            if(!ui.pending.igdb.screenshots.empty()&&!ui.pending.igdb.videos.empty())
+                hints(c,270,908,{{Button::Cross,"View / expand"},{Button::Triangle,"Screenshots"},{Button::Square,"Videos"},{Button::Circle,"Back"}},21);
+            else if(!ui.pending.igdb.screenshots.empty())
+                hints(c,270,908,{{Button::Cross,"View / expand"},{Button::Triangle,"Screenshots"},{Button::Circle,"Back"}},21);
+            else if(!ui.pending.igdb.videos.empty())
+                hints(c,270,908,{{Button::Cross,"View / expand"},{Button::Square,"Videos"},{Button::Circle,"Back"}},21);
+            else hints(c,270,908,{{Button::Cross,"Expand"},{Button::Circle,"Back"}},21);
+            break;
+        }
+        case Screen::Screenshots: {
+            panel(c,110,165,1700,775,"Screenshots / "+ui.pending.name);
+            const auto image=artwork.request(ui.screenshot(),true,true);
+            if(image)c.image(*image,160,270,1600,560);
+            else c.centered("Loading image... Press Triangle to retry if unavailable.",550,27,Muted);
+            c.text(std::to_string(ui.mediaIndex+1)+" / "+std::to_string(ui.pending.igdb.screenshots.size()),1580,904,23,Accent,160);
+            hints(c,160,904,{{Button::L1,"Previous / next"},{Button::Triangle,"Reload"},{Button::Circle,"Back"}},21);break;
+        }
+        case Screen::Videos: {
+            panel(c,380,185,1160,720,"Videos / "+ui.pending.name);
+            menu(c,ui.videoRows(),ui.mediaIndex,420,338,1080,60,7);
+            c.text("Opens the video in the PS4 browser.",430,810,23,Muted,1050);
+            hints(c,430,866,{{Button::Cross,"Open video"},{Button::Circle,"Back"}},22);break;
         }
         case Screen::Actions: {
             const auto rows = ui.actionRows();

@@ -108,6 +108,10 @@ void Canvas::text(const std::string& value, int x, int baseline, int size, uint3
         pen += g.advance;
     }
 }
+void Canvas::boldText(const std::string& value, int x, int baseline, int size, uint32_t color, int maxWidth) {
+    text(value,x,baseline,size,color,maxWidth);
+    text(value,x+1,baseline,size,color,maxWidth-1);
+}
 int Canvas::textWidth(const std::string& text, int size) {
     int result = 0;
     for (size_t i = 0; i < text.size();) result += glyph(nextCodepoint(text, i), size).advance;

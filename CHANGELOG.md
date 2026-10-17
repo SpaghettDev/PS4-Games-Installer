@@ -1,5 +1,21 @@
 # Changelog
 
+## r36 — 2026-10-18
+
+- Rework Game Details with ordered bold keys, one personal-or-remote description,
+  collapsed Details/Tech. details and readable package URLs.
+- Read/cache the embedded IGDB tree: publisher, release, plot, genres/themes,
+  user ratings, languages, multiplayer and other supplied metadata. Keep local
+  descriptions, categories, ratings and tags separate from server updates.
+- Add an in-app screenshot gallery with full-size caching and video links through
+  the PS4 browser. Save library position before browser handoff.
+- Expand Available into remembered genre filters with wraparound and scrollbars.
+  Explicit package_type routes updates/DLC to Updates, including mixed feeds and
+  queue restart/install-slot handling. Existing game-launch flags are unchanged.
+- Full host suite (including 15 Python tests) and OpenOrbis package validation
+  passed. New UI/media and mixed-feed installation
+  acceptance remains pending on PS4 11.00 + GoldHEN.
+
 ## r35 — 2026-10-17
 
 - Show the remote catalog's description directly after Version in Game Details,

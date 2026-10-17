@@ -144,7 +144,12 @@ int main() {
     entry.titleId = "CUSA00001";
     assert(queueLocalInstall(entry, expectedUrl, 123) == 45);
     update = true; entry.category = "updates"; entry.titleId = "CUSA00001";
-    assert(queueLocalInstall(entry, expectedUrl, 123) == 45); update = false; entry.category = "games";
+    assert(queueLocalInstall(entry, expectedUrl, 123) == 45);
+    entry.category = "games"; entry.packageType = "update";
+    assert(queueLocalInstall(entry, expectedUrl, 123) == 45); // Mixed feed still resolves the update slot.
+    update = false; entry.packageType = "game";
+    assert(queueLocalInstall(entry, expectedUrl, 123) == 45);
+    entry.packageType.clear();
     rejects([&] { queueLocalInstall(entry, "../test.pkg", 123); }, "Invalid local");
     mode = "duplicate"; rejects([&] { queueLocalInstall(entry, expectedUrl, 123); }, "No matching task could be confirmed");
     mode = "duplicate-found"; rejects([&] { queueLocalInstall(entry, expectedUrl, 123); }, "Existing download task 45");

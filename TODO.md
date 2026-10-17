@@ -1,5 +1,18 @@
 # Work tracker
 
+## Current implementation: rich game details and genre browsing
+
+- [x] Inspect actual embedded IGDB schema and package_type fields.
+- [x] Implement ordered bold-key details, local overrides and collapsed sections.
+- [x] Add media screens, IGDB category/theme/rating fallbacks and genre sidebar.
+- [x] Route explicit update/DLC packages to Updates and persist queue types.
+- [x] Finish host regressions, native browser ABI checks and package validation.
+- [x] Generate/inspect screenshots and document the resulting controls/schema.
+- [x] Commit the successful revision locally.
+- [ ] Verify rich details, gallery, browser video handoff, genre persistence and
+  mixed-feed update/DLC installation on PS4 11.00 + GoldHEN.
+
+
 ## Current implementation: r35 catalog description placement
 
 - [x] Show the catalog description immediately after Version in Game Details.

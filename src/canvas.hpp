@@ -25,6 +25,7 @@ public:
     void rounded(int x, int y, int w, int h, int radius, uint32_t color, uint8_t alpha = 255);
     void text(const std::string& value, int x, int baseline, int size, uint32_t color,
               int maxWidth = Width, uint8_t alpha = 255);
+    void boldText(const std::string& value, int x, int baseline, int size, uint32_t color, int maxWidth = Width);
     int textWidth(const std::string& value, int size);
     void centered(const std::string& value, int baseline, int size, uint32_t color);
     void image(const Image& image, int x, int y, int w, int h, uint8_t alpha = 255, bool cover = false);

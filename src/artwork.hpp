@@ -15,12 +15,13 @@ struct Image {
     int width = 0, height = 0;
     std::vector<uint32_t> pixels;
 };
-std::shared_ptr<Image> decodeImage(const std::string& bytes);
-std::shared_ptr<Image> loadImage(const std::string& path);
-std::string artworkKey(const Entry& entry);
+std::shared_ptr<Image> decodeImage(const std::string& bytes, int maximum = 384);
+std::shared_ptr<Image> loadImage(const std::string& path, int maximum = 384);
+std::string artworkKey(const Entry& entry, bool fullSize = false);
+std::string artworkCacheName(const std::string& key);
 class ArtworkCache {
     struct Cached { std::shared_ptr<Image> image; uint64_t age = 0; };
-    struct Job { Entry entry; uint64_t generation; };
+    struct Job { Entry entry; uint64_t generation; bool fullSize = false; };
     std::string directory;
     std::mutex mutex;
     std::condition_variable wake;
@@ -36,8 +37,8 @@ class ArtworkCache {
 public:
     explicit ArtworkCache(std::string cacheDirectory);
     ~ArtworkCache();
-    std::shared_ptr<Image> request(const Entry& entry, bool priority = false);
-    void refresh(const Entry& entry);
+    std::shared_ptr<Image> request(const Entry& entry, bool priority = false, bool fullSize = false);
+    void refresh(const Entry& entry, bool fullSize = false);
     void clear();
 };
 }

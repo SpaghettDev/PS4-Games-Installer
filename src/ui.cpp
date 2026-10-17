@@ -1,4 +1,5 @@
 #include "ui.hpp"
+#include "metadata.hpp"
 #include "sfo.hpp"
 #include <algorithm>
 #include <map>
@@ -58,6 +59,9 @@ bool Ui::take(Command& out) {
     out = std::move(commands.front()); commands.pop_front(); return true;
 }
 void Ui::rebuild() {
+    std::map<std::string,std::string> genreMap;
+    for(const auto& entry:available)if(packageKind(entry)==0)for(const auto& name:entry.igdb.genres)genreMap.emplace(lower(name),name);
+    genreNames.clear(); for(const auto& genre:genreMap)genreNames.push_back(genre.second);
     matchInstalled(available, installed, queued);
     std::set<std::string> queuedTitles;
     for (const auto& e : available) if (e.queued && !e.titleId.empty()) {
@@ -73,7 +77,7 @@ void Ui::rebuild() {
         auto& latest = latestUpdates[e.titleId]; const auto newer = compareVersions(e.version, latest);
         if (latest.empty() || (newer && *newer > 0)) latest = e.version;
     }
-    for (const auto& e : available) if (!e.titleId.empty() && e.category != "updates" && e.category != "dlc" && e.category != "themes") {
+    for (const auto& e : available) if (!e.titleId.empty() && packageKind(e) == 0) {
         auto found = baseTitles.find(e.titleId);
         if (found == baseTitles.end() || e.category == "games") baseTitles[e.titleId] = &e;
     }
@@ -84,13 +88,13 @@ void Ui::rebuild() {
             const auto& remote = *found->second;
             local.coverUrl = remote.coverUrl; local.url = remote.url; local.size = remote.size;
             local.release = remote.release; local.minFirmware = remote.minFirmware;
-            local.description = remote.description;
+            local.description = remote.description; local.igdb = remote.igdb; local.igdbJson = remote.igdbJson;
             if (!remote.category.empty()) local.category = remote.category;
             if (local.region.empty()) local.region = remote.region;
         }
     }
     player.apply(installed); player.apply(available); player.apply(pending);
-    visible = makeView(entries(), settings, library, query, filter, updatesOnly && library == Library::Available);
+    visible = makeView(entries(), settings, library, query, filter, updatesOnly && library == Library::Available, remoteGenre);
     uniqueShown = installable = 0; std::vector<bool> seen(entries().size());
     for (const auto& item : visible) if (!seen[item.index]) {
         seen[item.index] = true; ++uniqueShown;
@@ -113,11 +117,12 @@ void Ui::setLibraries(std::optional<std::vector<Entry>> local, std::optional<std
 ViewState Ui::captureView() const {
     ViewState state; state.available = library == Library::Available; state.query = query; state.sidebar = sidebar;
     state.recentSearches = recentSearches;
-    state.filter = filter; state.updatesOnly = updatesOnly; state.sidebarIndex = sidebarIndex;
+    state.filter = filter; state.updatesOnly = updatesOnly; state.sidebarIndex = updatesOnly ? 2 : size_t(library);
+    state.genre = remoteGenre; state.genresExpanded = genresExpanded;
     for (size_t i = 0; i < 2; ++i) {
         const auto which = i ? Library::Available : Library::Installed;
         const auto& list = i ? available : installed;
-        const auto view = makeView(list, settings, which, query, filter, updatesOnly && i);
+        const auto view = makeView(list, settings, which, query, filter, updatesOnly && i, remoteGenre);
         auto& cursor = state.cursor[i]; cursor.index = selected[i];
         if (!view.empty()) {
             const auto& entry = list[view[std::min(selected[i], view.size() - 1)].index];
@@ -132,10 +137,13 @@ void Ui::restoreView(const ViewState& state) {
     library = state.available ? Library::Available : Library::Installed; query = state.query; sidebar = state.sidebar;
     recentSearches = state.recentSearches;
     filter = state.filter; updatesOnly = state.updatesOnly; sidebarIndex = state.sidebarIndex < 3 ? state.sidebarIndex : updatesOnly ? 2 : size_t(library);
+    remoteGenre = state.genre; genresExpanded = state.genresExpanded;
     rebuild();
+    if (!remoteGenre.empty() && std::find(genreNames.begin(),genreNames.end(),remoteGenre)==genreNames.end()) { remoteGenre.clear(); rebuild(); }
+    sidebarIndex = activeSidebarIndex();
     for (size_t i = 0; i < 2; ++i) {
         const auto& list = i ? available : installed;
-        const auto view = makeView(list, settings, i ? Library::Available : Library::Installed, query, filter, updatesOnly && i);
+        const auto view = makeView(list, settings, i ? Library::Available : Library::Installed, query, filter, updatesOnly && i, remoteGenre);
         const auto& cursor = state.cursor[i];
         selected[i] = view.empty() ? 0 : std::min(cursor.index, view.size() - 1);
         std::optional<size_t> fallback;
@@ -154,32 +162,8 @@ std::string Ui::librarySummary() const {
     if (library == Library::Installed)
         return std::to_string(installed.size()) + " installed games" +
             (uniqueShown != installed.size() ? " / " + std::to_string(uniqueShown) + " shown" : "");
-    if (updatesOnly) return std::to_string(uniqueShown) + " newer update packages for installed games";
-    return std::to_string(installable) + " available to install / " + std::to_string(available.size()) + " packages";
-}
-std::vector<std::string> Ui::details() const {
-    std::vector<std::string> lines;
-    for (const auto& field : entryDetails(pending)) {
-        std::string text = field.first + ": " + field.second;
-        for (auto& c : text) if (c == '\r' || c == '\t') c = ' ';
-        size_t start = 0;
-        for (;;) {
-            const auto end = text.find('\n', start);
-            std::string line = text.substr(start, end == std::string::npos ? end : end - start);
-            while (line.size() > 72) {
-                size_t cut = line.rfind(' ', 72);
-                if (cut < 20 || cut == std::string::npos) cut = 72;
-                while (cut > 0 && (static_cast<unsigned char>(line[cut]) & 0xc0) == 0x80) --cut;
-                if (!cut) cut = 72; // Invalid UTF-8 must still make forward progress.
-                lines.push_back(line.substr(0, cut));
-                line.erase(0, cut + (line[cut] == ' ' ? 1 : 0));
-            }
-            lines.push_back(line);
-            if (end == std::string::npos) break;
-            start = end + 1;
-        }
-    }
-    return lines;
+    if (updatesOnly) return std::to_string(uniqueShown) + " updates / DLC";
+    return std::to_string(installable) + " available to install / " + std::to_string(uniqueShown) + (remoteGenre.empty() ? " games" : " games in " + remoteGenre);
 }
 void Ui::beginEdit(EditKind kind, size_t index, const std::string& text) {
     settingsNotice.clear();
@@ -329,6 +313,7 @@ void Ui::saveLocalDraft() {
     commands.push_back(std::move(command));
 }
 void Ui::handle(Button b) {
+    if (handleDetails(b)) return;
     // Circle and dialogs are handled before dashboard shortcuts.
     if (screen == Screen::Keyboard) return;
     if (handleBrowsing(b)) return;
@@ -475,11 +460,7 @@ void Ui::handle(Button b) {
         }
         return;
     }
-    if (screen == Screen::Details) {
-        if (b == Button::Up && detailScroll) --detailScroll;
-        if (b == Button::Down && detailScroll + 12 < details().size()) ++detailScroll;
-        return;
-    }
+
     if (screen == Screen::Options) {
         moveMenuSelection(b, menuIndex, options().size());
         if (b != Button::Cross) return;
@@ -567,20 +548,30 @@ void Ui::handle(Button b) {
             }
             else if (action == "Game packages") { packageTitle = pending.titleId; packageIndex = 0; screen = Screen::Packages; }
             else if (action == "Edit local info") { localDraft = pending.info; quickAssignment = false; localIndex = 0; localNotice.clear(); screen = Screen::LocalInfo; }
-            else if (action == "Details") { detailReturn = Screen::Actions; detailScroll = 0; screen = Screen::Details; }
+            else if (action == "Details") { openDetails(Screen::Actions); }
             else { emit(CommandType::RefreshArtwork, pending); screen = Screen::Dashboard; }
         }
         return;
     }
     if (b == Button::Options) { menuIndex = 0; screen = Screen::Options; return; }
     if (b == Button::L1 || b == Button::R1) {
-        library = library == Library::Installed ? Library::Available : Library::Installed; updatesOnly = false; sidebarIndex = int(library); rebuild(); return;
+        library = library == Library::Installed ? Library::Available : Library::Installed; updatesOnly = false; remoteGenre.clear(); sidebarIndex = int(library); rebuild(); return;
     }
     if (sidebar) {
-        moveMenuSelection(b, sidebarIndex, 3);
-        library = sidebarIndex ? Library::Available : Library::Installed; updatesOnly = sidebarIndex == 2;
-        if (b == Button::Right || b == Button::Cross) sidebar = false;
-        rebuild(); return;
+        if (b == Button::Left && (sidebarIndex == 1 || !remoteGenre.empty())) {
+            genresExpanded = false; remoteGenre.clear(); sidebarIndex = 1;
+        } else if (b == Button::Right && sidebarIndex == 1 && !genresExpanded && !genres().empty()) {
+            genresExpanded = true;
+        } else {
+            const auto rows=sidebarRows();
+            moveMenuSelection(b,sidebarIndex,rows.size());
+            if (b == Button::Cross && sidebarIndex == 1 && !genres().empty()) genresExpanded = true;
+            if (b == Button::Right || b == Button::Cross) sidebar = false;
+        }
+        const auto rows=sidebarRows(); sidebarIndex=std::min(sidebarIndex,rows.size()-1);
+        const auto row=rows[sidebarIndex];
+        library = row.kind ? Library::Available : Library::Installed; updatesOnly = row.kind == 2; remoteGenre = row.genre;
+        selected[int(library)]=0; rebuild(); return;
     }
     if (auto* e = current()) {
         if (b == Button::Cross) {
@@ -593,16 +584,16 @@ void Ui::handle(Button b) {
             else if (pending.queued) status = "This package is already queued. See PS4 Notifications > Downloads.";
             else { installReturn = Screen::Dashboard; screen = Screen::ConfirmInstall; }
         } else if (b == Button::Triangle) { pending = *e; menuIndex = 0; actionReturn = Screen::Dashboard; screen = Screen::Actions; }
-        else if (b == Button::Square) { pending = *e; detailReturn = Screen::Dashboard; detailScroll = 0; screen = Screen::Details; }
+        else if (b == Button::Square) { pending = *e; openDetails(Screen::Dashboard); }
         else if (settings.layout == Layout::Summary) {
             moveMenuSelection(b, selected[static_cast<int>(library)], visible.size());
-            if (b == Button::Left) { sidebar = true; sidebarIndex = updatesOnly ? 2 : size_t(library); }
+            if (b == Button::Left) { sidebar = true; sidebarIndex = activeSidebarIndex(); }
         } else {
             const auto& rows = tileRows();
             size_t row = tileRowIndex(), col = 0;
             for (size_t c = 0; c < rows[row].items.size(); ++c) if (rows[row].items[c] == position()) col = c;
             if (b == Button::Left) {
-                if (col == 0) { sidebar = true; sidebarIndex = updatesOnly ? 2 : size_t(library); } else --selected[static_cast<int>(library)];
+                if (col == 0) { sidebar = true; sidebarIndex = activeSidebarIndex(); } else --selected[static_cast<int>(library)];
             }
             if (b == Button::Right && col + 1 < rows[row].items.size()) ++selected[static_cast<int>(library)];
             if (b == Button::Up || b == Button::Down) {
@@ -610,6 +601,6 @@ void Ui::handle(Button b) {
                 selected[static_cast<int>(library)] = rows[row].items[std::min(col, rows[row].items.size()-1)];
             }
         }
-    } else if (b == Button::Left) { sidebar = true; sidebarIndex = updatesOnly ? 2 : size_t(library); }
+    } else if (b == Button::Left) { sidebar = true; sidebarIndex = activeSidebarIndex(); }
 }
 }

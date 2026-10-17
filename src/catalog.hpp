@@ -23,6 +23,16 @@ struct LocalFilter {
     // 0 any, 1 installed, 2 not installed, 3 previously installed but absent.
     unsigned installState = 0;
 };
+struct MediaItem { std::string name, url; };
+struct RichMetadata {
+    std::vector<std::string> genres, themes, publishers, developers;
+    std::string summary, storyline, releaseDate;
+    double userRating = 0;
+    bool userRatingKnown = false;
+    uint64_t ratingCount = 0;
+    std::vector<MediaItem> screenshots, videos;
+    std::vector<std::pair<std::string, std::string>> additional;
+};
 struct Entry {
     std::string url, name, titleId, region, version, minFirmware, category;
     std::string coverUrl, localIcon, release, contentId, description;
@@ -36,6 +46,8 @@ struct Entry {
     uint64_t firstSeenInstalled = 0, launches = 0, lastLaunch = 0;
     LocalInfo info;
     std::vector<std::pair<std::string, std::string>> metadata;
+    std::string packageType, igdbJson;
+    RichMetadata igdb;
 };
 
 bool isHttpUrl(const std::string& url);

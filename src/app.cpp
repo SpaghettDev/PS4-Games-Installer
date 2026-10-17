@@ -107,8 +107,8 @@ App::App(const std::string& data, bool preview)
         SavedCollection favorites; favorites.name = "Favorites for the weekend"; favorites.available = true; favorites.filter.minRating = 4; favorites.filter.tag = "Weekend";
         ui.player.saveCollection(favorites);
         if (!entries.empty()) {
-            Entry update = entries[0]; update.category = "updates"; update.version = "1.12"; update.name += " update"; update.url += "?update=1"; update.size = 4200000000ULL; entries.push_back(update);
-            Entry dlc = entries[0]; dlc.category = "dlc"; dlc.name += " expansion"; dlc.url += "?dlc=1"; dlc.size = 1600000000ULL; entries.push_back(dlc);
+            Entry update = entries[0]; update.category = "updates"; update.packageType = "update"; update.version = "1.12"; update.name += " update"; update.url += "?update=1"; update.size = 4200000000ULL; entries.push_back(update);
+            Entry dlc = entries[0]; dlc.category = "dlc"; dlc.packageType = "dlc"; dlc.name += " expansion"; dlc.url += "?dlc=1"; dlc.size = 1600000000ULL; entries.push_back(dlc);
             const QueueStage stages[] = {QueueStage::Completed, QueueStage::Downloading, QueueStage::Installing, QueueStage::Failed, QueueStage::Waiting, QueueStage::Verifying};
             for (size_t i = 0; i < std::min(size_t(6), entries.size()); ++i) {
                 QueueItem job; job.entry = entries[i]; job.stage = stages[i]; job.total = i == 4 ? 0 : entries[i].size; job.transferred = job.total * (i == 1 ? 43 : 100) / 100;
@@ -456,7 +456,7 @@ void App::tick(double elapsed, Video& video) {
                     ui.settings = saved = next; ui.draft = saved;
                     if (changedSource) {
                         ui.available.clear(); ui.markedTitles.clear();
-                        for (auto& local:ui.installed) { local.url.clear(); local.coverUrl.clear(); local.description.clear(); local.minFirmware.clear(); local.release.clear(); local.latestVersion.clear(); local.size=0; }
+                        for (auto& local:ui.installed) { local.url.clear(); local.coverUrl.clear(); local.description.clear(); local.igdb={}; local.igdbJson.clear(); local.minFirmware.clear(); local.release.clear(); local.latestVersion.clear(); local.size=0; }
                         try { ui.available=parseCatalog(readFile(catalogCachePath(directory,next),CacheLimit),"",CacheLimit); } catch (const std::exception&) {}
                         unlink((directory+"/catalog.json").c_str());
                     }
@@ -543,7 +543,7 @@ void App::tick(double elapsed, Video& video) {
                     })) throw std::runtime_error("Wait for the current operation, then export diagnostics");
                     ui.loading = true; ui.featureNotice = ui.status = "Writing sanitized diagnostics to USB..."; break;
                 }
-                case CommandType::RefreshArtwork: artwork.refresh(command.entry); ui.status = "Artwork will be reloaded"; break;
+                case CommandType::RefreshArtwork: artwork.refresh(command.entry,command.source==1); ui.status = "Artwork will be reloaded"; break;
                 case CommandType::Rate: {
                     auto next = ui.player; next.rate(command.entry.titleId, command.source); savePlayer(next);
                     ui.status = command.source ? "Local rating saved: " + std::to_string(command.source) + "/5" : "Local rating removed";
@@ -708,6 +708,8 @@ void App::tick(double elapsed, Video& video) {
                     });
                     ui.status = "Uninstalling " + entry.name + "..."; ui.loading = true; log(ui.status); break;
                 }
+                case CommandType::OpenMedia:
+                    savePosition(); openMediaUrl(command.text); ui.status = "Video opened in PS4 browser"; break;
                 case CommandType::Launch: {
                     if (demo) ui.status = "Desktop preview cannot launch PS4 games";
                     else {

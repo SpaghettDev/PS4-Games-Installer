@@ -74,9 +74,15 @@ X to select characters or Done, and O to cancel.
 
 - **Installed:** select a game and press **X** to launch. Your selected game and
   library are remembered when you reopen the installer.
-- **Available:** select a package, press **X**, then confirm installation.
-- **Updates:** browse newer catalog updates for your installed games.
+- **Available:** press **X** to install a game. On the sidebar, **Right** expands
+  genres from your catalog; **Left** collapses them.
+- **Updates:** browse update and DLC packages; their matching base game is required.
 - **Triangle > Game packages:** find a title's base game, updates and DLC together.
+
+**Square** opens Game Details. Local notes replace the remote description;
+genres, themes and IGDB ratings fill in missing personal information. Use **X**
+to expand Details or Tech. details, **Triangle** for screenshots and **Square**
+for videos (opened in the PS4 browser), when the catalog provides them.
 
 Open **Options > Downloads** to check progress. X opens an entry's diagnostics;
 X there retries a failed/cancelled item. Triangle offers **Cancel task** for an

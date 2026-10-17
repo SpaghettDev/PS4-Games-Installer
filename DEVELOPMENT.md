@@ -194,3 +194,18 @@ workflow is recorded in [AGENTS.md](AGENTS.md).
 Created by **e1z0 — (c) 2026 Vintage2000.org**. Application source is GPLv2;
 see [LICENSE](LICENSE) and [THIRD_PARTY.md](THIRD_PARTY.md). Component versions and
 licenses belong in the credits file rather than the consumer guide.
+
+## Embedded metadata and details changes
+
+`src/metadata.cpp` reads the companion catalog's IGDB tree and resolves display
+fallbacks without changing personal records. `Entry::igdbJson` retains the object
+for offline round trips. Package classification uses explicit `package_type`
+before legacy source categories, including saved queue entries.
+
+`src/ui_details.cpp` owns structured rows, collapsible sections, media navigation
+and dynamic genre sidebar rows. `src/browser.cpp` is a separate PS4 browser ABI
+adapter; it does not change native game-launch flags. Host metadata and browser
+ABI tests cover malformed fields/URLs, overrides, cache/session persistence and
+package routing. Desktop captures 85–92 exercise the new layouts. Real console
+acceptance for gallery, browser/provider playback and mixed-feed add-ons remains
+required; host mocks do not establish these behaviors.

@@ -16,6 +16,10 @@ template<class F> void rejects(F f) { bool failed = false; try { f(); } catch (c
 int main() {
     auto image = loadImage("assets/icon.png");
     assert(image->width == 384 && image->height == 384 && image->pixels.size() == 384 * 384);
+    const auto large=loadImage("assets/icon.png",1920);
+    assert(large->width>384&&large->height>384); // Gallery retains the source's detail.
+    rejects([] { decodeImage("bad",0); });
+    rejects([] { decodeImage("bad",2048); });
     rejects([] { decodeImage("not a PNG"); });
     rejects([] { decodeImage(std::string(MaxCatalogBytes + 1, 'x')); });
     const std::string text = "URL / Žaidimai / 日本語 / \xf0\x9f\x8e\xae";
@@ -39,6 +43,7 @@ int main() {
     canvas.image(*image, -200, -100, 500, 500);
     canvas.image(*image, 1900, 1070, 400, 400, 100);
     canvas.text(text, -15, 30, 26, 0xffffff, 120);
+    canvas.boldText("Name:", -10, 100, 23, 0xffffff, 80);
     canvas.text("invalid \xff UTF8", 0, 80, 24, 0xffffff, 1900);
     assert(canvas.textWidth("PS4 Games Installer", 24) > 0);
 
@@ -53,6 +58,12 @@ int main() {
             if (!loaded) std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
         assert(loaded && loaded->width == 384);
+        std::shared_ptr<Image> full;
+        for(int i=0;i<100&&!full;++i){full=cache.request(entry,true,true);if(!full)std::this_thread::sleep_for(std::chrono::milliseconds(10));}
+        assert(full&&full->width==large->width&&cache.request(entry)->width==384);
+        assert(artworkKey(entry)!=artworkKey(entry,true));
+        cache.refresh(entry,true);
+        assert(cache.request(entry)->width==384); // Gallery reload does not invalidate the cover.
         cache.refresh(entry);
         cache.clear();
         entry.localIcon = "/missing/icon.png";

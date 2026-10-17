@@ -299,6 +299,8 @@ ViewState parseViewState(const std::string& text) {
     state.sidebarIndex = cJSON_GetObjectItemCaseSensitive(root.get(), "sidebar_index") ? number(root.get(), "sidebar_index", 4) : (state.available ? 1 : 0);
     if (state.sidebarIndex > 2) state.sidebarIndex = state.updatesOnly ? 2 : state.available ? 1 : 0;
     state.query = string(root.get(), "query", 512);
+    state.genre = string(root.get(), "genre", 128);
+    state.genresExpanded = boolean(root.get(), "genres_expanded");
     if (const auto* history=cJSON_GetObjectItemCaseSensitive(root.get(),"recent_searches")) {
         if (!cJSON_IsArray(history)) throw std::runtime_error("Invalid recent searches");
         for (const auto* item=history->child;item;item=item->next) {
@@ -330,6 +332,8 @@ std::string serializeViewState(const ViewState& state) {
     cJSON_AddBoolToObject(root.get(), "updates_only", state.updatesOnly);
     cJSON_AddNumberToObject(root.get(), "sidebar_index", state.sidebarIndex);
     cJSON_AddStringToObject(root.get(), "query", state.query.c_str());
+    cJSON_AddStringToObject(root.get(), "genre", state.genre.c_str());
+    cJSON_AddBoolToObject(root.get(), "genres_expanded", state.genresExpanded);
     auto* history=cJSON_AddArrayToObject(root.get(),"recent_searches");
     for (const auto& term:state.recentSearches) cJSON_AddItemToArray(history,cJSON_CreateString(term.c_str()));
     auto* filter = cJSON_AddObjectToObject(root.get(), "local_filter");

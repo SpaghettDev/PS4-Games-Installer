@@ -316,3 +316,28 @@ Unknown-CA failures are described as certificate
 trust failures. The installation-error dialog no longer claims that a package was
 downloaded. Firmware 9.00 retesting is needed before considering the TLS issue
 resolved; investigate chain construction separately if the same request fails.
+
+### GoDaddy G2 compatibility anchor
+
+The r44 firmware 9.00 log identifies `archive.org`, redirect 0, unknown CA
+(`send=0x8095F00C`, `ssl=0x8095F00A`, `verify=0x20`) with `ca=121`, successful
+`ca_load=0` and `keepalive=1`. Keepalive alone did not resolve this console's error.
+The served chain includes the G2 issuing intermediate, a cross-signed G2 root and
+a legacy Class2 root. The packaged Mozilla store contains the self-signed G2 root;
+modern OpenSSL builds a valid alternate path, but this does not prove that older
+PS4 firmware makes the same selection.
+
+The app now preloads the exact GoDaddy-published G2 issuing certificate alongside
+the unchanged Mozilla roots, before the filesystem-root transition. SSPI documents
+this compatibility anchor for the same cross-signed chain. The asset tests pin its
+PEM and DER hashes, verify its CA/signing constraints and its signature against the
+bundled roots, and check package inclusion. `THIRD_PARTY.md` records provenance.
+The firmware can use the issuing CA directly while retaining its leaf certificate
+checks. No server-delivered certificate is added to trust and no verification
+callback is used for catalogs/packages.
+
+This promotes the intermediate to a trust anchor: ancestor-chain checks above it
+are no longer needed. It is a public issuing CA, not restricted to one hostname;
+its root was already trusted. Review/replace this packaged compatibility anchor
+before its May 3, 2031 expiry. A successful console test establishes compatibility
+for that request, not the precise internal firmware chain-selection algorithm.

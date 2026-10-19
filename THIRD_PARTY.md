@@ -21,6 +21,29 @@ Application source is distributed under GPLv2; see LICENSE.
   Update the dated source, checksum, and certificate-count test together when
   replacing this bundle. Updates ship with application packages; the application
   does not download trust anchors or accept server-provided certificates as roots.
+- GoDaddy Secure Certificate Authority - G2 public intermediate certificate:
+  `assets/godaddy-secure-g2.pem`, downloaded unchanged on 2026-10-19 from
+  https://certs.godaddy.com/repository/gdig2.crt.pem.
+  GoDaddy publishes the certificate and DER fingerprint in its repository,
+  https://certs.godaddy.com/repository/. CP/CPS section 9.5.1 permits complete
+  certificate reproduction and distribution, subject to the Relying Party
+  Agreement: https://github.com/godaddy/cp-cps/blob/main/cpcps/TLS_CPCPS.md.
+  This public certificate data is separate from the MPL-licensed Mozilla
+  conversion; no third-party source code or CP/CPS text is included in the PEM.
+  DER SHA-256: `973a41276ffd01e027a2aad49e34c37846d3e976ff6a620b6712e33832041aa6`.
+  PEM SHA-256: `708c1477f5e2b2ae402ba1020a696cdd0051d44859a7e1423c900826d09053f4`.
+  The signature verifies against the GoDaddy G2 root already in `cacert.pem`.
+  This exact intermediate was also served by archive.org during investigation.
+  Validity ends 2031-05-03 07:00:00 UTC; review and replace or remove it before
+  expiry, updating both pins and tests together. Its critical constraints are
+  CA:true and certificate/CRL signing; it has no path-length, name, or extended
+  key-usage constraint. Loading it as a compatibility trust anchor trusts this
+  issuer for all hostnames, not only archive.org, and shortens the verified path
+  by bypassing ancestor checks. Hostname, validity, and signature verification
+  remain enabled. The root bundle stays unchanged. The pinned SSPI reference
+  below uses the same intermediate to avoid legacy firmware choosing the
+  server's cross-signed root path; that internal cause is a hypothesis until
+  verified on hardware. No third-party implementation code is copied.
 - Native HTTPS certificate ABI and PEM format research reference:
   https://github.com/Xyhlo/SSPI/blob/dc6cb98ee0b1c68d67bfee581fcbcb241246f456/app/NativeHttp.cs.
   OpenOrbis 0.5.4 declares `SslPem` and `sceHttpsLoadCert`; the reference confirms

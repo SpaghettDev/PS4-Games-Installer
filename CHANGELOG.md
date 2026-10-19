@@ -1,5 +1,14 @@
 # Changelog
 
+## r45 — GoDaddy HTTPS chain compatibility — 2026-10-19
+
+- Load GoDaddy's exact published G2 issuing certificate alongside the unchanged
+  Mozilla roots, addressing the documented legacy cross-signed-chain limitation.
+- Pin the asset, verify its signature/CA constraints and package it with provenance.
+  Catalog/package certificate checks remain enabled; no trust bypass is added.
+- r44 console logs confirm unknown CA at the initial package host despite successful
+  CA loading and keepalive. The new anchor requires a separate firmware 9.00 test.
+
 ## r44 — PS4 HTTPS compatibility follow-up — 2026-10-19
 
 - Select the native keepalive connection mode documented to retain custom HTTPS

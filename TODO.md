@@ -1,5 +1,12 @@
 # Work tracker
 
+## GoDaddy G2 chain compatibility
+
+- [x] Retrieve r44 logs showing the initial host/unknown CA with successful CA loading.
+- [x] Load only the pinned CA-published G2 intermediate alongside existing roots.
+- [x] Validate certificate pins/signature, native prewarming and r45 packaging.
+- [ ] Confirm package HTTPS on firmware 9.00 after installing r45.
+
 ## PS4 9.00 HTTPS follow-up
 
 - [x] Record the r42 console failure and distinguish artwork from package TLS.

@@ -16,7 +16,18 @@
 
 namespace {
 const std::vector<std::string>& trustedCertificates() {
-    static const auto certificates = psgi::parseTrustedCertificates(psgi::readFile(PSGI_CA_BUNDLE_PATH, 1024 * 1024));
+    static const auto certificates = [] {
+        const std::string bundlePath = PSGI_CA_BUNDLE_PATH;
+        auto roots = psgi::parseTrustedCertificates(psgi::readFile(bundlePath, 1024 * 1024));
+        const auto slash = bundlePath.find_last_of('/');
+        const auto directory = slash == std::string::npos ? std::string() : bundlePath.substr(0, slash + 1);
+        // This exact CA-published intermediate is verified/pinned by the asset tests.
+        // Older firmware can reject GoDaddy's supplied cross-signed root path.
+        auto intermediate = psgi::parseTrustedCertificates(psgi::readFile(directory + "godaddy-secure-g2.pem", 16 * 1024));
+        if (intermediate.size() != 1) throw std::runtime_error("Expected one GoDaddy compatibility certificate");
+        roots.insert(roots.begin(), std::move(intermediate.front()));
+        return roots;
+    }();
     return certificates;
 }
 }

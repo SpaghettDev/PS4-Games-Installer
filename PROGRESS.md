@@ -1,5 +1,29 @@
 # Implementation progress
 
+## GoDaddy G2 compatibility anchor — 2026-10-19
+
+- Retrieved the real r44 console log after the user installed and retried. Failure
+  remains at archive.org before redirects: send=0x8095F00C, ssl=0x8095F00A,
+  verify=0x20 (unknown CA), ca=121, ca_load=0, keepalive=1. This rules out the
+  connection-mode change alone as a sufficient fix on this firmware 9.00 console.
+- The live server supplies GoDaddy's G2 intermediate plus a cross-signed G2 root
+  and legacy Class2 root. The bundled self-signed G2 root validates the current
+  intermediate/leaf in desktop OpenSSL. Firmware path construction remains an
+  inference; the device error does not expose its selected chain.
+- Add only the official, pinned G2 issuing certificate as a compatibility anchor,
+  as documented by SSPI for this chain. Keep the existing roots, keepalive and
+  validation policy unchanged so this is one trust-input change for the next test.
+  The anchor is not host-specific and avoids ancestor checks above this issuer;
+  its root is already trusted, and its signature/CA constraints are verified.
+- The extra asset loads before libjbc changes the filesystem root and remains
+  alive with the other PEM records. Tests reject missing/multiple compatibility
+  certificates. Native fixtures verify all three fixture records and metadata;
+  they cannot reproduce firmware cryptography.
+- Native HTTP regressions, both startup tests and all three certificate/package
+  asset tests pass. The package builds and passes its hash/signature/import checks.
+  r45 SHA-256: `13dba839a75b8a57876bedff4bf1e55515bf122a88f5dfcfd9005277c518a387`.
+  Console installation and the same-request comparison remain pending.
+
 ## PS4 9.00 HTTPS compatibility follow-up — 2026-10-19
 
 - User hardware evidence: r42 shows artwork but its package request still fails

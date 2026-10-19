@@ -6,8 +6,9 @@
   Mozilla roots, addressing the documented legacy cross-signed-chain limitation.
 - Pin the asset, verify its signature/CA constraints and package it with provenance.
   Catalog/package certificate checks remain enabled; no trust bypass is added.
-- r44 console logs confirm unknown CA at the initial package host despite successful
-  CA loading and keepalive. The new anchor requires a separate firmware 9.00 test.
+- Firmware 9.00 hardware comparison: r44 fails unknown CA; the same request on r45
+  reaches HTTP 401 from the file host. Desktop probes confirm upstream 401/500
+  responses. TLS is working for that request; full installation remains unverified.
 
 ## r44 — PS4 HTTPS compatibility follow-up — 2026-10-19
 

@@ -22,7 +22,16 @@
 - Native HTTP regressions, both startup tests and all three certificate/package
   asset tests pass. The package builds and passes its hash/signature/import checks.
   r45 SHA-256: `13dba839a75b8a57876bedff4bf1e55515bf122a88f5dfcfd9005277c518a387`.
-  Console installation and the same-request comparison remain pending.
+- Uploaded r45 using the existing FTP helper. The user installed it and retried
+  the same package on PS4 9.00. Its actual log now reports Package HTTP 401 rather
+  than the r44 unknown-CA error, confirming HTTPS passes for this request.
+- A bounded desktop GET probe follows archive.org's HTTPS redirect to the download
+  CDN and reproduces HTTP 401 Authorization Required. Another attempted file
+  returns HTTP 500 there. These are upstream access/server responses; no package
+  download or completed installation is established. No authentication was bypassed.
+- This hardware A/B confirms the added compatibility anchor resolves the reported
+  TLS rejection on firmware 9.00. It does not reveal the verifier's internal path
+  selection algorithm or establish general PS4 11.00/BGFT acceptance.
 
 ## PS4 9.00 HTTPS compatibility follow-up — 2026-10-19
 

@@ -5,7 +5,7 @@
 - [x] Retrieve r44 logs showing the initial host/unknown CA with successful CA loading.
 - [x] Load only the pinned CA-published G2 intermediate alongside existing roots.
 - [x] Validate certificate pins/signature, native prewarming and r45 packaging.
-- [ ] Confirm package HTTPS on firmware 9.00 after installing r45.
+- [x] Confirm package HTTPS on firmware 9.00: r45 reaches HTTP responses; file hosts return 401/500.
 
 ## PS4 9.00 HTTPS follow-up
 
@@ -13,7 +13,7 @@
 - [x] Preserve custom trust through the documented keepalive connection mode.
 - [x] Correct the misleading failure dialog and add host/redirect/TLS diagnostics.
 - [x] Validate focused native/host regressions, error-screen capture and r44 package.
-- [ ] Retest the same HTTPS package on the user's firmware 9.00 console.
+- [x] Retest on firmware 9.00: r44 still failed trust; the r45 compatibility anchor passes TLS.
 
 ## HTTPS compatibility
 

@@ -341,3 +341,10 @@ are no longer needed. It is a public issuing CA, not restricted to one hostname;
 its root was already trusted. Review/replace this packaged compatibility anchor
 before its May 3, 2031 expiry. A successful console test establishes compatibility
 for that request, not the precise internal firmware chain-selection algorithm.
+
+Hardware result: on the user's firmware 9.00 console, the same package request
+that failed with unknown CA on r44 reached HTTP 401 on r45. A desktop probe follows
+the HTTPS redirect and reproduces the CDN's authorization response; another file
+returns HTTP 500. This confirms the certificate compatibility change for that
+request. Complete package transfer/local installation still needs an accessible
+file host and is not established by these error responses.

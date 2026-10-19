@@ -206,8 +206,9 @@ missing/ambiguous redirect locations are rejected. Interactive authentication is
 not supported. Package hosting must provide correct content lengths.
 
 Catalog/package TLS verification remains enabled. The app loads a pinned Mozilla
-root certificate bundle into its native HTTP context. This addresses missing
-trusted roots (`0x8095F00C`); firmware TLS protocol/cipher support, certificate
+root certificate bundle into its native HTTP context, plus the pinned GoDaddy G2
+issuing certificate for older firmware's cross-signed-chain compatibility. This
+addresses missing trusted roots (`0x8095F00C`); firmware TLS protocol/cipher support, certificate
 expiry, hostname mismatches and incomplete server chains can still cause failures.
 The PS4 clock must be correct. HTTP Range support enables background downloads
 without an extra staging copy only when the resolved package URL is HTTP. HTTPS

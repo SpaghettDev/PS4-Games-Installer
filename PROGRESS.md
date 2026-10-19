@@ -1,5 +1,33 @@
 # Implementation progress
 
+## Internet Archive authenticated downloads — 2026-10-19
+
+- r45 passes TLS on the user's PS4 9.00 but receives HTTP 401 for a package that
+  also fails anonymous laptop requests. Browser-style headers, ordinary redirect
+  cookie handling and removing Range do not change that response. The user then
+  confirms the exact package downloads after signing into Archive.org.
+- Add an Archive.org account screen and normal verified-HTTPS account login.
+  Keep only login cookies in a separate private console file; password input is
+  masked and cleared. The public JSON, saved settings, queue and backups contain
+  no credentials. Existing diagnostics contain only bounded non-secret errors.
+- Reuse the existing worker and staged package downloader. Both the package
+  probe and full transfer receive the captured session; each redirect checks the
+  destination before attaching it. Login requests never follow redirects.
+- Failed login/session writes preserve prior state. Local sign-out removes the
+  saved session; expired access requires signing in again. This addresses access,
+  not Archive.org throughput. Actual console login/full installation remain pending.
+- Full host/native suite and all 19 Python integrations pass. Focused native tests
+  verify login method/body/length/encoding, no login redirects, bounded replies,
+  cookie origin scoping, probe/full-transfer propagation and secret-free failures.
+  Session tests cover parsing/injection, private file modes, corruption and deletion.
+  App tests cover failed replacement/save, restart, busy-worker sign-out and
+  credential exclusion from configuration/queue/logs. Final UI/App regressions pass.
+- Desktop account/password/settings captures were inspected; passwords are masked.
+  Native IME options compile but physical keyboard masking still needs verification.
+  No user credentials were read, logged, added to public JSON or uploaded over FTP.
+- Built and validated `dist/PS4Game_installer-r46.pkg` with the pinned toolchain.
+  SHA-256: `1fc7ca5048e0b38330b3cf7bcdbd1d85b6d9ee2d6c996162f9f13cd30ca66480`.
+
 ## GoDaddy G2 compatibility anchor — 2026-10-19
 
 - Retrieved the real r44 console log after the user installed and retried. Failure

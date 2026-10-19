@@ -1,5 +1,6 @@
 #pragma once
 #include "catalog.hpp"
+#include "archive_auth.hpp"
 #include <atomic>
 #include <optional>
 #include <functional>
@@ -17,6 +18,10 @@ struct HttpTransferInfo { int status = 0; uint64_t length = 0; std::string effec
 using HttpSink = std::function<bool(const void*, size_t, uint64_t)>;
 HttpTransferInfo httpTransfer(const std::string& url, const HttpSink& sink, bool probeRange,
                              const std::atomic<bool>* cancelled = nullptr);
+HttpTransferInfo httpTransferAuthenticated(const std::string& url, const HttpSink& sink, bool probeRange,
+                                          const ArchiveSession& session, const std::atomic<bool>* cancelled = nullptr);
+ArchiveSession archiveLogin(const std::string& email, const std::string& password,
+                            const std::atomic<bool>* cancelled = nullptr);
 void prepareConsole();
 // Called after application resources and worker threads have been destroyed.
 // Native builds hand termination to the PS4 shell; desktop builds return status.

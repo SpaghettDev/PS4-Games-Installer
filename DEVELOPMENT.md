@@ -348,3 +348,30 @@ the HTTPS redirect and reproduces the CDN's authorization response; another file
 returns HTTP 500. This confirms the certificate compatibility change for that
 request. Complete package transfer/local installation still needs an accessible
 file host and is not established by these error responses.
+
+### Internet Archive authentication
+
+The user reproduced a successful download only after signing into Archive.org.
+Anonymous full/ranged GETs with installer and browser headers returned HTTP 401.
+The client now uses the official account login endpoint documented by the
+[Internet Archive client](https://github.com/jjjake/internetarchive/blob/master/internetarchive/config.py):
+form-encoded email/password are sent to `https://archive.org/services/xauthn/?op=login`.
+Login redirects are rejected; the reply is bounded and server error text is never
+shown or logged. Only the two login cookies are retained; returned S3 keys are ignored.
+
+The existing background worker owns sign-in. Its result becomes active only after
+the separate session file is saved; failed replacement login preserves the prior
+session. Each download captures a session snapshot and uses it for the header
+probe and full staged download. The existing HTTP adapters attach cookies only
+after checking every hop's HTTPS scheme and exact Archive.org domain boundary.
+HTTP, unrelated hosts and nonstandard ports never receive the credentials.
+Catalog/artwork fetches and remote BGFT registration do not receive the session.
+The existing staging/local BGFT path and public catalog format are unchanged.
+
+The account screen masks password entry, disables IME learning/resume for that
+field, and clears temporary password buffers after submission/cancel. Sessions
+use a separate mode-0600 file, excluded from existing backup/diagnostic exports.
+Sign-out requires the current worker operation to finish and deletes the local
+session. This is local sign-out, not revocation of all Archive.org sessions.
+There is no authentication bypass, automatic retry on rejected credentials,
+new networking dependency, or claim that host download speed is improved.

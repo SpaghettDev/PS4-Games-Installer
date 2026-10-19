@@ -1,5 +1,13 @@
 # Work tracker
 
+## Internet Archive authenticated downloads
+
+- [x] Confirm the same file downloads when the user signs into Archive.org.
+- [x] Reuse the verified HTTP/staging path with a private, host-scoped session.
+- [x] Add masked account sign-in/sign-out without changing the public catalog.
+- [x] Validate authentication, redirects, storage, UI and r46 package build.
+- [ ] Verify account sign-in and complete installation on the user's PS4 9.00.
+
 ## GoDaddy G2 chain compatibility
 
 - [x] Retrieve r44 logs showing the initial host/unknown CA with successful CA loading.

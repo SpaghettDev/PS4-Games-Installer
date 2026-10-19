@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <map>
 #include <stdexcept>
 
 namespace {
@@ -24,6 +25,11 @@ const std::string caTwo = "-----BEGIN CERTIFICATE-----\r\nQg==\r\n-----END CERTI
 struct Response { std::string url; int status; std::string headers; int tlsError = 0; };
 std::vector<Response> responses;
 std::vector<std::string> requestedUrls;
+std::vector<int> requestMethods;
+std::vector<uint64_t> requestLengths;
+std::vector<std::string> sentBodies;
+std::vector<std::map<std::string, std::string>> requestHeaders;
+std::string responseBody = body;
 std::string scenario, connectionUrl;
 bool initialized = false, poolAlive = false, sslAlive = false;
 bool tmpl = false, conn = false, req = false, policy = false, aborted = false;
@@ -49,6 +55,7 @@ void reset(const char* mode) {
     assert(!tmpl && !conn && !req);
     scenario = mode; offset = 0; policy = aborted = imageCallback = false;
     responses.clear(); requestedUrls.clear(); rangeHeaders = 0;
+    requestMethods.clear(); requestLengths.clear(); sentBodies.clear(); requestHeaders.clear(); responseBody = body;
     sslErrorReads = errnoReads = 0;
 }
 const Response& response() { assert(!responses.empty()); return responses.at(requestedUrls.size() - 1); }
@@ -120,13 +127,23 @@ int32_t sceHttpCreateConnectionWithURL(int32_t id, const char* url, bool enableK
     assert(initialized && policy && id == 4 && !conn);
     connectionUrl = url; keepalive = enableKeepalive; conn = true; return 5;
 }
-int32_t sceHttpCreateRequestWithURL(int32_t id, int32_t method, const char* url, uint64_t) {
-    assert(conn && id == 5 && !req && method == ORBIS_METHOD_GET && connectionUrl == url);
+int32_t sceHttpCreateRequestWithURL(int32_t id, int32_t method, const char* url, uint64_t length) {
+    assert(conn && id == 5 && !req && connectionUrl == url);
+    assert(method == ORBIS_METHOD_GET || method == ORBIS_METHOD_POST);
+    if (method == ORBIS_METHOD_GET) assert(length == 0);
+    else assert(connectionUrl == "https://archive.org/services/xauthn/?op=login" && length > 0);
     if (!responses.empty()) assert(responses.at(requestedUrls.size()).url == url);
-    requestedUrls.emplace_back(url); offset = 0; requestAborted = false; req = true; return 6;
+    requestedUrls.emplace_back(url); requestMethods.push_back(method); requestLengths.push_back(length);
+    requestHeaders.emplace_back(); offset = 0; requestAborted = false; req = true; return 6;
 }
-int32_t sceHttpSendRequest(int32_t id, const void*, size_t) {
+int32_t sceHttpSendRequest(int32_t id, const void* data, size_t length) {
     assert(req && id == 6); checkCaLifetime();
+    assert(length == requestLengths.back());
+    if (requestMethods.back() == ORBIS_METHOD_POST) {
+        assert(data && requestHeaders.back().at("Content-Type") == "application/x-www-form-urlencoded");
+        assert(!requestHeaders.back().count("Cookie"));
+    } else assert(!data && length == 0);
+    sentBodies.emplace_back(data ? static_cast<const char*>(data) : "", length);
     // Model the native trust-context compatibility contract documented by SSPI.
     // This fixture checks our API selection; it is not a firmware reproduction.
     if (connectionUrl.compare(0, 8, "https://") == 0 && !keepalive && !imageCallback)
@@ -169,20 +186,22 @@ int32_t sceHttpGetAllResponseHeaders(int32_t id, char** header, size_t* length) 
 int32_t sceHttpReadData(int32_t id, void* data, uint32_t capacity) {
     assert(req && id == 6);
     assert(responses.empty() || response().status == 200 || response().status == 206);
-    size_t count = std::min({size_t(capacity), size_t(7), body.size() - offset});
-    std::memcpy(data, body.data() + offset, count); offset += count;
+    size_t count = std::min({size_t(capacity), size_t(7), responseBody.size() - offset});
+    std::memcpy(data, responseBody.data() + offset, count); offset += count;
     if (scenario == "cancel") *cancellation = true;
     return count;
 }
 int32_t sceHttpAbortRequest(int32_t id) { assert(id == 6 && req); requestAborted = aborted = true; return 0; }
 int32_t sceHttpAddRequestHeader(int32_t id, const char* name, const char* value, int32_t mode) {
-    assert(id == 6 && std::strcmp(name, "Range") == 0 && std::strcmp(value, "bytes=0-3") == 0 && mode == 0);
-    ++rangeHeaders; return 0;
+    assert(id == 6 && req && name && value && mode == 0);
+    if (std::strcmp(name, "Range") == 0) { assert(std::strcmp(value, "bytes=0-3") == 0); ++rangeHeaders; }
+    else assert(std::strcmp(name, "Cookie") == 0 || std::strcmp(name, "Content-Type") == 0);
+    requestHeaders.back()[name] = value; return 0;
 }
 int32_t sceHttpGetResponseContentLength(int32_t id, int32_t* type, size_t* length) {
     assert(id == 6);
     if (scenario == "no-document-length") return int32_t(0x80431071u);
-    *type = ORBIS_HTTP_CONTENTLEN_EXIST; *length = body.size(); return 0;
+    *type = ORBIS_HTTP_CONTENTLEN_EXIST; *length = responseBody.size(); return 0;
 }
 int32_t sceHttpDeleteRequest(int32_t id) { assert(id == 6 && req); req = false; return 0; }
 int32_t sceHttpDeleteConnection(int32_t id) { assert(id == 5 && conn && !req); conn = false; return 0; }
@@ -270,6 +289,86 @@ int main() {
     const int initializedOnce = initializations, resolvedOnce = resolutions, modulesOnce = moduleLoads;
     reset("https-keepalive"); assert(psgi::httpGet(secure) == body && keepalive);
     assert(sslErrorReads == 0 && errnoReads == 0);
+
+    const char* loginUrl = "https://archive.org/services/xauthn/?op=login";
+    const std::string loginReply = R"({"success":true,"values":{"cookies":{"logged-in-user":"fixture%40example.org","logged-in-sig":"fixture-signature"},"s3":{"access":"must-not-be-used","secret":"must-not-be-used"}}})";
+    reset("archive-login"); responseBody = loginReply;
+    const auto session = psgi::archiveLogin("a+b@example.org", "p&= +%\xC3\xA9");
+    assert(session.user == "fixture%40example.org" && session.sig == "fixture-signature");
+    assert(requestedUrls == std::vector<std::string>{loginUrl});
+    assert(requestMethods == std::vector<int>{ORBIS_METHOD_POST});
+    assert(sentBodies == std::vector<std::string>{"email=a%2Bb%40example.org&password=p%26%3D%20%2B%25%C3%A9"});
+    assert(requestLengths[0] == sentBodies[0].size() && rangeHeaders == 0 && !imageCallback);
+    for (int redirect : {301, 302, 303, 307, 308}) {
+        reset("archive-login-redirect"); responses = {{loginUrl, redirect, "Location: https://other.example/login\r\n"}};
+        rejects([&] { psgi::archiveLogin("private-email", "private-password"); }, "Internet Archive sign-in failed");
+        assert(requestedUrls.size() == 1 && sentBodies.size() == 1 && aborted && offset == 0);
+    }
+    for (int status : {200, 401}) {
+        reset("archive-login-error"); responses = {{loginUrl, status, ""}};
+        responseBody = R"({"success":false,"error":"private-email private-password fixture-signature"})";
+        const auto message = rejects([&] { psgi::archiveLogin("private-email", "private-password"); }, "Internet Archive sign-in failed");
+        for (const char* secret : {"private-email", "private-password", "fixture-signature"}) assert(message.find(secret) == std::string::npos);
+    }
+    reset("archive-login-large"); responseBody.assign(64 * 1024 + 1, 'x');
+    rejects([&] { psgi::archiveLogin("private-email", "private-password"); }, "Internet Archive sign-in failed");
+    assert(aborted && offset <= 64 * 1024 + 7);
+    reset("archive-login-tls"); responses = {{loginUrl, 200, "", int32_t(0x8095F00Cu)}};
+    rejects([&] { psgi::archiveLogin("private-email", "private-password"); }, "Internet Archive sign-in failed");
+    assert(!imageCallback && sslErrorReads == 1 && aborted);
+    reset("cancel"); cancelled = false; responseBody = loginReply;
+    rejects([&] { psgi::archiveLogin("private-email", "private-password", &cancelled); }, "sign-in cancelled");
+    assert(aborted);
+    reset("archive-login-pre-cancel"); cancelled = true;
+    rejects([&] { psgi::archiveLogin("private-email", "private-password", &cancelled); }, "sign-in cancelled");
+    assert(requestedUrls.empty()); cancelled = false;
+    reset("archive-login-empty");
+    rejects([&] { psgi::archiveLogin("", "private-password"); }, "Enter your Internet Archive");
+    assert(requestedUrls.empty());
+
+    const std::string cookie = "logged-in-user=fixture%40example.org; logged-in-sig=fixture-signature";
+    reset("archive-auth-redirects");
+    responses = {{"http://archive.org/file", 302, "Location: https://archive.org/file\r\n"},
+                 {"https://archive.org/file", 302, "Location: https://dn721805.ca.archive.org/file\r\n"},
+                 {"https://dn721805.ca.archive.org/file", 302, "Location: https://archive.org.evil.example/file\r\n"},
+                 {"https://archive.org.evil.example/file", 302, "Location: https://archive.org/final\r\n"},
+                 {"https://archive.org/final", 200, ""}};
+    psgi::httpTransferAuthenticated(responses[0].url, [](const void*, size_t, uint64_t) { return true; }, false, session);
+    assert(requestedUrls.size() == 5 && !requestHeaders[0].count("Cookie") && !requestHeaders[3].count("Cookie"));
+    for (size_t i : {1u, 2u, 4u}) assert(requestHeaders[i].at("Cookie") == cookie);
+    for (int method : requestMethods) assert(method == ORBIS_METHOD_GET);
+    reset("archive-auth-range"); responses = {{"https://archive.org/file", 206, ""}};
+    psgi::httpTransferAuthenticated(responses[0].url, [](const void*, size_t, uint64_t) { return false; }, true, session);
+    assert(rangeHeaders == 1 && requestHeaders[0].at("Cookie") == cookie && aborted);
+    reset("archive-auth-probe-redirect");
+    responses = {{"https://archive.org/file", 302, "Location: https://dn721805.ca.archive.org/file\r\n"},
+                 {"https://dn721805.ca.archive.org/file", 206, ""}};
+    const auto authenticatedProbe = psgi::httpTransferAuthenticated(responses[0].url,
+        [](const void*, size_t, uint64_t) { return false; }, true, session);
+    assert(rangeHeaders == 2 && requestHeaders[0].at("Cookie") == cookie && requestHeaders[1].at("Cookie") == cookie);
+    reset("archive-auth-full-after-probe"); responses = {{authenticatedProbe.effectiveUrl, 200, ""}};
+    std::string authenticatedBody;
+    psgi::httpTransferAuthenticated(authenticatedProbe.effectiveUrl, [&](const void* data, size_t count, uint64_t) {
+        authenticatedBody.append(static_cast<const char*>(data), count); return true;
+    }, false, session);
+    assert(rangeHeaders == 0 && requestHeaders[0].at("Cookie") == cookie && authenticatedBody == body);
+    reset("archive-auth-downgrade"); responses = {{"https://archive.org/file", 302, "Location: http://archive.org/file\r\n"}};
+    rejects([&] { psgi::httpTransferAuthenticated(responses[0].url, [](const void*, size_t, uint64_t) { return true; }, false, session); }, "HTTPS redirect to HTTP");
+    assert(requestedUrls.size() == 1);
+    for (int status : {401, 403}) {
+        reset("archive-auth-denied"); responses = {{"https://archive.org/file", status, ""}};
+        const auto message = rejects([&] { psgi::httpTransferAuthenticated(responses[0].url, [](const void*, size_t, uint64_t) { return true; }, false, session); }, "Internet Archive denied this download");
+        assert(message.find(session.user) == std::string::npos && message.find(session.sig) == std::string::npos && offset == 0);
+    }
+    reset("archive-auth-invalid-url");
+    rejects([&] { psgi::httpTransferAuthenticated("https://archive.org@evil.example/file", [](const void*, size_t, uint64_t) { return true; }, false, session); }, "Invalid package URL");
+    assert(requestedUrls.empty());
+    reset("archive-anonymous"); psgi::httpTransfer("https://archive.org/file", [](const void*, size_t, uint64_t) { return true; }, false);
+    assert(!requestHeaders[0].count("Cookie"));
+    reset("archive-catalog"); psgi::httpGet("https://archive.org/catalog");
+    assert(!requestHeaders[0].count("Cookie"));
+    reset("archive-artwork"); psgi::httpGetArtwork("https://archive.org/image", 1024);
+    assert(!requestHeaders[0].count("Cookie"));
 
     reset("redirect-relative");
     responses = {{"https://fixture/old/games", 302, "HTTP/1.1 302 Found\r\nLocation: ../new/catalog?sig=a%2Fb\r\n"},

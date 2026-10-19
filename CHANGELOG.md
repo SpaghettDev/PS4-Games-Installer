@@ -1,5 +1,16 @@
 # Changelog
 
+## r46 — Internet Archive sign-in — 2026-10-19
+
+- Add a masked Archive.org account sign-in/sign-out screen for downloads that
+  require an account with access to the file.
+- Save login cookies in a separate private console session file and attach them
+  only to verified HTTPS Archive.org package requests, including CDN redirects.
+- Reuse existing package staging/local installation; keep credentials out of
+  catalogs, queue records, backups and diagnostics. Passwords are not saved.
+- Full host/native suite and 19 Python integrations passed, with UI captures and
+  package validation. Console account login and full installation remain pending.
+
 ## r45 — GoDaddy HTTPS chain compatibility — 2026-10-19
 
 - Load GoDaddy's exact published G2 issuing certificate alongside the unchanged

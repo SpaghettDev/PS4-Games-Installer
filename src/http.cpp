@@ -15,6 +15,27 @@
 #endif
 
 namespace {
+// Best-effort removal of temporary credentials and login replies from our buffers.
+struct SensitiveText {
+    std::string value;
+    ~SensitiveText() {
+        volatile char* data = value.empty() ? nullptr : &value[0];
+        for (size_t i = 0; i < value.size(); ++i) data[i] = 0;
+    }
+};
+void appendFormValue(std::string& output, const std::string& value) {
+    constexpr char hex[] = "0123456789ABCDEF";
+    for (unsigned char c : value) {
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+            (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == '~') output += c;
+        else { output += '%'; output += hex[c >> 4]; output += hex[c & 15]; }
+    }
+}
+std::string statusFailure(const std::string& label, int status, bool authenticated) {
+    if (authenticated && (status == 401 || status == 403))
+        return "Internet Archive denied this download. Sign in again and confirm access to this file.";
+    return label + " HTTP " + std::to_string(status) + "; check the URL on your server";
+}
 const std::vector<std::string>& trustedCertificates() {
     static const auto certificates = [] {
         const std::string bundlePath = PSGI_CA_BUNDLE_PATH;
@@ -58,10 +79,11 @@ size_t receiveHeaders(char* data, size_t size, size_t count, void* userdata) {
 }
 namespace psgi {
 static HttpTransferInfo performTransfer(const std::string& url, const HttpSink& sink, bool probeRange,
-                                       const std::atomic<bool>* cancelled, bool, bool document) {
+                                       const std::atomic<bool>* cancelled, bool, bool document,
+                                       const ArchiveSession* session = nullptr, const std::string* loginBody = nullptr) {
     static const CURLcode initialized = curl_global_init(CURL_GLOBAL_DEFAULT);
     if (initialized != CURLE_OK) throw std::runtime_error("curl initialization failed");
-    const std::string label = document ? "Catalog" : "Package";
+    const std::string label = loginBody ? "Internet Archive sign-in" : document ? "Catalog" : "Package";
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
     std::string current = url;
     for (unsigned redirects = 0;; ++redirects) {
@@ -71,9 +93,9 @@ static HttpTransferInfo performTransfer(const std::string& url, const HttpSink& 
         Headers headers;
         struct Stream {
             CURL* curl; const HttpSink& sink; const std::atomic<bool>* cancelled;
-            const std::string& label; bool range;
+            const std::string& label; bool range, authenticated = false;
             bool stopped = false; std::exception_ptr error;
-        } stream{curl.get(), sink, cancelled, label, probeRange, false, {}};
+        } stream{curl.get(), sink, cancelled, label, probeRange, false, false, {}};
         curl_easy_setopt(curl.get(), CURLOPT_URL, current.c_str());
         curl_easy_setopt(curl.get(), CURLOPT_PROTOCOLS_STR, "http,https");
         curl_easy_setopt(curl.get(), CURLOPT_FOLLOWLOCATION, 0L);
@@ -82,6 +104,13 @@ static HttpTransferInfo performTransfer(const std::string& url, const HttpSink& 
         curl_easy_setopt(curl.get(), CURLOPT_LOW_SPEED_TIME, 10L);
         curl_easy_setopt(curl.get(), CURLOPT_NOSIGNAL, 1L);
         curl_easy_setopt(curl.get(), CURLOPT_USERAGENT, "PS4-Games-Installer/1.0");
+        SensitiveText cookie{session ? archiveCookieForUrl(current, *session) : std::string()};
+        stream.authenticated = !cookie.value.empty();
+        if (!cookie.value.empty()) curl_easy_setopt(curl.get(), CURLOPT_COOKIE, cookie.value.c_str());
+        if (loginBody) {
+            curl_easy_setopt(curl.get(), CURLOPT_POSTFIELDS, loginBody->data());
+            curl_easy_setopt(curl.get(), CURLOPT_POSTFIELDSIZE_LARGE, static_cast<curl_off_t>(loginBody->size()));
+        }
         // Match curl's CLI trust override for the desktop checker/local TLS tests.
         // The console always uses its packaged, pinned trust bundle below.
         if (const char* bundle = std::getenv("CURL_CA_BUNDLE"))
@@ -102,7 +131,7 @@ static HttpTransferInfo performTransfer(const std::string& url, const HttpSink& 
                 curl_easy_getinfo(s.curl, CURLINFO_RESPONSE_CODE, &status);
                 if (isHttpRedirect(static_cast<int>(status))) return 0;
                 if (status != 200 && !(s.range && status == 206))
-                    throw std::runtime_error(s.label + " HTTP " + std::to_string(status) + "; check the URL on your server");
+                    throw std::runtime_error(statusFailure(s.label, static_cast<int>(status), s.authenticated));
                 curl_easy_getinfo(s.curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &total);
                 if (s.cancelled && *s.cancelled) throw std::runtime_error("Download cancelled");
                 if (!s.sink(data, size * count, total > 0 ? static_cast<uint64_t>(total) : 0)) { s.stopped = true; return 0; }
@@ -125,11 +154,12 @@ static HttpTransferInfo performTransfer(const std::string& url, const HttpSink& 
         if (result != CURLE_OK && !((stream.stopped || redirect) && result == CURLE_WRITE_ERROR))
             throw std::runtime_error(label + " download failed: " + curl_easy_strerror(result));
         if (redirect) {
+            if (loginBody) throw std::runtime_error("Internet Archive sign-in redirects are not allowed");
             current = nextHttpUrl(current, redirectLocation(headers.text), redirects);
             continue;
         }
         if (status != 200 && !(probeRange && status == 206))
-            throw std::runtime_error(label + " HTTP " + std::to_string(status) + "; check the URL on your server");
+            throw std::runtime_error(statusFailure(label, static_cast<int>(status), stream.authenticated));
         return {static_cast<int>(status), length > 0 ? static_cast<uint64_t>(length) : 0, current};
     }
 }
@@ -298,9 +328,10 @@ int32_t publicImageCertificate(int32_t, uint32_t, void* const[], int32_t, void*)
 
 namespace psgi {
 static HttpTransferInfo performTransfer(const std::string& url, const HttpSink& sink, bool probeRange,
-                                       const std::atomic<bool>* cancelled, bool artwork, bool document) {
+                                       const std::atomic<bool>* cancelled, bool artwork, bool document,
+                                       const ArchiveSession* session = nullptr, const std::string* loginBody = nullptr) {
     auto& net = network(); auto& api = net.api;
-    const std::string label = document ? "Catalog" : "Package";
+    const std::string label = loginBody ? "Internet Archive sign-in" : document ? "Catalog" : "Package";
     const uint64_t deadline = sceKernelGetProcessTime() + 30000000;
     std::string current = url;
     for (unsigned redirects = 0;; ++redirects) {
@@ -317,10 +348,14 @@ static HttpTransferInfo performTransfer(const std::string& url, const HttpSink& 
         // Use the PS4 keepalive path to retain custom HTTPS trust (see DEVELOPMENT.md).
         // Request still closes this connection after each transfer or redirect hop.
         r.conn = api.createConnection(r.tmpl, current.c_str(), true); check(r.conn, "HTTP connection");
-        r.req = api.createRequest(r.conn, ORBIS_METHOD_GET, current.c_str(), 0); check(r.req, "HTTP request");
+        r.req = api.createRequest(r.conn, loginBody ? ORBIS_METHOD_POST : ORBIS_METHOD_GET,
+                                  current.c_str(), loginBody ? loginBody->size() : 0); check(r.req, "HTTP request");
         try {
+            SensitiveText cookie{session ? archiveCookieForUrl(current, *session) : std::string()};
+            if (!cookie.value.empty()) check(api.addHeader(r.req, "Cookie", cookie.value.c_str(), 0), "Set account session");
+            if (loginBody) check(api.addHeader(r.req, "Content-Type", "application/x-www-form-urlencoded", 0), "Set sign-in content type");
             if (probeRange) check(api.addHeader(r.req, "Range", "bytes=0-3", 0), "Set package range");
-            const int sent = api.send(r.req, nullptr, 0);
+            const int sent = api.send(r.req, loginBody ? loginBody->data() : nullptr, loginBody ? loginBody->size() : 0);
             if (sent < 0) {
                 const size_t begin = current.find("://") + 3;
                 const size_t end = current.find_first_of("/?", begin);
@@ -338,12 +373,13 @@ static HttpTransferInfo performTransfer(const std::string& url, const HttpSink& 
             info.effectiveUrl = current;
             check(api.getStatus(r.req, &info.status), "HTTP status");
             if (isHttpRedirect(info.status)) {
+                if (loginBody) throw std::runtime_error("Internet Archive sign-in redirects are not allowed");
                 current = nextHttpUrl(current, requestLocation(api, r.req), redirects);
                 api.abort(r.req);
                 continue;
             }
             if (info.status != 200 && !(probeRange && info.status == 206))
-                throw std::runtime_error(label + " HTTP " + std::to_string(info.status) + "; check the URL on your server");
+                throw std::runtime_error(statusFailure(label, info.status, !cookie.value.empty()));
             if (!document) {
                 int type = -1; size_t length = 0;
                 check(api.contentLength(r.req, &type, &length), "HTTP content length");
@@ -373,6 +409,36 @@ HttpTransferInfo httpTransfer(const std::string& url, const HttpSink& sink, bool
     if (!isHttpUrl(url)) throw std::runtime_error("Invalid package URL");
     if (cancelled && *cancelled) throw std::runtime_error("Download cancelled");
     return performTransfer(url, sink, probeRange, cancelled, false, false);
+}
+HttpTransferInfo httpTransferAuthenticated(const std::string& url, const HttpSink& sink, bool probeRange,
+                                          const ArchiveSession& session, const std::atomic<bool>* cancelled) {
+    if (!isHttpUrl(url)) throw std::runtime_error("Invalid package URL");
+    if (cancelled && *cancelled) throw std::runtime_error("Download cancelled");
+    return performTransfer(url, sink, probeRange, cancelled, false, false, &session);
+}
+ArchiveSession archiveLogin(const std::string& email, const std::string& password,
+                            const std::atomic<bool>* cancelled) {
+    if (email.empty() || password.empty() || email.size() > 512 || password.size() > 4096 ||
+        email.find('\0') != std::string::npos || password.find('\0') != std::string::npos)
+        throw std::runtime_error("Enter your Internet Archive email and password.");
+    if (cancelled && *cancelled) throw std::runtime_error("Internet Archive sign-in cancelled");
+    SensitiveText form, reply;
+    form.value.reserve(16 + 3 * (email.size() + password.size()));
+    form.value = "email="; appendFormValue(form.value, email);
+    form.value += "&password="; appendFormValue(form.value, password);
+    try {
+        performTransfer("https://archive.org/services/xauthn/?op=login",
+            [&](const void* data, size_t size, uint64_t) {
+                if (size > 64 * 1024 - reply.value.size()) throw std::runtime_error("Sign-in reply exceeds limit");
+                reply.value.append(static_cast<const char*>(data), size); return true;
+            }, false, cancelled, false, true, nullptr, &form.value);
+        return parseArchiveLogin(reply.value);
+    } catch (const std::exception&) {
+        if (cancelled && *cancelled) throw std::runtime_error("Internet Archive sign-in cancelled");
+        // Server replies can contain credentials or account details. Never expose
+        // their text through the UI, persisted queue messages, or application log.
+        throw std::runtime_error("Internet Archive sign-in failed. Check your credentials, account access and connection.");
+    }
 }
 static std::string getDocument(const std::string& url, size_t limit, const std::atomic<bool>* cancelled, bool artwork) {
     if (!isHttpUrl(url)) throw std::runtime_error("Invalid catalog URL");

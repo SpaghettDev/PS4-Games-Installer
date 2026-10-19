@@ -134,12 +134,12 @@ static HttpTransferInfo performTransfer(const std::string& url, const HttpSink& 
 #include <orbis/libkernel.h>
 
 namespace {
+std::string nativeHex(uint32_t code) {
+    char value[11]; std::snprintf(value, sizeof(value), "0x%08X", code);
+    return std::string(value);
+}
 void check(int rc, const char* operation) {
-    if (rc < 0) {
-        char code[32];
-        std::snprintf(code, sizeof(code), " (0x%08X)", static_cast<unsigned>(rc));
-        throw std::runtime_error(std::string(operation) + code);
-    }
+    if (rc < 0) throw std::runtime_error(std::string(operation) + " (" + nativeHex(rc) + ")");
 }
 struct HttpApi {
     decltype(&sceHttpInit) init = nullptr;
@@ -164,6 +164,8 @@ struct HttpApi {
     decltype(&sceHttpGetAllResponseHeaders) responseHeaders = nullptr;
     decltype(&sceHttpsLoadCert) loadCert = nullptr;
     decltype(&sceHttpsSetSslCallback) setSslCallback = nullptr;
+    decltype(&psgiHttpsGetSslError) sslError = nullptr;
+    decltype(&sceHttpGetLastErrno) lastErrno = nullptr;
 
     template<class T> void bind(int module, const char* name, T& function) {
         check(sceKernelDlsym(module, name, reinterpret_cast<void**>(&function)), name);
@@ -198,11 +200,13 @@ struct HttpApi {
         bind(module, "sceHttpGetAllResponseHeaders", responseHeaders);
         bind(module, "sceHttpsLoadCert", loadCert);
         bind(module, "sceHttpsSetSslCallback", setSslCallback);
+        bind(module, "sceHttpsGetSslError", sslError);
+        bind(module, "sceHttpGetLastErrno", lastErrno);
     }
 };
 struct Network {
     HttpApi api;
-    int pool = -1, ssl = -1, http = -1;
+    int pool = -1, ssl = -1, http = -1, caLoadResult = -1;
     std::vector<std::string> certificates;
     std::vector<SslPem> pem;
     std::vector<SslPem*> roots;
@@ -229,7 +233,8 @@ struct Network {
             pool = sceNetPoolCreate("psgi", 1024 * 1024, 0); check(pool, "Network pool");
             ssl = sceSslInit(1024 * 1024); check(ssl, "SSL init");
             http = api.init(pool, ssl, 1024 * 1024); check(http, "HTTP init");
-            check(api.loadCert(http, static_cast<int32_t>(roots.size()), roots.data(), nullptr, nullptr), "Load HTTPS trust certificates");
+            caLoadResult = api.loadCert(http, static_cast<int32_t>(roots.size()), roots.data(), nullptr, nullptr);
+            check(caLoadResult, "Load HTTPS trust certificates");
         } catch (...) { cleanup(); throw; }
     }
     ~Network() { cleanup(); }
@@ -259,6 +264,20 @@ std::string requestLocation(HttpApi& api, int request) {
     if (length && headers[length - 1] == '\0') --length;
     return psgi::redirectLocation(std::string(headers, length));
 }
+std::string nativeRequestDiagnostics(Network& net, int request, bool https) {
+    std::string details;
+    if (https) {
+        int error = 0; uint32_t verify = 0;
+        const int result = net.api.sslError(request, &error, &verify);
+        details = result < 0 ? " ssl_query=" + nativeHex(result)
+                            : " ssl=" + nativeHex(error) + " verify=" + nativeHex(verify);
+    }
+    int number = 0;
+    const int result = net.api.lastErrno(request, &number);
+    details += result < 0 ? " errno_query=" + nativeHex(result) : " errno=" + std::to_string(number);
+    return details + " ca=" + std::to_string(net.roots.size()) +
+        " ca_load=" + nativeHex(net.caLoadResult) + " keepalive=1";
+}
 int32_t publicImageCertificate(int32_t, uint32_t, void* const[], int32_t, void*) {
     // Preserve the existing compatibility exception for public IGDB artwork.
     // Catalogs and packages never install a verification-bypass callback.
@@ -284,11 +303,26 @@ static HttpTransferInfo performTransfer(const std::string& url, const HttpSink& 
         constexpr char imageOrigin[] = "https://images.igdb.com/igdb/image/upload/";
         if (artwork && current.compare(0, sizeof(imageOrigin) - 1, imageOrigin) == 0)
             check(api.setSslCallback(r.tmpl, publicImageCertificate, nullptr), "Image HTTPS compatibility");
-        r.conn = api.createConnection(r.tmpl, current.c_str(), false); check(r.conn, "HTTP connection");
+        // Use the PS4 keepalive path to retain custom HTTPS trust (see DEVELOPMENT.md).
+        // Request still closes this connection after each transfer or redirect hop.
+        r.conn = api.createConnection(r.tmpl, current.c_str(), true); check(r.conn, "HTTP connection");
         r.req = api.createRequest(r.conn, ORBIS_METHOD_GET, current.c_str(), 0); check(r.req, "HTTP request");
         try {
             if (probeRange) check(api.addHeader(r.req, "Range", "bytes=0-3", 0), "Set package range");
-            check(api.send(r.req, nullptr, 0), "Send request");
+            const int sent = api.send(r.req, nullptr, 0);
+            if (sent < 0) {
+                const size_t begin = current.find("://") + 3;
+                const size_t end = current.find_first_of("/?", begin);
+                const std::string host = current.substr(begin, end - begin).substr(0, 128);
+                // Show the failing redirect host without exposing signed paths or queries.
+                const std::string action = std::string(static_cast<uint32_t>(sent) == 0x8095F00Cu
+                    ? "HTTPS certificate not trusted for " : "Send request to ") + host +
+                    " (redirect " + std::to_string(redirects) + ")";
+                // The existing App error path writes this same bounded diagnostic to
+                // app.log. Query before abort/deletion and retain the original send code.
+                const auto details = nativeRequestDiagnostics(net, r.req, current.compare(0, 8, "https://") == 0);
+                throw std::runtime_error(action + " (" + nativeHex(sent) + ");" + details);
+            }
             HttpTransferInfo info;
             info.effectiveUrl = current;
             check(api.getStatus(r.req, &info.status), "HTTP status");

@@ -1,5 +1,17 @@
 # Changelog
 
+## r44 — PS4 HTTPS compatibility follow-up — 2026-10-19
+
+- Select the native keepalive connection mode documented to retain custom HTTPS
+  trust. Keep the existing CA bundle and certificate checks unchanged.
+- Show the failing hostname and redirect count on send errors, without exposing
+  signed paths/queries. Describe unknown-CA errors as certificate trust failures.
+- Record SSL/verification errors, errno and CA-load metadata through the existing
+  app.log error path, preserving the original failure if diagnostics are unavailable.
+- Replace the misleading download sentence shown for every installation error.
+- r42 failed verified package HTTPS on a user's PS4 9.00; r44 needs a console
+  retest and is not yet a hardware-confirmed fix.
+
 ## r42 — HTTPS compatibility — 2026-10-19
 
 - Load a pinned Mozilla CA bundle for verified native HTTPS catalogs/packages.

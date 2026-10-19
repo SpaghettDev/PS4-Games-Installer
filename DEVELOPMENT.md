@@ -289,3 +289,30 @@ routing without external package servers. These checks and PS4 package validatio
 do not prove real-console TLS/cipher or BGFT acceptance. Test the resulting package
 on PS4 11.00 + GoldHEN, including HTTPS catalogs, redirected HTTPS packages, local
 installation, cancellation/retry and the existing direct HTTP path.
+
+### PS4 9.00 follow-up
+
+A user tested r42 on firmware 9.00: artwork appeared, but the same package request
+still failed with `0x8095F00C`. Artwork can use the existing IGDB exception and is
+not evidence that verified package TLS succeeded. Desktop TLS 1.2 handshakes with
+the packaged roots verify the reported host and its CDN, including the supplied
+GoDaddy G2 intermediate/cross-signed chain. This does not reproduce firmware path
+building or prove why the console rejects it.
+
+The native client now requests keepalive when creating each connection. SSPI's
+[initial public native client](https://github.com/Xyhlo/SSPI/blob/4984f2a1fd3a45f83c58c4f4c3dcb1d8b90cd439/app/NativeHttp.cs#L1141)
+documents loss of custom HTTPS trust in the non-keepalive path and uses this mode.
+This is a focused compatibility candidate, not a confirmed diagnosis on this PS4.
+Connections still close through the existing per-request/per-hop RAII ownership.
+The root bundle, certificate verification and redirect policies are unchanged.
+
+The native fixture models that documented trust-loss behavior and fails before
+the connection-mode change. It validates the intended API contract; it does not
+emulate PS4 cryptography. Send failures include only the host and redirect count,
+never signed paths/query strings. The existing error logger also records native
+SSL/verification flags, errno, CA count/load result and connection mode. Diagnostic
+getters run before cleanup; a failed getter cannot replace the request error.
+Unknown-CA failures are described as certificate
+trust failures. The installation-error dialog no longer claims that a package was
+downloaded. Firmware 9.00 retesting is needed before considering the TLS issue
+resolved; investigate chain construction separately if the same request fails.

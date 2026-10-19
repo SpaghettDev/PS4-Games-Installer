@@ -1,5 +1,41 @@
 # Implementation progress
 
+## PS4 9.00 HTTPS compatibility follow-up — 2026-10-19
+
+- User hardware evidence: r42 shows artwork but its package request still fails
+  with `Send request (0x8095F00C)` on firmware 9.00. The generic installation-error
+  sentence was misleading because it appeared before any successful transfer.
+- Desktop TLS 1.2 handshakes verify the reported package host and CDN against the
+  packaged roots. Both supply GoDaddy G2 with a cross-signed chain. This confirms
+  desktop trust, not the console's chain-building behavior.
+- SSPI documents that PS4's non-keepalive connection path can lose custom trust.
+  Changed the connection flag to keepalive without changing roots or weakening
+  verification. Request/connection/template cleanup remains per transfer/hop.
+  This is a supported compatibility candidate; its effect on this console is
+  unconfirmed. No intermediate anchors or certificate bypasses were added.
+- A native fixture modeling the documented API behavior failed before the flag
+  change with unknown CA. This is contract evidence, not hardware reproduction.
+  Send failures now identify the hostname and redirect count without URL secrets.
+  The dialog uses neutral text instead of claiming a package download occurred.
+- Read the actual console app.log over user-provided FTP: r42 fetches 865 catalog
+  entries, but multiple package-header probes fail with unknown CA before any
+  download/install. Some CDN artwork reaches HTTP 500 after successful TLS;
+  that host uses Let's Encrypt while the failing package origin uses GoDaddy G2.
+- Added native SSL number/verification flags, errno, CA count/load result and
+  keepalive mode to send-failure diagnostics through the existing App::log path.
+  Getters run before abort/deletion and cannot replace the original failure.
+  Private FTP data stays in ignored build/diagnostics and is not published.
+- Focused native HTTP fixtures and real HTTP/TLS catalog/package integration
+  tests passed. Generated the desktop captures and inspected the corrected error
+  dialog; wrapping and buttons remain clear. No generated captures were committed.
+- `make all` produced r44; `make validate` passed hashes/signatures and packed
+  imports. SHA-256: `5f5d4a64b3a22792d13124b9dc7a167000404845d1a545ea5b122fe55127587b`.
+  Uploaded this package to the console's package folder using the existing FTP
+  deployment helper; installation/retry is pending user action.
+- The upstream PR is a draft pending firmware 9.00 acceptance. The native fixture
+  models a documented behavior; neither it nor desktop TLS tests prove this
+  compatibility change resolves the console's actual handshake failure.
+
 ## HTTPS compatibility investigation — 2026-10-19
 
 - A reported catalog/package request failed with `0x8095F00C` (unknown CA).

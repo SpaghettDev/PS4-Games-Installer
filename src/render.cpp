@@ -475,7 +475,7 @@ void Renderer::draw(Canvas& c, Ui& ui, ArtworkCache& artwork, double time) {
         case Screen::InstallError: {
             panel(c, 330, 200, 1260, 680, "Installation failed");
             c.text(ui.failedInstall.name, 380, 347, 33, White, 1160);
-            c.text("Downloading a package does not install the game.", 380, 410, 26, Accent, 1160);
+            c.text("See the error below for details.", 380, 410, 26, Accent, 1160);
             std::string remaining = ui.installError;
             int baseline = 473;
             while (!remaining.empty() && baseline <= 737) {

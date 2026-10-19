@@ -1,5 +1,13 @@
 # Work tracker
 
+## PS4 9.00 HTTPS follow-up
+
+- [x] Record the r42 console failure and distinguish artwork from package TLS.
+- [x] Preserve custom trust through the documented keepalive connection mode.
+- [x] Correct the misleading failure dialog and add host/redirect/TLS diagnostics.
+- [x] Validate focused native/host regressions, error-screen capture and r44 package.
+- [ ] Retest the same HTTPS package on the user's firmware 9.00 console.
+
 ## HTTPS compatibility
 
 - [x] Reproduce redirect and trust failures with local package fixtures.

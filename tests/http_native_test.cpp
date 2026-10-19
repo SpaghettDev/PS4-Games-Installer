@@ -25,9 +25,10 @@ std::vector<std::string> requestedUrls;
 std::string scenario, connectionUrl;
 bool initialized = false, poolAlive = false, sslAlive = false;
 bool tmpl = false, conn = false, req = false, policy = false, aborted = false;
-bool imageCallback = false;
+bool imageCallback = false, keepalive = false, requestAborted = false;
 int initializations = 0, moduleLoads = 0, resolutions = 0, caLoads = 0;
 int poolDestructions = 0, sslTerminations = 0, httpTerminations = 0, rangeHeaders = 0;
+int sslErrorReads = 0, errnoReads = 0;
 SslPem** retainedCaList = nullptr;
 size_t offset = 0;
 std::atomic<bool>* cancellation = nullptr;
@@ -45,16 +46,20 @@ void reset(const char* mode) {
     assert(!tmpl && !conn && !req);
     scenario = mode; offset = 0; policy = aborted = imageCallback = false;
     responses.clear(); requestedUrls.clear(); rangeHeaders = 0;
+    sslErrorReads = errnoReads = 0;
 }
 const Response& response() { assert(!responses.empty()); return responses.at(requestedUrls.size() - 1); }
-template<class F> void rejects(F fn, const char* text) {
+template<class F> std::string rejects(F fn, const char* text) {
     bool rejected = false;
+    std::string message;
     try { fn(); } catch (const std::runtime_error& error) {
+        message = error.what();
         if (std::string(error.what()).find(text) == std::string::npos)
             std::fprintf(stderr, "Expected '%s', got '%s'\n", text, error.what());
         assert(std::string(error.what()).find(text) != std::string::npos); rejected = true;
     }
     assert(rejected && !tmpl && !conn && !req);
+    return message;
 }
 void networkReleased() { assert(!initialized && !poolAlive && !sslAlive && !retainedCaList); }
 }
@@ -107,20 +112,38 @@ int psgiHttpSetRecvTimeOut(int id, uint32_t value) { assert(policy && id == 4 &&
 int32_t sceHttpSetConnectTimeOut(int32_t id, uint32_t) { assert(id == 4); return 0; }
 int32_t sceHttpSetResolveTimeOut(int32_t id, uint32_t) { assert(id == 4); return 0; }
 int32_t sceHttpSetSendTimeOut(int32_t id, uint32_t) { assert(id == 4); return 0; }
-int32_t sceHttpCreateConnectionWithURL(int32_t id, const char* url, bool) {
+int32_t sceHttpCreateConnectionWithURL(int32_t id, const char* url, bool enableKeepalive) {
     assert(initialized && policy && id == 4 && !conn);
-    connectionUrl = url; conn = true; return 5;
+    connectionUrl = url; keepalive = enableKeepalive; conn = true; return 5;
 }
 int32_t sceHttpCreateRequestWithURL(int32_t id, int32_t method, const char* url, uint64_t) {
     assert(conn && id == 5 && !req && method == ORBIS_METHOD_GET && connectionUrl == url);
     if (!responses.empty()) assert(responses.at(requestedUrls.size()).url == url);
-    requestedUrls.emplace_back(url); offset = 0; req = true; return 6;
+    requestedUrls.emplace_back(url); offset = 0; requestAborted = false; req = true; return 6;
 }
 int32_t sceHttpSendRequest(int32_t id, const void*, size_t) {
     assert(req && id == 6); checkCaLifetime();
+    // Model the native trust-context compatibility contract documented by SSPI.
+    // This fixture checks our API selection; it is not a firmware reproduction.
+    if (connectionUrl.compare(0, 8, "https://") == 0 && !keepalive && !imageCallback)
+        return int32_t(0x8095F00Cu);
     if (!responses.empty() && response().tlsError && !imageCallback) return response().tlsError;
     if (scenario == "strict-tls") { assert(!imageCallback); return int32_t(0x8095F00Cu); }
     return scenario == "image-tls" && !imageCallback ? int32_t(0x80431075u) : 0;
+}
+int psgiHttpsGetSslError(int id, int* number, uint32_t* detail) {
+    assert(id == 6 && req && !requestAborted && number && detail);
+    ++sslErrorReads;
+    if (scenario == "diagnostic-getter-failure") return int32_t(0x80431001u);
+    *number = int32_t(0x8095F00Cu); *detail = 0x20;
+    return 0;
+}
+int32_t sceHttpGetLastErrno(int32_t id, int32_t* number) {
+    assert(id == 6 && req && !requestAborted && number);
+    ++errnoReads;
+    if (scenario == "diagnostic-getter-failure") return int32_t(0x80431002u);
+    *number = 54;
+    return 0;
 }
 int32_t sceHttpsSetSslCallback(int32_t id, OrbisHttpsCallback callback, void* argument) {
     assert(id == 4 && tmpl && callback && !argument);
@@ -147,7 +170,7 @@ int32_t sceHttpReadData(int32_t id, void* data, uint32_t capacity) {
     if (scenario == "cancel") *cancellation = true;
     return count;
 }
-int32_t sceHttpAbortRequest(int32_t id) { assert(id == 6 && req); aborted = true; return 0; }
+int32_t sceHttpAbortRequest(int32_t id) { assert(id == 6 && req); requestAborted = aborted = true; return 0; }
 int32_t sceHttpAddRequestHeader(int32_t id, const char* name, const char* value, int32_t mode) {
     assert(id == 6 && std::strcmp(name, "Range") == 0 && std::strcmp(value, "bytes=0-3") == 0 && mode == 0);
     ++rangeHeaders; return 0;
@@ -193,6 +216,8 @@ int32_t sceKernelDlsym(int32_t module, const char* name, void** address) {
     RESOLVE("sceHttpSetResolveTimeOut", sceHttpSetResolveTimeOut)
     RESOLVE("sceHttpSetSendTimeOut", sceHttpSetSendTimeOut)
     RESOLVE("sceHttpSendRequest", sceHttpSendRequest)
+    RESOLVE("sceHttpsGetSslError", psgiHttpsGetSslError)
+    RESOLVE("sceHttpGetLastErrno", sceHttpGetLastErrno)
     RESOLVE("sceHttpGetStatusCode", sceHttpGetStatusCode)
     RESOLVE("sceHttpReadData", sceHttpReadData)
     RESOLVE("sceHttpAbortRequest", sceHttpAbortRequest)
@@ -234,6 +259,8 @@ int main() {
     reset("success"); assert(psgi::httpGet(url) == body);
     assert(caLoads == 2 && !tmpl && !conn && !req); checkCaLifetime();
     const int initializedOnce = initializations, resolvedOnce = resolutions, modulesOnce = moduleLoads;
+    reset("https-keepalive"); assert(psgi::httpGet(secure) == body && keepalive);
+    assert(sslErrorReads == 0 && errnoReads == 0);
 
     reset("redirect-relative");
     responses = {{"https://fixture/old/games", 302, "HTTP/1.1 302 Found\r\nLocation: ../new/catalog?sig=a%2Fb\r\n"},
@@ -304,6 +331,44 @@ int main() {
     assert(aborted);
     reset("strict-tls"); rejects([&] { psgi::httpGet(secure); }, "0x8095F00C");
     reset("strict-tls"); rejects([&] { psgi::httpTransfer(secure, [](const void*, size_t, uint64_t) { assert(false); return true; }, false); }, "0x8095F00C");
+    const char* privateUrl = "https://fixture/private/catalog?token=secret";
+    for (bool package : {false, true}) {
+        reset("redirect-tls-diagnostic");
+        responses = {{privateUrl, 302, "Location: https://cdn.fixture/private/game.pkg?token=secret\r\n"},
+                     {"https://cdn.fixture/private/game.pkg?token=secret", 200, "", int32_t(0x8095F00Cu)}};
+        const auto message = rejects([&] {
+            if (package) psgi::httpTransfer(privateUrl, [](const void*, size_t, uint64_t) { assert(false); return true; }, false);
+            else psgi::httpGet(privateUrl);
+        }, "cdn.fixture (redirect 1)");
+        assert(message.find("0x8095F00C") != std::string::npos);
+        for (const char* detail : {"ssl=0x8095F00C", "verify=0x00000020", "errno=54",
+                                   "ca=2", "ca_load=0x00000000", "keepalive=1"})
+            assert(message.find(detail) != std::string::npos);
+        assert(sslErrorReads == 1 && errnoReads == 1 && aborted);
+        assert(message.find("private") == std::string::npos && message.find("token") == std::string::npos &&
+               message.find("secret") == std::string::npos && message.find("game.pkg") == std::string::npos);
+    }
+    for (bool package : {false, true}) {
+        reset("diagnostic-getter-failure");
+        responses = {{privateUrl, 200, "", int32_t(0x8095F00Cu)}};
+        const auto message = rejects([&] {
+            if (package) psgi::httpTransfer(privateUrl, [](const void*, size_t, uint64_t) { assert(false); return true; }, false);
+            else psgi::httpGet(privateUrl);
+        }, "fixture (redirect 0) (0x8095F00C)");
+        assert(message.find("ssl_query=0x80431001") != std::string::npos &&
+               message.find("errno_query=0x80431002") != std::string::npos);
+        assert(message.find("verify=") == std::string::npos && message.find("errno=") == std::string::npos);
+        assert(message.find("ca=2") != std::string::npos && message.find("ca_load=0x00000000") != std::string::npos);
+        assert(message.find("private") == std::string::npos && message.find("secret") == std::string::npos);
+        assert(sslErrorReads == 1 && errnoReads == 1 && aborted);
+    }
+    reset("plain-http-diagnostic"); responses = {{url, 200, "", int32_t(0x8002003Cu)}};
+    const auto plainError = rejects([&] { psgi::httpGet(url); }, "fixture (redirect 0) (0x8002003C)");
+    assert(sslErrorReads == 0 && errnoReads == 1 && plainError.find("errno=54") != std::string::npos);
+    assert(plainError.find("ssl=") == std::string::npos && plainError.find("verify=") == std::string::npos);
+    reset("strict-tls");
+    const auto directTls = rejects([&] { psgi::httpGet(privateUrl); }, "fixture (redirect 0)");
+    assert(directTls.find("private") == std::string::npos && directTls.find("secret") == std::string::npos);
     const char* image = "https://images.igdb.com/igdb/image/upload/t_1080p/fixture.jpg";
     reset("image-tls"); assert(psgi::httpGetArtwork(image, 1024) == body && imageCallback);
     reset("image-tls"); rejects([&] { psgi::httpGet(image); }, "0x80431075"); assert(!imageCallback);

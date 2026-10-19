@@ -49,9 +49,15 @@ the generated library URL in the steps below.
 3. Enter your server's **Games JSON URL**, for example `http://192.168.1.10:3000/games`.
 4. Choose **Test connection**, then **Save settings**.
 
-Use the direct JSON address supplied by your catalog server. The server and its
+Use the HTTP or HTTPS JSON address supplied by your catalog server. The server and its
 package/artwork URLs must be reachable from the PS4. Settings also lets you add
 other catalog sources, choose a layout, and turn background bubbles on or off.
+
+HTTPS catalogs and packages use bundled trusted root certificates. Up to five
+redirects are supported; redirects from HTTPS to HTTP are rejected. HTTPS packages
+download to internal storage before installation, so keep the app open and allow
+space for the package copy plus installation. A host that requires login or returns
+an error still needs a working package URL.
 
 ## Controls
 

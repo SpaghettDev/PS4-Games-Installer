@@ -1,5 +1,14 @@
 # Work tracker
 
+## HTTPS compatibility
+
+- [x] Reproduce redirect and trust failures with local package fixtures.
+- [x] Package pinned CA roots and load them before native HTTPS requests.
+- [x] Follow bounded redirects and keep TLS verification enabled for packages/catalogs.
+- [x] Reuse staging/local installation for HTTPS; retain direct HTTP BGFT handling.
+- [x] Complete host/native regressions and compile/validate the r42 PS4 package.
+- [ ] Verify HTTPS catalogs and redirected HTTPS installation on PS4 11.00 + GoldHEN.
+
 ## r40 release preparation
 
 - [x] Write concise temporary realease_notes.md for the GitHub release page.

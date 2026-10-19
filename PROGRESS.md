@@ -1,5 +1,32 @@
 # Implementation progress
 
+## HTTPS compatibility investigation — 2026-10-19
+
+- A reported catalog/package request failed with `0x8095F00C` (unknown CA).
+  The native client initialized SSL/HTTP without registering trust anchors and
+  rejected all redirects. BGFT's independent trust store also makes remote HTTPS
+  registration unsuitable for roots loaded only in this app.
+- Original native HTTP, real HTTP integration and download tests passed on the
+  unchanged r40 snapshot. New local download regressions failed before the fix:
+  HTTP redirects and HTTP-to-HTTPS returned HTTP 302, and private-fixture HTTPS
+  failed certificate verification. No external game package was downloaded.
+- Added pinned Mozilla roots, bounded strict redirects, full-length HTTPS probes
+  and reuse of the existing staging/local-install path. Cached CA assets load
+  before the libjbc root transition; no later dependency on `/app0` remains.
+- `make test` passed the complete host/native suite and 18 Python tests. Local TLS
+  fixtures cover verified catalog/package downloads, HTTP-to-HTTPS upgrades,
+  untrusted roots/hostname rejection, direct HTTP BGFT routing and HTTPS staging
+  reuse. Native fixtures cover registration ABI/lifetime, cleanup/retry, prewarming
+  across the root transition, bounded redirects and strict catalog/package TLS.
+  Catalog/artwork requests preserve support for responses without Content-Length.
+- `make all` produced r42, and `make validate` passed package hashes/signatures and
+  packed imports. The package fingerprint matches revision.json and its manifest;
+  SHA-256 is `64acdcf848170d51131592cbd9ec9353393db211bb2781ab9a9a1eca802e749c`.
+- No physical PS4 is connected; hardware acceptance remains pending and the
+  manifest explicitly keeps hardware_tested false. No console deployment occurred.
+  Existing staging, leases and local installation were reused; no new service,
+  runtime trust override, catalog schema or settings migration was added.
+
 ## r40 release notes — 2026-10-18
 
 - Created the requested temporary realease_notes.md with consumer release

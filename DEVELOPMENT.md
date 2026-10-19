@@ -244,7 +244,8 @@ success convention in the pinned SDK's
 [net_http sample](https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/blob/v0.5.4/samples/net_http/net_http/main.c).
 It relaxes certificate validation for those public images. Prefix tests exclude
 lookalike hosts, credentials and unrelated paths; catalogs/packages never activate
-the exception, including when pointed at that same host. Redirects remain disabled.
+the exception, including when pointed at that same host. Redirects now use the
+bounded policy below and re-evaluate the exception on each hop.
 
 The artwork worker keeps bounded failure text per key and at most 32 diagnostic
 messages for the main thread to write to app.log. Screenshot successes include
@@ -256,3 +257,35 @@ Capture 96 exercises a real refused local connection rather than a hardcoded err
 Read-only r37 console evidence showed no screenshot cache entries, but no native
 image error had been logged. HTTPS compatibility addresses a likely cause; actual
 PS4 acceptance is required to establish that it resolves this console's failure.
+
+## HTTPS trust and redirect transport
+
+`prepareHttpTrust()` parses the packaged, pinned Mozilla CA bundle before
+`prepareConsole()` changes the filesystem root with libjbc. The cached certificates
+remain available after `/app0` becomes inaccessible. Native HTTP initialization
+registers full CRLF PEM records using `sceHttpsLoadCert` on the same module/context
+as every other HTTP operation. The pointer array, PEM records and strings remain
+alive until context teardown. Initialization failures clean up HTTP, SSL and pool
+resources and allow a later retry. Certificates are never fetched from a server
+or silently accepted when verification fails.
+
+Both native and host clients use the same bounded redirect URL/header policy:
+five hops, HTTP(S) only, no HTTPS downgrade, no URL credentials, and no redirect
+bodies delivered to parsers or download sinks. Relative locations retain escaped
+paths and query strings. Catalog size/cancellation/deadline limits still apply.
+The host checker honors `CURL_CA_BUNDLE` for local TLS fixtures; the console has
+no runtime trust override. `THIRD_PARTY.md` records the bundle pin and license.
+
+`HttpTransferInfo::effectiveUrl` identifies the final response. Only resolved HTTP
+range responses use remote BGFT registration. HTTPS packages reuse the existing
+bounded-memory staging, free-space checks, lease handling and local BGFT path,
+because BGFT has an independent trust store. Original catalog URLs remain queue
+and staging-cache keys. HTTPS probes avoid Range so cache validation sees the full
+length, including when an HTTP probe first redirects to HTTPS.
+
+Native fixtures verify CA registration ABI/lifetime/failure cleanup and redirect
+policy. Local TLS integration tests verify trust/hostname failures and download
+routing without external package servers. These checks and PS4 package validation
+do not prove real-console TLS/cipher or BGFT acceptance. Test the resulting package
+on PS4 11.00 + GoldHEN, including HTTPS catalogs, redirected HTTPS packages, local
+installation, cancellation/retry and the existing direct HTTP path.

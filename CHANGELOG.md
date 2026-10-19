@@ -1,5 +1,16 @@
 # Changelog
 
+## r42 — HTTPS compatibility — 2026-10-19
+
+- Load a pinned Mozilla CA bundle for verified native HTTPS catalogs/packages.
+- Follow up to five HTTP(S) redirects while rejecting HTTPS downgrades.
+- Stage HTTPS packages through the app before local installation; keep remote
+  BGFT installation for resolved HTTP URLs with Range support.
+- Retain catalog URL identity and complete staging reuse across redirects/retries.
+- Full host suite (including 18 Python tests), native HTTP regressions and PS4
+  package validation passed. Hardware acceptance on PS4 11.00 + GoldHEN remains
+  pending.
+
 ## Release documentation — 2026-10-18
 
 - Prepare concise r40 release highlights in a temporary, Git-ignored notes file.

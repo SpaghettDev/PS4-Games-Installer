@@ -6,10 +6,12 @@
 #include <stdexcept>
 
 namespace psgi {
+// Cache packaged trust before libjbc changes access to /app0. Call before workers start.
+void prepareHttpTrust();
 std::string httpGet(const std::string& url, size_t limit = MaxCatalogBytes, const std::atomic<bool>* cancelled = nullptr);
 // Public artwork has a separate console HTTPS compatibility policy.
 std::string httpGetArtwork(const std::string& url, size_t limit, const std::atomic<bool>* cancelled = nullptr);
-struct HttpTransferInfo { int status = 0; uint64_t length = 0; };
+struct HttpTransferInfo { int status = 0; uint64_t length = 0; std::string effectiveUrl; };
 // Bounded-memory package transfer. Returning false from the sink stops a probe
 // without downloading the remaining body. total is the response Content-Length.
 using HttpSink = std::function<bool(const void*, size_t, uint64_t)>;

@@ -131,8 +131,11 @@ build/host/startup-test: tests/startup_fixtures.cpp $(HOST_COMMON) $(addprefix s
 	g++ $(HOSTFLAGS) -Wno-unused-function $$(pkg-config --cflags freetype2) $(filter %.cpp %.o,$^) -lcurl $$(pkg-config --libs freetype2) -o $@
 build/host/lifecycle-test: tests/lifecycle_test.cpp src/lifecycle.cpp $(HEADERS)
 	g++ $(HOSTFLAGS) -I/opt/libjbc -idirafter $(SDK)/include $(filter %.cpp,$^) -o $@
+build/host/https-trust-test: tests/https_trust_test.cpp src/https_trust.hpp assets/cacert.pem
+	@mkdir -p $(@D)
+	g++ $(HOSTFLAGS) $< -o $@
 build/host/http-native.o: src/http.cpp $(HEADERS)
-	g++ $(HOSTFLAGS) -Wframe-larger-than=8192 -UPSGI_HOST -idirafter $(SDK)/include -c $< -o $@
+	g++ $(HOSTFLAGS) -DPSGI_CA_BUNDLE_PATH='"build/host/test-cacert.pem"' -Wframe-larger-than=8192 -UPSGI_HOST -idirafter $(SDK)/include -c $< -o $@
 build/host/http-native-test: tests/http_native_test.cpp build/host/http-native.o src/catalog.cpp src/metadata.cpp build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) -UPSGI_HOST -idirafter $(SDK)/include $(filter %.cpp %.o,$^) -o $@
 build/host/launch-native-test: tests/launch_native_test.cpp src/console.cpp src/installed.cpp src/sfo.cpp src/catalog.cpp src/metadata.cpp build/host/cJSON.o $(HEADERS)
@@ -149,7 +152,8 @@ build/host/app-test: tests/app_test.cpp $(HOST_COMMON) $(addprefix src/,$(addsuf
 	g++ $(HOSTFLAGS) -Wno-unused-function $$(pkg-config --cflags freetype2) $(filter %.cpp %.o,$^) -o $@
 build/host/controller-test: tests/controller_test.cpp src/controller.cpp src/video.cpp $(HOST_COMMON) build/host/cJSON.o $(HEADERS)
 	g++ $(HOSTFLAGS) -idirafter $(SDK)/include $$(pkg-config --cflags freetype2 sdl2) $(filter %.cpp %.o,$^) $$(pkg-config --libs sdl2) -o $@
-test: assets build/host/json-allocator-test build/host/browser-native-test build/host/metadata-test build/host/catalog-test build/host/catalog-check build/host/model-test build/host/userdata-test build/host/features-test build/host/maintenance-test build/host/browsing-test build/host/filesystem-native-test build/host/thread-native-test build/host/ui-test build/host/artwork-test build/host/render-animation-test build/host/startup-test build/host/lifecycle-test build/host/http-native-test build/host/launch-native-test build/host/uninstall-native-test build/host/storage-native-test build/host/install-native-test build/host/download-runner build/host/app-test build/host/controller-test
+test: assets build/host/https-trust-test build/host/json-allocator-test build/host/browser-native-test build/host/metadata-test build/host/catalog-test build/host/catalog-check build/host/model-test build/host/userdata-test build/host/features-test build/host/maintenance-test build/host/browsing-test build/host/filesystem-native-test build/host/thread-native-test build/host/ui-test build/host/artwork-test build/host/render-animation-test build/host/startup-test build/host/lifecycle-test build/host/http-native-test build/host/launch-native-test build/host/uninstall-native-test build/host/storage-native-test build/host/install-native-test build/host/download-runner build/host/app-test build/host/controller-test
+	./build/host/https-trust-test
 	./build/host/json-allocator-test
 	./build/host/browser-native-test
 	./build/host/metadata-test

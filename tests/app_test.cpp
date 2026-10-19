@@ -63,10 +63,10 @@ int queueInstall(const Entry&, int) {
 int queueLocalInstall(const Entry&, const std::string&, int) { throw std::runtime_error("PS4 required"); }
 bool retireInactiveTask(int task) { assert(task >= 45); return allowRetirement; }
 void cancelInstallTask(int task) { assert(task >= 45); ++cancellations; if (failCancellation) throw std::runtime_error("Cancellation fixture failed; task retained"); }
-HttpTransferInfo httpTransfer(const std::string&, const HttpSink& sink, bool range, const std::atomic<bool>* cancelled) {
+HttpTransferInfo httpTransfer(const std::string& url, const HttpSink& sink, bool range, const std::atomic<bool>* cancelled) {
     while (blockProbe && !(cancelled && *cancelled)) std::this_thread::sleep_for(std::chrono::milliseconds(1));
     if (cancelled && *cancelled) throw std::runtime_error("Download cancelled");
-    assert(allowInstalls && range); sink("\x7f" "CNT", 4, 4); return {206, 4};
+    assert(allowInstalls && range); sink("\x7f" "CNT", 4, 4); return {206, 4, url};
 }
 TaskProgress taskProgress(int task) {
     assert(task >= 45);

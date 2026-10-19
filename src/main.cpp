@@ -205,6 +205,7 @@ static int runApplication(int argc, char** argv) {
         // libjbc changes the filesystem root. Read /app0 resources while the
         // application's sandbox paths are still accessible.
         Renderer renderer(assets);
+        prepareHttpTrust();
         prepareConsole();
 #ifdef PSGI_HOST
         App app(data, true);

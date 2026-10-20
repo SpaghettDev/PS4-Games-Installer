@@ -1,0 +1,7 @@
+CompileFlags:
+  CompilationDatabase: .cdb/ps4
+---
+If:
+  PathMatch: (src/desktop\.cpp|tests/.*)
+CompileFlags:
+  CompilationDatabase: .cdb/host

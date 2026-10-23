@@ -14,5 +14,7 @@ compile_commands.json
 *.swp
 *.swo
 
+# clangd compile_commands temp dirs and config
 .cdb/
 .sdk/
+.clangd

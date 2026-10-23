@@ -1,8 +1,10 @@
 SHELL := /bin/bash
-.DEFAULT_GOAL := all
+.DEFAULT_GOAL := default
 IMAGE ?= ps4-games-installer:build
 export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT := 1
-.PHONY: all image test check preview screenshots clean validate package package-internal assets deploy compile-commands
+.PHONY: default all image test check preview screenshots clean validate package package-internal assets deploy compile-commands
+
+default: package
 
 image:
 	docker build --label org.psgi.dockerfile="$$(sha256sum Dockerfile | cut -d ' ' -f1)" -t $(IMAGE) .

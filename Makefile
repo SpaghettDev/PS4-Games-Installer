@@ -43,16 +43,24 @@ preview:
 clean:
 	rm -rf build dist
 
-.PHONY: sdk
+ifneq ($(and $(OO_PS4_TOOLCHAIN),$(wildcard $(OO_PS4_TOOLCHAIN)/link.x)),)
+HOST_SDK := $(patsubst %/,%,$(OO_PS4_TOOLCHAIN))
+SDK_DEP :=
+else
+HOST_SDK := $(CURDIR)/.sdk
+SDK_DEP := .sdk
+endif
+
 all: compile-commands
 
 .sdk:
 	@test "$$(docker image inspect $(IMAGE) --format '{{index .Config.Labels "org.psgi.dockerfile"}}' 2>/dev/null)" = "$$(sha256sum Dockerfile | cut -d ' ' -f1)" || $(MAKE) image
-	@id=$$(docker create $(IMAGE)) && docker cp $$id:/opt/openorbis .sdk; docker rm $$id >/dev/null
-compile-commands: .sdk
+	@id=$$(docker create $(IMAGE)) && rm -rf .sdk && docker cp $$id:/opt/openorbis .sdk; docker rm $$id >/dev/null
+
+compile-commands: $(SDK_DEP)
 	@test "$$(docker image inspect $(IMAGE) --format '{{index .Config.Labels "org.psgi.dockerfile"}}' 2>/dev/null)" = "$$(sha256sum Dockerfile | cut -d ' ' -f1)" || $(MAKE) image
 	docker run --rm --user "$$(id -u):$$(id -g)" -v "$(CURDIR):/work" \
-		-e PSGI_IN_CONTAINER=1 -e HOST_ROOT="$(CURDIR)" $(IMAGE) make compile-commands-internal
+		-e PSGI_IN_CONTAINER=1 -e HOST_ROOT="$(CURDIR)" -e HOST_SDK="$(HOST_SDK)" $(IMAGE) make compile-commands-internal
 else
 SDK := $(OO_PS4_TOOLCHAIN)
 TOOLS := $(SDK)/bin/linux
@@ -64,10 +72,16 @@ COMMON := catalog metadata settings archive_auth library sfo installed storage u
 UI_SOURCES := controller canvas artwork render app download demo video main
 CONSOLE := $(UI_SOURCES) http install console lifecycle storage_native filesystem_native
 PS4_OBJECTS := $(addprefix build/ps4/,$(addsuffix .o,$(COMMON) $(CONSOLE))) build/ps4/cJSON.o
+PS4_CDB_SRCS := $(addprefix src/,$(addsuffix .cpp,$(COMMON) $(CONSOLE))) third_party/cjson/cJSON.c
+HOST_CDB_SRCS := $(addprefix src/,$(addsuffix .cpp,$(COMMON) $(UI_SOURCES) http desktop)) $(wildcard tests/*.cpp)
 LIBS := -ljbc -lc++ -lSceVideoOut -lSceSysmodule -lSceLncUtil -lSceSystemService -lSceFreeType -lScePad -lSceUserService -lSceNet -lSceNetCtl -lSceSsl -lSceCommonDialog -lSceImeDialog -lc -lkernel
 HOSTFLAGS := -std=c++17 -DPSGI_HOST -Isrc -Ithird_party/cjson -Ithird_party/stb -Ibuild/generated -Wall -Wextra -Werror -O1 -g -pthread
 HEADERS := $(wildcard src/*.hpp) third_party/cjson/cJSON.h third_party/stb/stb_image.h
 HOST_COMMON := $(addprefix build/host/common/,$(addsuffix .o,$(COMMON)))
+CDB := .cdb
+CDB_CROSS := $(filter-out -MMD -MP,$(CROSSFLAGS))
+CDB_HOST := $(filter-out -Werror,$(HOSTFLAGS))
+CDB_MAP := /work=$(HOST_ROOT) $(SDK)=$(HOST_SDK)
 
 all package: assets
 	python3 scripts/package.py
@@ -101,13 +115,6 @@ package-internal: build/pkg/eboot.bin assets
 	python3 scripts/metadata.py "$(SDK)" "$(REVISION)" "$(CONTENT_ID)" "$(TITLE_ID)"
 	cd build/pkg && $(TOOLS)/PkgTool.Core pkg_build pkg.gp4 ../package
 	$(TOOLS)/PkgTool.Core pkg_validate build/package/$(CONTENT_ID).pkg
-
-CDB := .cdb
-PS4_CDB_SRCS  := $(addprefix src/,$(addsuffix .cpp,$(COMMON) $(CONSOLE))) third_party/cjson/cJSON.c
-HOST_CDB_SRCS := $(addprefix src/,$(addsuffix .cpp,$(COMMON) $(UI_SOURCES) http desktop)) $(wildcard tests/*.cpp)
-CDB_CROSS := $(filter-out -MMD -MP,$(CROSSFLAGS))
-CDB_HOST  := $(filter-out -Werror,$(HOSTFLAGS))
-CDB_MAP   := /work=$(HOST_ROOT) /opt/openorbis=$(HOST_ROOT)/.sdk
 
 compile-commands-internal: build/generated/revision.hpp
 	@rm -rf $(CDB) && mkdir -p $(CDB)/frag-ps4 $(CDB)/frag-host

@@ -51,9 +51,14 @@ const std::vector<std::string>& trustedCertificates() {
         const auto directory = slash == std::string::npos ? std::string() : bundlePath.substr(0, slash + 1);
         // This exact CA-published intermediate is verified/pinned by the asset tests.
         // Older firmware can reject GoDaddy's supplied cross-signed root path.
-        auto intermediate = psgi::parseTrustedCertificates(psgi::readFile(directory + "godaddy-secure-g2.pem", 16 * 1024));
-        if (intermediate.size() != 1) throw std::runtime_error("Expected one GoDaddy compatibility certificate");
-        roots.insert(roots.begin(), std::move(intermediate.front()));
+        auto goDaddyCert = psgi::parseTrustedCertificates(psgi::readFile(directory + "godaddy-secure-g2.pem", 16 * 1024));
+        if (goDaddyCert.size() != 1) throw std::runtime_error("Expected one GoDaddy compatibility certificate");
+        roots.insert(roots.begin(), std::move(goDaddyCert.front()));
+
+        auto letsEncryptCert = psgi::parseTrustedCertificates(psgi::readFile(directory + "letsencrypt-gen-y.pem", 16 * 1024));
+        if (letsEncryptCert.size() != 2) throw std::runtime_error("Expected two or more Let's Encrypt compatibility certificates");
+        roots.insert(roots.begin(), std::move(letsEncryptCert.front()));
+
         certificates = std::make_unique<decltype(roots)>(roots);
     }
     return *certificates;

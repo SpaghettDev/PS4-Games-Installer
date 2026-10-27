@@ -134,12 +134,12 @@ App::App(const std::string& data, bool preview)
         return;
     }
     log("Loading saved catalog");
-    try { ui.available = parseCatalog(readFile(catalogCachePath(directory,ui.settings),CacheLimit),"",CacheLimit);
+    try { ui.available = parseCatalog(readFile(catalogCachePath(directory,ui.settings),CacheLimit),"",CacheLimit, ui.draft.skipBrokenDataObjects);
         log("Saved catalog ready: "+std::to_string(ui.available.size())+" packages"); }
     catch (const std::exception&) {
         // Adopt the old single cache only for an existing unprofiled setup.
         if (ui.settings.profiles.empty() && access((directory+"/catalog-cache-v1").c_str(),F_OK) && errno==ENOENT) try {
-            const auto legacy=readFile(directory+"/catalog.json",CacheLimit); ui.available=parseCatalog(legacy,"",CacheLimit);
+            const auto legacy=readFile(directory+"/catalog.json",CacheLimit); ui.available=parseCatalog(legacy,"",CacheLimit, ui.draft.skipBrokenDataObjects);
             atomicWrite(catalogCachePath(directory,ui.settings),legacy);
         } catch (const std::exception&) {}
     }
@@ -280,7 +280,7 @@ void App::refresh(bool remote) {
                 log("Fetching remote catalog: "+source.category);
                 const auto document=httpGet(source.url,MaxCatalogBytes,&worker->cancelled);
                 log("Parsing remote catalog: "+std::to_string(document.size())+" bytes");
-                mergeCatalog(combined,parseCatalog(document,source.category));
+                mergeCatalog(combined,parseCatalog(document,source.category, MaxCatalogBytes, ui.draft.skipBrokenDataObjects));
             }
             catch (const std::exception& e) { throw std::runtime_error(source.category + ": " + e.what() + ". Keeping the last valid library."); }
             ++count;
@@ -510,7 +510,7 @@ void App::tick(double elapsed, Video& video) {
                     if (changedSource) {
                         ui.available.clear(); ui.markedTitles.clear();
                         for (auto& local:ui.installed) { local.url.clear(); local.coverUrl.clear(); local.description.clear(); local.igdb={}; local.igdbJson.clear(); local.minFirmware.clear(); local.release.clear(); local.latestVersion.clear(); local.size=0; }
-                        try { ui.available=parseCatalog(readFile(catalogCachePath(directory,next),CacheLimit),"",CacheLimit); } catch (const std::exception&) {}
+                        try { ui.available=parseCatalog(readFile(catalogCachePath(directory,next),CacheLimit),"",CacheLimit, ui.draft.skipBrokenDataObjects); } catch (const std::exception&) {}
                         unlink((directory+"/catalog.json").c_str());
                     }
                     ui.rebuild();

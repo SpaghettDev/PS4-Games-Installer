@@ -58,7 +58,7 @@ struct Entry {
 
 bool isHttpUrl(const std::string& url);
 std::vector<Source> parseConfig(const std::string& text);
-std::vector<Entry> parseCatalog(const std::string& text, const std::string& category, size_t limit = MaxCatalogBytes);
+std::vector<Entry> parseCatalog(const std::string& text, const std::string& category, size_t limit = MaxCatalogBytes, bool skipBrokenObjs = false);
 void mergeCatalog(std::vector<Entry>& into, const std::vector<Entry>& entries);
 std::vector<size_t> filterCatalog(const std::vector<Entry>& entries,
                                 const std::string& category, const std::string& query,

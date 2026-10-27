@@ -14,7 +14,7 @@ struct Settings {
     Layout layout = Layout::Tiles;
     Grouping grouping = Grouping::None;
     SortField sort = SortField::Name;
-    bool descending = false, notInstalledOnly = false, animations = true, refreshOnStart = true;
+    bool descending = false, notInstalledOnly = false, animations = true, refreshOnStart = true, skipBrokenDataObjects = true;
 };
 std::string sortName(SortField field);
 void syncActiveProfile(Settings& settings);

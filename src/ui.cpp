@@ -261,6 +261,7 @@ std::vector<std::string> Ui::settingRows() const {
         draft.notInstalledOnly ? "Available: Not installed" : "Available: All packages",
         draft.animations ? "Background animation: On" : "Background animation: Off",
         draft.refreshOnStart ? "Refresh on startup: On" : "Refresh on startup: Off",
+        draft.skipBrokenDataObjects ? "Skip broken DATA objects: On" : "Skip broken DATA objects: Off",
         "Test connection", "Clear artwork cache", "Save settings", "Installation destination", "Connection setup helper", draft.descending ? "Order: Descending" : "Order: Ascending", "Storage cleanup", "Export diagnostics to USB", "Server profiles", "Archive.org account"};
 }
 std::vector<std::string> Ui::archiveRows() const {
@@ -536,7 +537,7 @@ void Ui::handle(Button b) {
     if (screen == Screen::Settings) {
         moveMenuSelection(b, settingsIndex, settingRows().size());
         if (b != Button::Cross && b != Button::Left && b != Button::Right) return;
-        if (b != Button::Cross && (settingsIndex < 2 || (settingsIndex > 7 && settingsIndex != 13))) return;
+        if (b != Button::Cross && (settingsIndex < 2 || (settingsIndex > 7 && settingsIndex != 14))) return;
         settingsNotice.clear();
         switch (settingsIndex) {
             case 0: beginEdit(EditKind::SourceUrl, 0, draft.sources[0].url); break;
@@ -547,16 +548,17 @@ void Ui::handle(Button b) {
             case 5: draft.notInstalledOnly = !draft.notInstalledOnly; break;
             case 6: draft.animations = !draft.animations; break;
             case 7: draft.refreshOnStart = !draft.refreshOnStart; break;
-            case 8: emit(CommandType::Test); break;
-            case 9: emit(CommandType::ClearArtwork); break;
-            case 10: emit(CommandType::Save); break;
-            case 11: screen = Screen::Storage; storageIndex = storage.destination == InstallDestination::External ? 1 : 0; emit(CommandType::Storage); break;
-            case 12: setupSourceIndex = 0; setupSource = draft.sources[0]; setupReturn = Screen::Settings; sourceReport = {}; featureNotice.clear(); setupIndex = 0; screen = Screen::SourceSetup; break;
-            case 13: draft.descending = !draft.descending; break;
-            case 14: maintenanceReturn = Screen::Settings; screen = Screen::Cleanup; featureNotice.clear(); emit(CommandType::ScanUsage); break;
-            case 16: profileIndex=0; profileReturn=Screen::Settings; browseNotice.clear(); screen=Screen::ServerProfiles; break;
-            case 15: maintenanceReturn = Screen::Settings; screen = Screen::Diagnostics; featureNotice.clear(); emit(CommandType::ScanBackups); break;
-            case 17: archiveIndex = 0; archivePassword.clear(); keyboardText.clear(); screen = Screen::ArchiveAccount; break;
+            case 8: draft.skipBrokenDataObjects = !draft.skipBrokenDataObjects; break;
+            case 9: emit(CommandType::Test); break;
+            case 10: emit(CommandType::ClearArtwork); break;
+            case 11: emit(CommandType::Save); break;
+            case 12: screen = Screen::Storage; storageIndex = storage.destination == InstallDestination::External ? 1 : 0; emit(CommandType::Storage); break;
+            case 13: setupSourceIndex = 0; setupSource = draft.sources[0]; setupReturn = Screen::Settings; sourceReport = {}; featureNotice.clear(); setupIndex = 0; screen = Screen::SourceSetup; break;
+            case 14: draft.descending = !draft.descending; break;
+            case 15: maintenanceReturn = Screen::Settings; screen = Screen::Cleanup; featureNotice.clear(); emit(CommandType::ScanUsage); break;
+            case 16: maintenanceReturn = Screen::Settings; screen = Screen::Diagnostics; featureNotice.clear(); emit(CommandType::ScanBackups); break;
+            case 17: profileIndex=0; profileReturn=Screen::Settings; browseNotice.clear(); screen=Screen::ServerProfiles; break;
+            case 18: archiveIndex = 0; archivePassword.clear(); keyboardText.clear(); screen = Screen::ArchiveAccount; break;
         }
         return;
     }

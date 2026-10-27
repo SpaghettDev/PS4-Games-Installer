@@ -232,7 +232,7 @@ bool Ui::handleFeatures(Button b) {
             if (!sourceReport.success || sourceReport.source.url != setupSource.url || sourceReport.source.category != setupSource.category) { featureNotice = "Test this URL successfully before using it"; return true; }
             if (setupSourceIndex < draft.sources.size()) draft.sources[setupSourceIndex] = setupSource;
             settingsNotice = "Source tested. Select Save settings to write config.json.";
-            screen = Screen::Settings; settingsIndex = 10;
+            screen = Screen::Settings; settingsIndex = 11;
         }
         return true;
     }

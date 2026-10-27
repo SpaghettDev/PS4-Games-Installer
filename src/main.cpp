@@ -115,7 +115,7 @@ void capture(App& app, Renderer& renderer, Canvas& canvas) {
     ui.settings.layout = Layout::Summary; ui.rebuild(); shot("51-updates-summary");
     ui.updatesOnly = false; ui.settings.sort = SortField::Rating; ui.settings.descending = true; ui.rebuild(); shot("52-sort-ratings");
     ui.screen = Screen::Options; ui.menuIndex = 16; shot("53-sort-and-maintenance");
-    ui.draft = ui.settings; ui.screen = Screen::Settings; ui.settingsIndex = 13; shot("54-settings-order");
+    ui.draft = ui.settings; ui.screen = Screen::Settings; ui.settingsIndex = 14; shot("54-settings-order");
     for (const auto& e : ui.available) if (packageKind(e) == 1) ui.pending = e;
     auto local = ui.installed; ui.installed.clear(); ui.screen = Screen::ConfirmInstall; shot("55-missing-base");
     QueueItem base; base.entry = local.front(); base.entry.url = "http://preview.invalid/queued-base.pkg"; base.stage = QueueStage::Waiting; ui.downloads.push_back(base);
@@ -134,7 +134,7 @@ void capture(App& app, Renderer& renderer, Canvas& canvas) {
     ui.draft.sources={{"games","https://library.example.org/games"}};addServerProfile(ui.draft,"Remote library");useServerProfile(ui.draft,0);
     ui.screen=Screen::ServerProfiles;ui.profileIndex=0;ui.browseNotice="";shot("65-server-profiles");
     ui.screen=Screen::ConfirmDeleteProfile;ui.profileIndex=1;shot("66-delete-profile");
-    ui.screen=Screen::Settings;ui.settingsIndex=16;shot("67-settings-profiles");
+    ui.screen=Screen::Settings;ui.settingsIndex=17;shot("67-settings-profiles");
     ui.settings=ui.draft;ui.screen=Screen::Dashboard;ui.settings.layout=Layout::Tiles;ui.selected[1]=0;ui.rebuild();ui.pageJump(true);shot("68-page-jump");
     ui.screen = Screen::Options; ui.menuIndex = 0; ui.handle(Button::Up); shot("70-options-wrap-last");
     ui.handle(Button::Down); shot("71-options-wrap-first");
@@ -211,7 +211,7 @@ static int runApplication(int argc, char** argv) {
         // application's sandbox paths are still accessible.
         Renderer renderer(assets);
         prepareHttpTrust();
-        prepareConsole();
+        // prepareConsole();
 #ifdef PSGI_HOST
         App app(data, true);
 #else

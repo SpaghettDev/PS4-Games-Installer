@@ -158,7 +158,7 @@ void archiveAccount() {
     const auto before = ui.draft;
     const auto rows = ui.settingRows();
     assert(rows[10] == "Save settings" && rows[16] == "Server profiles" && rows[17] == "Archive.org account");
-    ui.screen = Screen::Settings; ui.settingsIndex = 17; ui.handle(Button::Cross);
+    ui.screen = Screen::Settings; ui.settingsIndex = 18; ui.handle(Button::Cross);
     assert(ui.screen == Screen::ArchiveAccount && ui.archiveIndex == 0);
     Command command;
     ui.archiveIndex = 2; ui.handle(Button::Cross);
@@ -269,10 +269,10 @@ int main() {
     assert(ui.screen == Screen::Sources && ui.draft.sources[1].url == "http://nas/homebrew.json");
     ui.handle(Button::Triangle); assert(ui.draft.sources.size() == 1);
     ui.handle(Button::Circle); assert(ui.screen == Screen::Settings);
-    ui.settingsIndex = 10; ui.handle(Button::Cross);
+    ui.settingsIndex = 11; ui.handle(Button::Cross);
     assert(ui.take(command) && command.type == CommandType::Save);
 
-    ui.settingsIndex = 11; ui.handle(Button::Cross);
+    ui.settingsIndex = 12; ui.handle(Button::Cross);
     assert(ui.screen == Screen::Storage);
     assert(ui.take(command) && command.type == CommandType::Storage);
     // Inspecting storage must not apply/discard unsaved configuration or queue an install.

@@ -104,6 +104,7 @@ Settings parseSettings(const std::string& text) {
     s.notInstalledOnly = boolean(root.get(), "not_installed_only", false);
     s.animations = boolean(root.get(), "animations", true);
     s.refreshOnStart = boolean(root.get(), "refresh_on_start", true);
+    s.skipBrokenDataObjects = boolean(root.get(), "skip_broken_data_objs", true);
     return s;
 }
 
@@ -130,6 +131,7 @@ std::string serializeSettings(const Settings& input) {
     cJSON_AddBoolToObject(root.get(), "not_installed_only", s.notInstalledOnly);
     cJSON_AddBoolToObject(root.get(), "animations", s.animations);
     cJSON_AddBoolToObject(root.get(), "refresh_on_start", s.refreshOnStart);
+    cJSON_AddBoolToObject(root.get(), "skip_broken_data_objs", s.skipBrokenDataObjects);
     std::unique_ptr<char, decltype(&cJSON_free)> out(printJson(root.get(),true), cJSON_free);
     if (!out) throw std::runtime_error("Settings allocation failed");
     return out.get();

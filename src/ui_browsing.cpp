@@ -116,7 +116,7 @@ bool Ui::handleBrowsing(Button b) {
             if (b==Button::Square) beginEdit(EditKind::RenameProfile,profileIndex,draft.profiles[profileIndex].name);
             if (b==Button::Options) screen=Screen::ConfirmDeleteProfile;
             if (b==Button::Cross) {
-                try { useServerProfile(draft,profileIndex); screen=Screen::Settings; settingsIndex=10; settingsNotice="Profile selected. Save settings to switch servers."; }
+                try { useServerProfile(draft,profileIndex); screen=Screen::Settings; settingsIndex=11; settingsNotice="Profile selected. Save settings to switch servers."; }
                 catch (const std::exception& e) { browseNotice=e.what(); }
             }
         }

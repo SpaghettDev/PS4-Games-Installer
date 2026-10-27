@@ -159,7 +159,7 @@ int main() {
         ui.handle(Button::Cross); assert(ui.screen == Screen::Settings);
         editUrl(app, video, url);
         assert(loadSettings(directory).sources[0].url.empty()); // Accepting text is still a draft.
-        ui.settingsIndex = 10; ui.handle(Button::Cross); app.tick(0, video);
+        ui.settingsIndex = 11; ui.handle(Button::Cross); app.tick(0, video);
         assert(ui.screen == Screen::Settings && ui.settingsNotice == "Saved to " + directory + "/config.json");
         assert(loadSettings(directory).sources[0].url == url);
         settle(app, video);
@@ -169,14 +169,14 @@ int main() {
         // Save the draft captured when Save was pressed, even if the screen changes.
         const std::string next = "http://fixture/updated";
         editUrl(app, video, next);
-        ui.settingsIndex = 10; ui.handle(Button::Cross); ui.screen = Screen::Options;
+        ui.settingsIndex = 11; ui.handle(Button::Cross); ui.screen = Screen::Options;
         app.tick(0, video); settle(app, video);
         assert(loadSettings(directory).sources[0].url == next);
 
         ui.screen = Screen::Settings;
         editUrl(app, video, url);
         std::filesystem::create_directory(directory + "/config.json.tmp"); // Deterministic write failure, including as root.
-        ui.settingsIndex = 10; ui.handle(Button::Cross); app.tick(0, video);
+        ui.settingsIndex = 11; ui.handle(Button::Cross); app.tick(0, video);
         assert(ui.screen == Screen::Settings && ui.settingsNotice.find("Save failed:") == 0);
         assert(ui.settings.sources[0].url == next && ui.draft.sources[0].url == url);
         assert(loadSettings(directory).sources[0].url == next);
@@ -490,7 +490,7 @@ int main() {
         ui.setupIndex = 2; ui.handle(Button::Cross); assert(ui.screen == Screen::Settings && ui.draft.sources[0].url == "http://new-server/games");
         ui.handle(Button::Cross); app.tick(0, video); settle(app, video);
         assert(loadSettings(extras).sources[0].url == "http://new-server/games");
-        ui.settingsIndex = 12; ui.handle(Button::Cross);
+        ui.settingsIndex = 13; ui.handle(Button::Cross);
         { std::lock_guard<std::mutex> lock(requestMutex); sourceResponse = "<html>Wrong endpoint</html>"; }
         ui.handle(Button::Square); app.tick(0, video); settle(app, video);
         assert(!ui.sourceReport.success && ui.sourceReport.message.find("web page") != std::string::npos);

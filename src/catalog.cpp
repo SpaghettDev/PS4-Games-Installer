@@ -84,15 +84,17 @@ std::vector<Source> parseConfig(const std::string& text) {
     return sources;
 }
 
-std::vector<Entry> parseCatalog(const std::string& text, const std::string& category, size_t limit) {
+std::vector<Entry> parseCatalog(const std::string& text, const std::string& category, size_t limit, bool skipBrokenObjs) {
     auto root = parse(text, limit);
     const cJSON* data = cJSON_GetObjectItem(root.get(), "DATA");
     if (!cJSON_IsObject(data)) throw std::runtime_error("Catalog needs a DATA object");
     std::vector<Entry> result;
     std::set<std::string> urls;
     for (const cJSON* item = data->child; item; item = item->next) {
-        if (!cJSON_IsObject(item) || !isHttpUrl(item->string))
-            throw std::runtime_error("Catalog DATA must map direct package URLs to objects");
+        if (!cJSON_IsObject(item) || !isHttpUrl(item->string)) {
+            if (!skipBrokenObjs) throw std::runtime_error("Catalog DATA must map direct package URLs to objects");
+            else continue;
+        }
         Entry entry;
         entry.url = item->string;
         entry.name = field(item, "name");

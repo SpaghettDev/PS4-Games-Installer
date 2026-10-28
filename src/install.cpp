@@ -9,6 +9,11 @@
 #include <vector>
 #include <mutex>
 #include <orbis/libkernel.h>
+#include <orbis/Sysmodule.h>
+
+#ifdef PSGI_EMULATION_MODE
+#include <orbis/Bgft.h>
+#endif
 
 namespace {
 // BGFT ABI uses a 64-bit unsigned long package size on PS4.
@@ -55,6 +60,7 @@ struct Installer {
     int (*progress)(int, Progress*) = nullptr;
     int (*findTask)(const char*, int, int*) = nullptr;
     Installer() : heap(1024 * 1024) {
+#ifndef PSGI_EMULATION_MODE
         int module = sceKernelLoadStartModule("/system/common/lib/libSceBgft.sprx", 0, nullptr, 0, nullptr, nullptr);
         if (module < 0) throw std::runtime_error("Load BGFT: " + hexCode(module));
         auto init = symbol<int (*)(InitParams*)>(module, "sceBgftServiceInit");
@@ -67,6 +73,27 @@ struct Installer {
         if (sceKernelDlsym(module, "sceBgftServiceDownloadFindTaskByContentId", reinterpret_cast<void**>(&findTask))) findTask = nullptr;
         InitParams params{heap.data(), heap.size()};
         check(init(&params), "BGFT init");
+#else
+        check(sceSysmoduleLoadModuleInternal(ORBIS_SYSMODULE_INTERNAL_BGFT), "Load Bgft module via sysmodule");
+
+        registerPkg = [](DownloadParams* dp, int* id) {
+            return sceBgftServiceIntDebugDownloadRegisterPkg(reinterpret_cast<OrbisBgftDownloadParam*>(dp), static_cast<OrbisBgftTaskId*>(id));
+        };
+        registerLocal = [](StorageDownloadParams* sdp, int* id) {
+            return sceBgftServiceIntDownloadRegisterTaskByStorageEx(reinterpret_cast<OrbisBgftDownloadParamEx*>(sdp), static_cast<OrbisBgftTaskId*>(id));
+        };
+        start = sceBgftServiceDownloadStartTask;
+        unregisterTask = sceBgftServiceIntDownloadUnregisterTask;
+        progress = [](int id, Progress* p) {
+            return sceBgftServiceDownloadGetProgress(id, reinterpret_cast<OrbisBgftTaskProgress*>(p));
+        };
+        findTask = [](const char* name, int type, int* id) {
+            return sceBgftServiceDownloadFindTaskByContentId(name, static_cast<OrbisBgftTaskSubType>(type), static_cast<OrbisBgftTaskId*>(id));
+        };
+
+        OrbisBgftInitParams params{ heap.data(), heap.size() };
+        check(sceBgftServiceIntInit(&params), "BFGT init");
+#endif
     }
 };
 Installer& installer() {

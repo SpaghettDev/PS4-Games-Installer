@@ -83,7 +83,7 @@ HEADERS := $(wildcard src/*.hpp) third_party/cjson/cJSON.h third_party/stb/stb_i
 HOST_COMMON := $(addprefix build/host/common/,$(addsuffix .o,$(COMMON)))
 
 ifeq ($(EMU_MODE), 1)
-	LIBS += -lSceHttp -lSceAppInstUtil
+	LIBS += -lSceHttp -lSceAppInstUtil -lSceBgft
 	HOSTFLAGS += -DPSGI_EMULATION_MODE
 	CROSSFLAGS += -DPSGI_EMULATION_MODE
 endif

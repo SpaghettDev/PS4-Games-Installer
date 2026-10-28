@@ -17,10 +17,19 @@ struct Registry {
     int (*get)(int, int*) = nullptr;
     int (*set)(int, int) = nullptr;
     Registry() {
+#ifndef PSGI_EMULATION_MODE
         int module = sceKernelLoadStartModule("/system/common/lib/libSceRegMgr.sprx", 0, nullptr, 0, nullptr, nullptr);
         if (module < 0) check(module, "Load storage settings");
         check(sceKernelDlsym(module, "sceRegMgrGetInt", reinterpret_cast<void**>(&get)), "Read storage settings binding");
         check(sceKernelDlsym(module, "sceRegMgrSetInt", reinterpret_cast<void**>(&set)), "Write storage settings binding");
+#else
+        get = [](int, int*) {
+            return -1;
+        };
+        set = [](int, int) {
+            return -1;
+        };
+#endif
         if (!get || !set) throw std::runtime_error("Storage settings service is unavailable");
     }
 };

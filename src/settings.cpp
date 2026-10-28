@@ -41,22 +41,42 @@ std::vector<Source> readSources(const cJSON* urls) {
         if (category.empty() || category.size() > 32 || category.find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789_- ") != std::string::npos)
             throw std::runtime_error("Invalid source category");
         std::string url;
-        if (cJSON_IsString(item)) url = item->valuestring;
-        else if (!cJSON_IsNull(item)) throw std::runtime_error("Invalid catalog URL");
+        std::vector<std::pair<std::string, std::string>> headers;
+        if (cJSON_IsString(item)) {
+            url = item->valuestring;
+        } else if (cJSON_IsObject(item)) {
+            const auto* urlItem = cJSON_GetObjectItem(item, "url");
+            if (cJSON_IsString(urlItem)) url = urlItem->valuestring;
+            const auto* headersItem = cJSON_GetObjectItem(item, "headers");
+            if (cJSON_IsObject(headersItem)) {
+                for (const auto* h = headersItem->child; h; h = h->next) {
+                    if (cJSON_IsString(h)) headers.push_back({h->string, h->valuestring});
+                }
+            }
+        } else if (!cJSON_IsNull(item)) throw std::runtime_error("Invalid catalog URL");
         if (!url.empty() && !isHttpUrl(url)) throw std::runtime_error("Use a direct http:// or https:// catalog URL");
         for (const auto& source : sources) if (source.category == category) throw std::runtime_error("Duplicate source category");
-        sources.push_back({category, url});
+        sources.push_back({category, url, headers});
         if (sources.size() > 32) throw std::runtime_error("Maximum 32 catalog sources");
     }
     if (std::none_of(sources.begin(), sources.end(), [](const Source& source) { return source.category == "games"; }))
-        sources.insert(sources.begin(), {"games", ""});
+        sources.insert(sources.begin(), {"games", "", {}});
     else std::stable_partition(sources.begin(), sources.end(), [](const Source& source) { return source.category == "games"; });
     if (sources.size()>32) throw std::runtime_error("Maximum 32 catalog sources including games");
     return sources;
 }
 void writeSources(cJSON* object, const std::vector<Source>& sources) {
     auto* urls=cJSON_AddObjectToObject(object,"content_urls");
-    for (const auto& source:sources) cJSON_AddStringToObject(urls,source.category.c_str(),source.url.c_str());
+    for (const auto& source:sources) {
+        if (source.headers.empty()) {
+            cJSON_AddStringToObject(urls,source.category.c_str(),source.url.c_str());
+        } else {
+            auto* sourceObj = cJSON_AddObjectToObject(urls, source.category.c_str());
+            cJSON_AddStringToObject(sourceObj, "url", source.url.c_str());
+            auto* headersObj = cJSON_AddObjectToObject(sourceObj, "headers");
+            for (const auto& h : source.headers) cJSON_AddStringToObject(headersObj, h.first.c_str(), h.second.c_str());
+        }
+    }
 }
 
 }

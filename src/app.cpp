@@ -278,7 +278,7 @@ void App::refresh(bool remote) {
             if (worker->cancelled) throw std::runtime_error("Refresh cancelled");
             try {
                 log("Fetching remote catalog: "+source.category);
-                const auto document=httpGet(source.url,MaxCatalogBytes,&worker->cancelled);
+                const auto document=httpGetWithHeaders(source.url,MaxCatalogBytes,&worker->cancelled,source.headers);
                 log("Parsing remote catalog: "+std::to_string(document.size())+" bytes");
                 mergeCatalog(combined,parseCatalog(document,source.category, MaxCatalogBytes, ui.draft.skipBrokenDataObjects));
             }
@@ -542,7 +542,7 @@ void App::tick(double elapsed, Video& video) {
                         size_t count = 0, sources = 0;
                         for (const auto& source : next.sources) if (!source.url.empty()) {
                             if (worker->cancelled) throw std::runtime_error("Connection test cancelled");
-                            try { count += inspectSource(source, httpGet(source.url, MaxCatalogBytes, &worker->cancelled)).packages; ++sources; }
+                            try { count += inspectSource(source, httpGetWithHeaders(source.url, MaxCatalogBytes, &worker->cancelled, source.headers)).packages; ++sources; }
                             catch (const std::exception& e) { throw std::runtime_error(sourceFailure(source, e.what())); }
                         }
                         if (!sources) throw std::runtime_error("Enter a Games JSON URL before testing");
@@ -656,7 +656,7 @@ void App::tick(double elapsed, Video& video) {
                     const auto source = command.candidate.value();
                     if (!worker->start([this, source] {
                         Result r; r.kind = ResultKind::SourceTest; SourceReport report; report.source = source;
-                        try { report = inspectSource(source, httpGet(source.url, MaxCatalogBytes, &worker->cancelled)); }
+                        try { report = inspectSource(source, httpGetWithHeaders(source.url, MaxCatalogBytes, &worker->cancelled, source.headers)); }
                         catch (const std::exception& e) { report.message = sourceFailure(source, e.what()); }
                         r.message = report.message; r.sourceReport = std::move(report); return r;
                     })) { ui.sourceTesting = false; throw std::runtime_error("Wait for the current operation, then test this source again"); }

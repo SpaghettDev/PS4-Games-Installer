@@ -14,7 +14,7 @@ enum class Button { Up, Down, Left, Right, Cross, Circle, Square, Triangle, Opti
 // Selectable lists wrap at both ends; first supports lists with reserved rows.
 void moveMenuSelection(Button button, size_t& selection, size_t count, size_t first = 0);
 enum class Screen { Splash, Dashboard, Options, Settings, Sources, Storage, Details, Actions, Rating, LocalInfo, PickCategory, PickTags, DiscardLocal, Collections, ConfirmDeleteCollection, About, ConfirmExit, ConfirmInstall, InstallError, ConfirmUninstall, Discard, Keyboard,
-    BulkMenu, ConfirmBulkClear, SavedCollections, EditSaved, ConfirmDeleteSaved, Queue, QueueDetails, ConfirmCancelQueue, Backups, BackupFiles, ConfirmRestore, SourceSetup, Packages, Cleanup, ConfirmCleanup, Diagnostics, Search, ConfirmClearSearches, JumpLetter, ServerProfiles, ConfirmDeleteProfile, Screenshots, Videos, ArchiveAccount };
+    BulkMenu, ConfirmBulkClear, SavedCollections, EditSaved, ConfirmDeleteSaved, Queue, QueueDetails, ConfirmCancelQueue, Backups, BackupFiles, ConfirmRestore, SourceSetup, HeaderSettings, Packages, Cleanup, ConfirmCleanup, Diagnostics, Search, ConfirmClearSearches, JumpLetter, ServerProfiles, ConfirmDeleteProfile, Screenshots, Videos, ArchiveAccount };
 enum class CommandType { Refresh, Save, Test, Storage, SetStorage, ClearArtwork, RefreshArtwork, Install, Uninstall, Rate, SaveLocalInfo, CreateCollection, RenameCollection, DeleteCollection, Launch, Keyboard, Quit,
     BulkAssign, SaveSavedCollection, DeleteSavedCollection, ScanBackups, ExportBackup, RestoreBackup, TestSource, RetryQueue, CancelQueue, ClearQueue, RefreshQueue, ScanUsage, CleanStaging, ExportDiagnostics, SaveSession, RemoveQueue, OpenMedia, ArchiveSignIn, ArchiveSignOut };
 struct Command {
@@ -29,7 +29,7 @@ struct Command {
 struct DetailRow { std::string key, value; unsigned action = 0; };
 struct SidebarRow { std::string name, genre; unsigned kind = 0; };
 struct TileRow { std::string group; std::vector<size_t> items; };
-enum class EditKind { SourceUrl, SourceCategory, Search, GameCategory, GameTag, GameDescription, CreateCategory, CreateTag, RenameCategory, RenameTag, SavedName, SavedQuery, SetupUrl, ProfileName, RenameProfile, ArchiveEmail, ArchivePassword };
+enum class EditKind { SourceUrl, SourceCategory, Search, GameCategory, GameTag, GameDescription, CreateCategory, CreateTag, RenameCategory, RenameTag, SavedName, SavedQuery, SetupUrl, ProfileName, RenameProfile, ArchiveEmail, ArchivePassword, HeaderName, HeaderValue };
 size_t keyboardMaximum(EditKind kind);
 std::string keyboardTitle(EditKind kind);
 
@@ -88,7 +88,7 @@ public:
     bool bulkMode = false, bulkEditing = false;
     unsigned bulkOperation = 0;
     std::set<std::string> markedTitles;
-    size_t bulkIndex = 0, savedIndex = 0, savedEditIndex = 0, queueIndex = 0, backupIndex = 0, backupFileIndex = 0, setupIndex = 0, packageIndex = 0;
+    size_t bulkIndex = 0, savedIndex = 0, savedEditIndex = 0, queueIndex = 0, backupIndex = 0, backupFileIndex = 0, setupIndex = 0, packageIndex = 0, headerIndex = 0;
     SavedCollection savedDraft;
     std::string savedOriginal, featureNotice, packageTitle, restoreFilename, restoreDevice;
     Screen actionReturn = Screen::Dashboard, setupReturn = Screen::Settings;
@@ -101,6 +101,7 @@ public:
     size_t setupSourceIndex = 0;
     SourceReport sourceReport;
     bool sourceTesting = false;
+    std::string pendingHeaderName;
     std::string localNotice, collectionNotice, collectionOriginal;
     LocalFilter filter;
     std::string installError;

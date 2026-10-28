@@ -712,7 +712,7 @@ bool Renderer::featureDialog(Canvas& c, Ui& ui) {
         case Screen::SourceSetup: {
             panel(c, 250, 100, 1420, 880, "Connection setup helper");
             c.text("Source: " + ui.setupSource.category, 300, 235, 24, Accent, 1320);
-            menu(c, {"URL: " + (ui.setupSource.url.empty() ? "Enter a games JSON URL" : ui.setupSource.url), ui.sourceTesting ? "Testing..." : "Test this source", "Use tested source in settings"}, ui.setupIndex, 290, 315, 1340, 64);
+            menu(c, {"URL: " + (ui.setupSource.url.empty() ? "Enter a games JSON URL" : ui.setupSource.url), ui.sourceTesting ? "Testing..." : "Test this source", "Header Settings", "Use tested source in settings"}, ui.setupIndex, 290, 315, 1340, 64);
             std::vector<std::string> info;
             if (ui.sourceReport.success) info.push_back(std::to_string(ui.sourceReport.packages) + " packages: " + std::to_string(ui.sourceReport.games) + " games / " + std::to_string(ui.sourceReport.updates) + " updates / " + std::to_string(ui.sourceReport.dlc) + " DLC");
             info.push_back(ui.featureNotice.empty() ? ui.sourceReport.message : ui.featureNotice);
@@ -721,6 +721,14 @@ bool Renderer::featureDialog(Canvas& c, Ui& ui) {
             const auto lines = wrap(info);
             for (size_t i = 0; i < std::min(size_t(7), lines.size()); ++i) c.text(lines[i], 300, 565 + i * 36, 23, i == 0 ? Accent : Muted, 1320);
             hints(c, 300, 921, {{Button::Cross, "Select"}, {Button::Triangle, "Edit URL"}, {Button::Square, "Test"}, {Button::Circle, "Back"}}, 22); return true;
+        }
+        case Screen::HeaderSettings: {
+            panel(c, 250, 100, 1420, 880, "Header settings");
+            c.text("URL: " + ui.setupSource.url, 300, 235, 24, Accent, 1320);
+            std::vector<std::string> rows; rows.push_back("+ Add header");
+            for (const auto& h : ui.setupSource.headers) rows.push_back(h.first + ": " + h.second);
+            menu(c, rows, ui.headerIndex, 290, 315, 1340, 64, 8);
+            hints(c, 300, 921, {{Button::Cross, "Add"}, {Button::Square, "Remove"}, {Button::Circle, "Back"}}, 22); return true;
         }
         case Screen::Packages:
             panel(c, 180, 120, 1560, 820, "Base game, updates and DLC");

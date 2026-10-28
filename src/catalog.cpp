@@ -78,7 +78,7 @@ std::vector<Source> parseConfig(const std::string& text) {
         std::string category = lower(item->string);
         if (category == "ps5") continue;
         if (!categories.insert(category).second) throw std::runtime_error("Duplicate category in config");
-        sources.push_back({category, item->valuestring});
+        sources.push_back({category, item->valuestring, {}});
         if (sources.size() > 32) throw std::runtime_error("Too many catalog sources (max 32)");
     }
     return sources;

@@ -92,7 +92,8 @@ size_t receiveHeaders(char* data, size_t size, size_t count, void* userdata) {
 namespace psgi {
 static HttpTransferInfo performTransfer(const std::string& url, const HttpSink& sink, bool probeRange,
                                        const std::atomic<bool>* cancelled, bool, bool document,
-                                       const ArchiveSession* session = nullptr, const std::string* loginBody = nullptr) {
+                                       const ArchiveSession* session = nullptr, const std::string* loginBody = nullptr,
+                                       const std::vector<std::pair<std::string, std::string>>* customHeaders = nullptr) {
     static const CURLcode initialized = curl_global_init(CURL_GLOBAL_DEFAULT);
     if (initialized != CURLE_OK) throw std::runtime_error("curl initialization failed");
     const std::string label = loginBody ? "Internet Archive sign-in" : document ? "Catalog" : "Package";
@@ -119,6 +120,14 @@ static HttpTransferInfo performTransfer(const std::string& url, const HttpSink& 
         SensitiveText cookie{session ? archiveCookieForUrl(current, *session) : std::string()};
         stream.authenticated = !cookie.value.empty();
         if (!cookie.value.empty()) curl_easy_setopt(curl.get(), CURLOPT_COOKIE, cookie.value.c_str());
+        struct curl_slist* headerList = nullptr;
+        if (customHeaders) {
+            for (const auto& h : *customHeaders) {
+                std::string header = h.first + ": " + h.second;
+                headerList = curl_slist_append(headerList, header.c_str());
+            }
+            if (headerList) curl_easy_setopt(curl.get(), CURLOPT_HTTPHEADER, headerList);
+        }
         if (loginBody) {
             curl_easy_setopt(curl.get(), CURLOPT_POSTFIELDS, loginBody->data());
             curl_easy_setopt(curl.get(), CURLOPT_POSTFIELDSIZE_LARGE, static_cast<curl_off_t>(loginBody->size()));
@@ -156,6 +165,7 @@ static HttpTransferInfo performTransfer(const std::string& url, const HttpSink& 
             auto& s = *static_cast<Stream*>(ptr); return s.cancelled && *s.cancelled ? 1 : 0;
         });
         const auto result = curl_easy_perform(curl.get());
+        if (headerList) curl_slist_free_all(headerList);
         if (stream.error) std::rethrow_exception(stream.error);
         if (cancelled && *cancelled) throw std::runtime_error("Download cancelled");
         if (headers.failed) throw std::runtime_error("HTTP response headers exceed limit or cannot be read");
@@ -351,7 +361,8 @@ int32_t publicImageCertificate(int32_t, uint32_t, void* const[], int32_t, void*)
 namespace psgi {
 static HttpTransferInfo performTransfer(const std::string& url, const HttpSink& sink, bool probeRange,
                                        const std::atomic<bool>* cancelled, bool artwork, bool document,
-                                       const ArchiveSession* session = nullptr, const std::string* loginBody = nullptr) {
+                                       const ArchiveSession* session = nullptr, const std::string* loginBody = nullptr,
+                                       const std::vector<std::pair<std::string, std::string>>* customHeaders = nullptr) {
     auto& net = network(); auto& api = net.api;
     const std::string label = loginBody ? "Internet Archive sign-in" : document ? "Catalog" : "Package";
     const uint64_t deadline = sceKernelGetProcessTime() + 30000000;
@@ -377,6 +388,7 @@ static HttpTransferInfo performTransfer(const std::string& url, const HttpSink& 
             if (!cookie.value.empty()) check(api.addHeader(r.req, "Cookie", cookie.value.c_str(), 0), "Set account session");
             if (loginBody) check(api.addHeader(r.req, "Content-Type", "application/x-www-form-urlencoded", 0), "Set sign-in content type");
             if (probeRange) check(api.addHeader(r.req, "Range", "bytes=0-3", 0), "Set package range");
+            if (customHeaders) for (const auto& h : *customHeaders) check(api.addHeader(r.req, h.first.c_str(), h.second.c_str(), 0), "Add custom header");
 
             const int sent = api.send(r.req, loginBody ? loginBody->data() : nullptr, loginBody ? loginBody->size() : 0);
             if (sent < 0) {
@@ -467,7 +479,7 @@ ArchiveSession archiveLogin(const std::string& email, const std::string& passwor
         throw std::runtime_error("Internet Archive sign-in failed. Check your credentials, account access and connection.");
     }
 }
-static std::string getDocument(const std::string& url, size_t limit, const std::atomic<bool>* cancelled, bool artwork) {
+static std::string getDocument(const std::string& url, size_t limit, const std::atomic<bool>* cancelled, bool artwork, const std::vector<std::pair<std::string, std::string>>& headers = {}) {
     if (!isHttpUrl(url)) throw std::runtime_error("Invalid catalog URL");
     if (cancelled && *cancelled) throw std::runtime_error("Download cancelled");
     std::string out;
@@ -475,11 +487,14 @@ static std::string getDocument(const std::string& url, size_t limit, const std::
         if (size > limit - out.size()) throw std::runtime_error("Catalog download failed: Download exceeds limit");
         out.append(static_cast<const char*>(data), size);
         return true;
-    }, false, cancelled, artwork, true);
+    }, false, cancelled, artwork, true, nullptr, nullptr, &headers);
     return out;
 }
 std::string httpGet(const std::string& url, size_t limit, const std::atomic<bool>* cancelled) {
-    return getDocument(url, limit, cancelled, false);
+    return getDocument(url, limit, cancelled, false, {});
+}
+std::string httpGetWithHeaders(const std::string& url, size_t limit, const std::atomic<bool>* cancelled, const std::vector<std::pair<std::string, std::string>>& headers) {
+    return getDocument(url, limit, cancelled, false, headers);
 }
 std::string httpGetArtwork(const std::string& url, size_t limit, const std::atomic<bool>* cancelled) {
     return getDocument(url, limit, cancelled, true);

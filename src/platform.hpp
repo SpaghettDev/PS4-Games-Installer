@@ -10,6 +10,7 @@ namespace psgi {
 // Cache packaged trust before libjbc changes access to /app0. Call before workers start.
 void prepareHttpTrust();
 std::string httpGet(const std::string& url, size_t limit = MaxCatalogBytes, const std::atomic<bool>* cancelled = nullptr);
+std::string httpGetWithHeaders(const std::string& url, size_t limit, const std::atomic<bool>* cancelled, const std::vector<std::pair<std::string, std::string>>& headers);
 // Public artwork has a separate console HTTPS compatibility policy.
 std::string httpGetArtwork(const std::string& url, size_t limit, const std::atomic<bool>* cancelled = nullptr);
 struct HttpTransferInfo { int status = 0; uint64_t length = 0; std::string effectiveUrl; };

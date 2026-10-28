@@ -25,6 +25,7 @@ size_t keyboardMaximum(EditKind kind) {
     if (kind == EditKind::SourceCategory) return 32;
     if (kind == EditKind::Search || kind == EditKind::SavedQuery) return 128;
     if (kind == EditKind::GameDescription) return MaxLocalDescription;
+    if (kind == EditKind::HeaderName || kind == EditKind::HeaderValue) return 256;
     return MaxLocalName;
 }
 std::string keyboardTitle(EditKind kind) {
@@ -43,6 +44,8 @@ std::string keyboardTitle(EditKind kind) {
         case EditKind::GameTag: case EditKind::CreateTag: return "New local tag";
         case EditKind::RenameTag: return "Rename local tag";
         case EditKind::RenameCategory: return "Rename local category";
+        case EditKind::HeaderName: return "Header name";
+        case EditKind::HeaderValue: return "Header value";
         default: return "New local category";
     }
 }
@@ -233,6 +236,18 @@ void Ui::finishEdit(const std::optional<std::string>& text) {
         } catch (const std::exception& e) { localNotice = collectionNotice = status = e.what(); }
         return;
     }
+    if (editKind == EditKind::HeaderName || editKind == EditKind::HeaderValue) {
+        if (editKind == EditKind::HeaderName) {
+            pendingHeaderName = *text;
+            beginEdit(EditKind::HeaderValue, 0, "");
+        } else {
+            if (!pendingHeaderName.empty()) {
+                setupSource.headers.push_back({pendingHeaderName, *text});
+                pendingHeaderName.clear();
+            }
+        }
+        return;
+    }
     if (editKind == EditKind::SourceUrl) {
         if (!text->empty() && !isHttpUrl(*text)) { settingsNotice = status = "Invalid URL. Use http:// or https:// with no spaces."; return; }
         draft.sources.at(editSource).url = *text;
@@ -243,7 +258,7 @@ void Ui::finishEdit(const std::optional<std::string>& text) {
             status = "Use a short PS4 category name (letters, numbers, spaces, - or _)."; return;
         }
         for (const auto& source : draft.sources) if (source.category == category) { status = "That category already exists."; return; }
-        draft.sources.push_back({category, ""});
+        draft.sources.push_back({category, "", {}});
         sourceIndex = draft.sources.size() - 1;
         beginEdit(EditKind::SourceUrl, sourceIndex, "");
     }

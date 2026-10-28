@@ -9,7 +9,7 @@ namespace psgi {
 constexpr size_t MaxCatalogBytes = 8 * 1024 * 1024;
 constexpr size_t MaxEntries = 50000;
 
-struct Source { std::string category, url; };
+struct Source { std::string category, url; std::vector<std::pair<std::string, std::string>> headers; };
 struct LocalInfo {
     std::string category, description;
     std::vector<std::string> tags;

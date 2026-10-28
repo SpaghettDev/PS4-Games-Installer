@@ -8,7 +8,7 @@ enum class SortField { Name, Size, Rating, LastLaunch, FirstInstalled };
 struct ServerProfile { std::string name; std::vector<Source> sources; };
 constexpr size_t MaxServerProfiles = 16;
 struct Settings {
-    std::vector<Source> sources{{"games", ""}};
+    std::vector<Source> sources{{"games", "", {}}};
     std::vector<ServerProfile> profiles;
     std::string activeProfile;
     Layout layout = Layout::Tiles;

@@ -225,14 +225,32 @@ bool Ui::handleFeatures(Button b) {
     }
     if (screen == Screen::SourceSetup) {
         if (b == Button::Circle) { screen = setupReturn; return true; }
-        moveMenuSelection(b, setupIndex, 3);
+        moveMenuSelection(b, setupIndex, 4);
         if (b == Button::Triangle || (b == Button::Cross && setupIndex == 0)) beginEdit(EditKind::SetupUrl, 0, setupSource.url);
         else if (b == Button::Square || (b == Button::Cross && setupIndex == 1)) { if (!sourceTesting) testSetupSource(); }
-        else if (b == Button::Cross && setupIndex == 2) {
+        else if (b == Button::Cross && setupIndex == 3) {
             if (!sourceReport.success || sourceReport.source.url != setupSource.url || sourceReport.source.category != setupSource.category) { featureNotice = "Test this URL successfully before using it"; return true; }
             if (setupSourceIndex < draft.sources.size()) draft.sources[setupSourceIndex] = setupSource;
             settingsNotice = "Source tested. Select Save settings to write config.json.";
             screen = Screen::Settings; settingsIndex = 11;
+        }
+        else if (b == Button::Cross && setupIndex == 2) {
+            screen = Screen::HeaderSettings;
+            return true;
+        }
+        return true;
+    }
+    if (screen == Screen::HeaderSettings) {
+        if (b == Button::Circle) { screen = Screen::SourceSetup; return true; }
+        size_t count = setupSource.headers.size() + 1;
+        moveMenuSelection(b, headerIndex, count);
+        if (b == Button::Cross) {
+            if (headerIndex == 0) beginEdit(EditKind::HeaderName, 0, "");
+            return true;
+        }
+        if (b == Button::Square && headerIndex > 0 && headerIndex <= setupSource.headers.size()) {
+            setupSource.headers.erase(setupSource.headers.begin() + (headerIndex - 1));
+            if (headerIndex > setupSource.headers.size()) --headerIndex;
         }
         return true;
     }

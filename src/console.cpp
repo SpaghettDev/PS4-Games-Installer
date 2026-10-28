@@ -28,12 +28,21 @@ struct AppService {
     int (*exists)(const char*, int*) = nullptr;
     int (*getSize)(const char*, uint64_t*) = nullptr;
     AppService() {
+        int (*initialize)() = nullptr;
+#ifndef PSGI_EMULATION_MODE
         module = sceKernelLoadStartModule("/system/common/lib/libSceAppInstUtil.sprx", 0, nullptr, 0, nullptr, nullptr);
         require(module, "Load installed library service");
-        int (*initialize)() = nullptr;
+
         require(sceKernelDlsym(module, "sceAppInstUtilInitialize", reinterpret_cast<void**>(&initialize)), "Resolve installed service init");
         require(sceKernelDlsym(module, "sceAppInstUtilAppExists", reinterpret_cast<void**>(&exists)), "Resolve installed registrations");
         require(sceKernelDlsym(module, "sceAppInstUtilAppGetSize", reinterpret_cast<void**>(&getSize)), "Resolve installed size");
+#else
+        require(sceSysmoduleLoadModuleInternal(ORBIS_SYSMODULE_INTERNAL_APP_INST_UTIL), "Load App Install Util via sysmodule");
+
+        initialize = sceAppInstUtilInitialize;
+        exists = sceAppInstUtilAppExists;
+        getSize = reinterpret_cast<decltype(getSize)>(&sceAppInstUtilAppGetSize);
+#endif
         require(initialize(), "Initialize installed library");
     }
 };

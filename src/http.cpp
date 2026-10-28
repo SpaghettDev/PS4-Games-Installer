@@ -219,12 +219,14 @@ struct HttpApi {
     decltype(&sceHttpsSetSslCallback) setSslCallback = nullptr;
     decltype(&psgiHttpsGetSslError) sslError = nullptr;
     decltype(&sceHttpGetLastErrno) lastErrno = nullptr;
+    decltype(&psgiHttpRemoveRequestHeader) removeHeader = nullptr;
 
     template<class T> void bind(int module, const char* name, T& function) {
         check(sceKernelDlsym(module, name, reinterpret_cast<void**>(&function)), name);
         if (!function) throw std::runtime_error(std::string("Missing HTTP function: ") + name);
     }
     void load() {
+#ifndef PSGI_EMULATION_MODE
         // Resolve every operation from the same module instance as init/cleanup.
         static const int module = [] {
             int handle = sceKernelLoadStartModule("/system/common/lib/libSceHttp.sprx", 0, nullptr, 0, nullptr, nullptr);
@@ -255,6 +257,37 @@ struct HttpApi {
         bind(module, "sceHttpsSetSslCallback", setSslCallback);
         bind(module, "sceHttpsGetSslError", sslError);
         bind(module, "sceHttpGetLastErrno", lastErrno);
+#else
+        check(sceSysmoduleLoadModuleInternal(ORBIS_SYSMODULE_INTERNAL_HTTP), "Load HTTP client via sysmodule");
+        check(sceSysmoduleLoadModuleInternal(ORBIS_SYSMODULE_INTERNAL_SSL), "Load SSL module via sysmodule");
+
+        init = sceHttpInit;
+        init = sceHttpInit;
+        term = sceHttpTerm;
+        createTemplate = sceHttpCreateTemplate;
+        deleteTemplate = sceHttpDeleteTemplate;
+        createConnection = sceHttpCreateConnectionWithURL;
+        deleteConnection = sceHttpDeleteConnection;
+        createRequest = sceHttpCreateRequestWithURL;
+        deleteRequest = sceHttpDeleteRequest;
+        setAutoRedirect = reinterpret_cast<decltype(psgiHttpSetAutoRedirect)*>(&sceHttpSetAutoRedirect);
+        setRecvTimeout = reinterpret_cast<decltype(psgiHttpSetRecvTimeOut)*>(&sceHttpSetRecvTimeOut);
+        setConnectTimeout = sceHttpSetConnectTimeOut;
+        setResolveTimeout = sceHttpSetResolveTimeOut;
+        setSendTimeout = sceHttpSetSendTimeOut;
+        send = sceHttpSendRequest;
+        getStatus = sceHttpGetStatusCode;
+        read = sceHttpReadData;
+        abort = sceHttpAbortRequest;
+        addHeader = sceHttpAddRequestHeader;
+        contentLength = sceHttpGetResponseContentLength;
+        responseHeaders = sceHttpGetAllResponseHeaders;
+        loadCert = sceHttpsLoadCert;
+        setSslCallback = sceHttpsSetSslCallback;
+        sslError = reinterpret_cast<decltype(psgiHttpsGetSslError)*>(&sceHttpsGetSslError);
+        lastErrno = sceHttpGetLastErrno;
+        removeHeader = reinterpret_cast<decltype(psgiHttpRemoveRequestHeader)*>(&sceHttpRemoveRequestHeader);
+#endif
     }
 };
 struct Network {
@@ -370,6 +403,7 @@ static HttpTransferInfo performTransfer(const std::string& url, const HttpSink& 
         r.conn = api.createConnection(r.tmpl, current.c_str(), true); check(r.conn, "HTTP connection");
         r.req = api.createRequest(r.conn, loginBody ? ORBIS_METHOD_POST : ORBIS_METHOD_GET,
                                   current.c_str(), loginBody ? loginBody->size() : 0); check(r.req, "HTTP request");
+        api.removeHeader(r.req, "Host");
         try {
             SensitiveText cookie{session ? archiveCookieForUrl(current, *session) : std::string()};
             if (!cookie.value.empty()) check(api.addHeader(r.req, "Cookie", cookie.value.c_str(), 0), "Set account session");

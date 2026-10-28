@@ -30,16 +30,19 @@ lsp-host:
 		'  CompilationDatabase: .cdb/ps4' > .clangd
 
 ifneq ($(PSGI_IN_CONTAINER),1)
+
+DOCKER_MAKE_EXTRA := $(if $(EMU_MODE),EMU_MODE="$(EMU_MODE)")
+
 all package test check screenshots validate deploy:
 	@test "$$(docker image inspect $(IMAGE) --format '{{index .Config.Labels "org.psgi.dockerfile"}}' 2>/dev/null)" = "$$(sha256sum Dockerfile | cut -d ' ' -f1)" || $(MAKE) image
 	docker run --rm --user "$$(id -u):$$(id -g)" -v "$(CURDIR):/work" \
-    	-e SDL_VIDEODRIVER=dummy -e PSGI_IN_CONTAINER=1 $(IMAGE) make $@ CONFIG="$(CONFIG)"
+		-e SDL_VIDEODRIVER=dummy -e PSGI_IN_CONTAINER=1 $(IMAGE) make $@ CONFIG="$(CONFIG)" $(DOCKER_MAKE_EXTRA)
 preview:
 	@test "$$(docker image inspect $(IMAGE) --format '{{index .Config.Labels "org.psgi.dockerfile"}}' 2>/dev/null)" = "$$(sha256sum Dockerfile | cut -d ' ' -f1)" || $(MAKE) image
 	@if [[ -z "$$DISPLAY" ]]; then $(MAKE) screenshots; else \
 		preview_args=(--rm --user "$$(id -u):$$(id -g)" -v "$(CURDIR):/work" -v /tmp/.X11-unix:/tmp/.X11-unix:ro -e DISPLAY -e SDL_VIDEODRIVER=x11 -e PSGI_IN_CONTAINER=1); \
-		if [[ -n "$$XAUTHORITY" && -f "$$XAUTHORITY" ]]; then preview_args+=(-v "$$XAUTHORITY:/tmp/psgi-xauth:ro" -e XAUTHORITY=/tmp/psgi-xauth); fi; \
-		docker run "$${preview_args[@]}" $(IMAGE) make preview; fi
+		if [[ -n "$$XAUTHORITY" && -f "$$XAdocker run "$${preview_args[@]}" $(IMAGE) make preview; fiUTHORITY" ]]; then preview_args+=(-v "$$XAUTHORITY:/tmp/psgi-xauth:ro" -e XAUTHORITY=/tmp/psgi-xauth); fi; \
+		docker run "$${preview_args[@]}" $(IMAGE) make preview $(DOCKER_MAKE_EXTRA); fi
 clean:
 	rm -rf build dist
 
@@ -60,7 +63,7 @@ all: compile-commands
 compile-commands: $(SDK_DEP)
 	@test "$$(docker image inspect $(IMAGE) --format '{{index .Config.Labels "org.psgi.dockerfile"}}' 2>/dev/null)" = "$$(sha256sum Dockerfile | cut -d ' ' -f1)" || $(MAKE) image
 	docker run --rm --user "$$(id -u):$$(id -g)" -v "$(CURDIR):/work" \
-		-e PSGI_IN_CONTAINER=1 -e HOST_ROOT="$(CURDIR)" -e HOST_SDK="$(HOST_SDK)" $(IMAGE) make compile-commands-internal
+		-e PSGI_IN_CONTAINER=1 -e HOST_ROOT="$(CURDIR)" -e HOST_SDK="$(HOST_SDK)" $(IMAGE) make compile-commands-internal $(DOCKER_MAKE_EXTRA)
 else
 SDK := $(OO_PS4_TOOLCHAIN)
 TOOLS := $(SDK)/bin/linux
@@ -78,6 +81,13 @@ LIBS := -ljbc -lc++ -lSceVideoOut -lSceSysmodule -lSceLncUtil -lSceSystemService
 HOSTFLAGS := -std=c++17 -DPSGI_HOST -Isrc -Ithird_party/cjson -Ithird_party/stb -Ibuild/generated -Wall -Wextra -Werror -O1 -g -pthread
 HEADERS := $(wildcard src/*.hpp) third_party/cjson/cJSON.h third_party/stb/stb_image.h
 HOST_COMMON := $(addprefix build/host/common/,$(addsuffix .o,$(COMMON)))
+
+ifeq ($(EMU_MODE), 1)
+	LIBS += -lSceHttp -lSceAppInstUtil
+	HOSTFLAGS += -DPSGI_EMULATION_MODE
+	CROSSFLAGS += -DPSGI_EMULATION_MODE
+endif
+
 CDB := .cdb
 CDB_CROSS := $(filter-out -MMD -MP,$(CROSSFLAGS))
 CDB_HOST := $(filter-out -Werror,$(HOSTFLAGS))

@@ -211,7 +211,9 @@ static int runApplication(int argc, char** argv) {
         // application's sandbox paths are still accessible.
         Renderer renderer(assets);
         prepareHttpTrust();
+#ifndef PSGI_EMULATION_MODE
         prepareConsole();
+#endif
 #ifdef PSGI_HOST
         App app(data, true);
 #else

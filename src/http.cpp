@@ -213,6 +213,7 @@ struct HttpApi {
     decltype(&sceHttpReadData) read = nullptr;
     decltype(&sceHttpAbortRequest) abort = nullptr;
     decltype(&sceHttpAddRequestHeader) addHeader = nullptr;
+    decltype(&psgiHttpRemoveRequestHeader) removeHeader = nullptr;
     decltype(&sceHttpGetResponseContentLength) contentLength = nullptr;
     decltype(&sceHttpGetAllResponseHeaders) responseHeaders = nullptr;
     decltype(&sceHttpsLoadCert) loadCert = nullptr;
@@ -249,6 +250,7 @@ struct HttpApi {
         bind(module, "sceHttpReadData", read);
         bind(module, "sceHttpAbortRequest", abort);
         bind(module, "sceHttpAddRequestHeader", addHeader);
+        bind(module, "sceHttpRemoveRequestHeader", removeHeader);
         bind(module, "sceHttpGetResponseContentLength", contentLength);
         bind(module, "sceHttpGetAllResponseHeaders", responseHeaders);
         bind(module, "sceHttpsLoadCert", loadCert);

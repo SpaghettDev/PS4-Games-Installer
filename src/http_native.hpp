@@ -8,4 +8,5 @@ int psgiHttpSetAutoRedirect(int id, int enabled) __asm__("sceHttpSetAutoRedirect
 int psgiHttpSetRecvTimeOut(int id, uint32_t microseconds) __asm__("sceHttpSetRecvTimeOut");
 int psgiHttpsGetSslError(int id, int* error, uint32_t* detail) __asm__("sceHttpsGetSslError");
 int psgiSslTerm(int id) __asm__("sceSslTerm");
+int psgiHttpRemoveRequestHeader(int id, const char* headerName) __asm__("sceHttpRemoveRequestHeader");
 }

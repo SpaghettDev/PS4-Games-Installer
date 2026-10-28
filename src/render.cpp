@@ -730,8 +730,8 @@ bool Renderer::featureDialog(Canvas& c, Ui& ui) {
             menu(c, rows, ui.headerIndex, 290, 315, 1340, 64, 8);
             hints(c, 300, 921,
                 ui.headerIndex == 0
-                    ? std::initializer_list<std::pair<Button, std::string>>{{Button::Cross, "Add"}, {Button::Square, "Remove"}, {Button::Circle, "Back"}}
-                    : std::initializer_list<std::pair<Button, std::string>>{{Button::Cross, "Add"}, {Button::Circle, "Back"}},
+                    ? std::initializer_list<std::pair<Button, std::string>>{{Button::Cross, "Add"}, {Button::Circle, "Back"}}
+                    : std::initializer_list<std::pair<Button, std::string>>{{Button::Cross, "Add"}, {Button::Square, "Remove"}, {Button::Circle, "Back"}},
             22);
             return true;
         }

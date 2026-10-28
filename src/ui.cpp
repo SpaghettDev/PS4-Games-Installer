@@ -201,6 +201,18 @@ void Ui::finishEdit(const std::optional<std::string>& text) {
         return;
     }
     if (editKind == EditKind::Search) { applySearch(*text); return; }
+    if (editKind == EditKind::HeaderName || editKind == EditKind::HeaderValue) {
+        if (editKind == EditKind::HeaderName) {
+            pendingHeaderName = *text;
+            beginEdit(EditKind::HeaderValue, 0, "");
+        } else {
+            if (!pendingHeaderName.empty()) {
+                setupSource.headers.push_back({pendingHeaderName, *text});
+                pendingHeaderName.clear();
+            }
+        }
+        return;
+    }
     if (editKind == EditKind::SavedName || editKind == EditKind::SavedQuery || editKind == EditKind::SetupUrl) {
         try {
             if (editKind == EditKind::SavedName) savedDraft.name = localName(*text);
@@ -234,18 +246,6 @@ void Ui::finishEdit(const std::optional<std::string>& text) {
                 pickerIndex = found == choices.end() ? 0 : 1 + (found - choices.begin());
             }
         } catch (const std::exception& e) { localNotice = collectionNotice = status = e.what(); }
-        return;
-    }
-    if (editKind == EditKind::HeaderName || editKind == EditKind::HeaderValue) {
-        if (editKind == EditKind::HeaderName) {
-            pendingHeaderName = *text;
-            beginEdit(EditKind::HeaderValue, 0, "");
-        } else {
-            if (!pendingHeaderName.empty()) {
-                setupSource.headers.push_back({pendingHeaderName, *text});
-                pendingHeaderName.clear();
-            }
-        }
         return;
     }
     if (editKind == EditKind::SourceUrl) {

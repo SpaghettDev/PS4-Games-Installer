@@ -728,7 +728,12 @@ bool Renderer::featureDialog(Canvas& c, Ui& ui) {
             std::vector<std::string> rows; rows.push_back("+ Add header");
             for (const auto& h : ui.setupSource.headers) rows.push_back(h.first + ": " + h.second);
             menu(c, rows, ui.headerIndex, 290, 315, 1340, 64, 8);
-            hints(c, 300, 921, {{Button::Cross, "Add"}, {Button::Square, "Remove"}, {Button::Circle, "Back"}}, 22); return true;
+            hints(c, 300, 921,
+                ui.headerIndex == 0
+                    ? std::initializer_list<std::pair<Button, std::string>>{{Button::Cross, "Add"}, {Button::Square, "Remove"}, {Button::Circle, "Back"}}
+                    : std::initializer_list<std::pair<Button, std::string>>{{Button::Cross, "Add"}, {Button::Circle, "Back"}},
+            22);
+            return true;
         }
         case Screen::Packages:
             panel(c, 180, 120, 1560, 820, "Base game, updates and DLC");
